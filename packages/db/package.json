@@ -1,0 +1,20 @@
+{
+  "name": "@aussie-deal-hub/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "db:push": "prisma db push --skip-generate",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.7.0"
+  }
+}
