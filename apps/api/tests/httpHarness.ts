@@ -1,0 +1,42 @@
+import { EventEmitter } from "node:events";
+
+import type { Express } from "express";
+import { createRequest, createResponse } from "node-mocks-http";
+
+interface AppRequest {
+  method: string;
+  path: string;
+  body?: unknown;
+}
+
+interface AppResponse {
+  status: number;
+  body: unknown;
+}
+
+export async function dispatchRequest(
+  app: Express,
+  request: AppRequest,
+): Promise<AppResponse> {
+  const req = createRequest({
+    method: request.method,
+    url: request.path,
+    headers: {
+      "content-type": "application/json",
+    },
+    body: request.body,
+  });
+  const response = createResponse({
+    eventEmitter: EventEmitter,
+  });
+
+  await new Promise<void>((resolve) => {
+    response.on("end", () => resolve());
+    app.handle(req, response);
+  });
+
+  return {
+    status: response.statusCode,
+    body: response._getJSONData(),
+  };
+}
