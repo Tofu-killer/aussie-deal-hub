@@ -1,0 +1,16 @@
+{
+  "name": "@aussie-deal-hub/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "pnpm exec vitest run src/jobs/*.test.ts"
+  },
+  "exports": {
+    "./jobs/reviewPendingLeads": "./src/jobs/reviewPendingLeads.ts",
+    "./jobs/buildDigest": "./src/jobs/buildDigest.ts"
+  },
+  "dependencies": {
+    "@aussie-deal-hub/ai": "workspace:*",
+    "@aussie-deal-hub/email": "workspace:*"
+  }
+}

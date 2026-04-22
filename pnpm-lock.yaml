@@ -87,6 +87,15 @@ importers:
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.14)
 
+  apps/worker:
+    dependencies:
+      '@aussie-deal-hub/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@aussie-deal-hub/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+
   packages/ai: {}
 
   packages/config:
@@ -104,6 +113,8 @@ importers:
       prisma:
         specifier: ^6.7.0
         version: 6.19.3(typescript@5.9.3)
+
+  packages/email: {}
 
   packages/scraping: {}
 
