@@ -41,6 +41,10 @@ export function getPublishedDeal(
   return store.get(`${locale}:${slug}`);
 }
 
+export function getPublishedDealIds(store: Map<string, PublicDealRecord>) {
+  return new Set(Array.from(store.values(), (deal) => deal.slug));
+}
+
 export function createPublicDealsRouter(store: Map<string, PublicDealRecord>) {
   const router = Router();
 
