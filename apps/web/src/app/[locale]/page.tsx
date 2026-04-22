@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { LocaleSwitch } from "../../lib/ui";
 import {
+  appendSessionToken,
   DEFAULT_DEAL,
   buildLocaleHref,
   getLocaleCopy,
@@ -14,9 +15,12 @@ interface LocaleHomePageProps {
   params: Promise<{
     locale: string;
   }>;
+  searchParams?: Promise<{
+    sessionToken?: string | string[];
+  }>;
 }
 
-export default async function LocaleHomePage({ params }: LocaleHomePageProps) {
+export default async function LocaleHomePage({ params, searchParams }: LocaleHomePageProps) {
   const { locale } = await params;
   if (!isSupportedLocale(locale)) {
     notFound();
@@ -24,6 +28,10 @@ export default async function LocaleHomePage({ params }: LocaleHomePageProps) {
 
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
+  const resolvedSearchParams = await searchParams;
+  const sessionToken = Array.isArray(resolvedSearchParams?.sessionToken)
+    ? resolvedSearchParams.sessionToken[0]
+    : resolvedSearchParams?.sessionToken;
 
   return (
     <main>
@@ -31,16 +39,23 @@ export default async function LocaleHomePage({ params }: LocaleHomePageProps) {
       <p>{copy.homeIntro}</p>
       <LocaleSwitch
         currentLocale={activeLocale}
-        locales={getHomeLocaleSwitchLinks()}
+        locales={getHomeLocaleSwitchLinks(sessionToken)}
       />
       <ul>
         <li>
-          <a href={buildLocaleHref(activeLocale, `/deals/${DEFAULT_DEAL.slug}`)}>
+          <a
+            href={appendSessionToken(
+              buildLocaleHref(activeLocale, `/deals/${DEFAULT_DEAL.slug}`),
+              sessionToken,
+            )}
+          >
             {DEFAULT_DEAL.locales[activeLocale].title}
           </a>
         </li>
       </ul>
-      <a href={buildLocaleHref(activeLocale, "/favorites")}>
+      <a
+        href={appendSessionToken(buildLocaleHref(activeLocale, "/favorites"), sessionToken)}
+      >
         {copy.favoritesCtaLabel}
       </a>
     </main>

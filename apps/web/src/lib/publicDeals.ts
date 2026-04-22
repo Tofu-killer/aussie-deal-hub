@@ -104,18 +104,33 @@ export function buildLocaleHref(locale: SupportedLocale, path: string) {
   return `/${locale}${path}`;
 }
 
-export function getLocaleSwitchLinks(locale: SupportedLocale, slug: string) {
+export function appendSessionToken(href: string, sessionToken?: string) {
+  if (!sessionToken) {
+    return href;
+  }
+
+  const url = new URL(href, "http://local.test");
+  url.searchParams.set("sessionToken", sessionToken);
+
+  return `${url.pathname}${url.search}`;
+}
+
+export function getLocaleSwitchLinks(
+  locale: SupportedLocale,
+  slug: string,
+  sessionToken?: string,
+) {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
-    href: buildLocaleHref(candidateLocale, `/deals/${slug}`),
+    href: appendSessionToken(buildLocaleHref(candidateLocale, `/deals/${slug}`), sessionToken),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
 }
 
-export function getHomeLocaleSwitchLinks() {
+export function getHomeLocaleSwitchLinks(sessionToken?: string) {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
-    href: buildLocaleHref(candidateLocale, ""),
+    href: appendSessionToken(buildLocaleHref(candidateLocale, ""), sessionToken),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
 }
