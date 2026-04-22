@@ -1,0 +1,12 @@
+{
+  "name": "@aussie-deal-hub/ui",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "^19.0.0"
+  },
+  "exports": {
+    "./components/LocaleSwitch": "./src/components/LocaleSwitch.tsx",
+    "./components/PriceCard": "./src/components/PriceCard.tsx"
+  }
+}
