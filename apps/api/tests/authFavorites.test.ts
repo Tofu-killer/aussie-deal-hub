@@ -205,6 +205,64 @@ describe("auth and favorites", () => {
     });
   });
 
+  it("returns default digest preferences and persists updates for the session email", async () => {
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
+
+    await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/request-code",
+      body: {
+        email: "user@example.com",
+      },
+    });
+
+    const verify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "123456",
+      },
+    });
+
+    const sessionToken = (verify.body as { sessionToken: string }).sessionToken;
+
+    const defaults = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/digest-preferences",
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(defaults.status).toBe(200);
+    expect(defaults.body).toEqual({
+      locale: "en",
+      frequency: "daily",
+      categories: [],
+    });
+
+    const updated = await dispatchRequest(app, {
+      method: "PUT",
+      path: "/v1/digest-preferences",
+      headers: {
+        "x-session-token": sessionToken,
+      },
+      body: {
+        locale: "zh",
+        frequency: "daily",
+        categories: ["deals", "historical-lows"],
+      },
+    });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body).toEqual({
+      locale: "zh",
+      frequency: "daily",
+      categories: ["deals", "historical-lows"],
+    });
+  });
+
   it("keeps favorites when the same email signs in again", async () => {
     const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 

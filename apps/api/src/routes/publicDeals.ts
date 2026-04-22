@@ -87,12 +87,13 @@ export function createPublicDealsRouter(
     }
 
     const snapshots = await priceSnapshotStore.listSnapshotsForDeal(deal.slug);
+    const priceContext = {
+      snapshots,
+    };
 
     response.json({
       ...deal,
-      priceContext: {
-        snapshots,
-      },
+      priceContext,
     });
   });
 

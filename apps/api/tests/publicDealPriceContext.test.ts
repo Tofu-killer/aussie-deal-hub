@@ -87,4 +87,33 @@ describeDb("public deal price context", () => {
       await clearSelectedPriceSnapshots();
     }
   });
+
+  it("returns localized deal content alongside the same persisted snapshots", async () => {
+    await clearSelectedPriceSnapshots();
+    await replacePriceSnapshotsForDeal(selectedDealSlug, seededSnapshots);
+
+    try {
+      const app = buildApp({
+        priceSnapshotStore: {
+          listSnapshotsForDeal: listPriceSnapshotsForDeal,
+        },
+      });
+      const response = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/public/deals/zh/nintendo-switch-oled-amazon-au",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        locale: "zh",
+        slug: selectedDealSlug,
+        title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+        priceContext: {
+          snapshots: seededSnapshots,
+        },
+      });
+    } finally {
+      await clearSelectedPriceSnapshots();
+    }
+  });
 });

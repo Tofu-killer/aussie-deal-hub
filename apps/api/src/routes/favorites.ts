@@ -62,7 +62,9 @@ export function createFavoritesRouter(
       return;
     }
 
-    const favorites = await store.listByEmail(session.email);
+    const favorites = (await store.listByEmail(session.email)).slice().sort((left, right) => {
+      return left.dealId.localeCompare(right.dealId);
+    });
 
     response.json({
       items: favorites,

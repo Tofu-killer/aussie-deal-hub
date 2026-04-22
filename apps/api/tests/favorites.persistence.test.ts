@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { AddressInfo } from "node:net";
+import { EventEmitter } from "node:events";
 
+import { createRequest, createResponse } from "node-mocks-http";
+import type { Express } from "express";
 import { describe, expect, it } from "vitest";
 
 import { prisma } from "@aussie-deal-hub/db/client";
@@ -8,78 +10,53 @@ import {
   getDigestSubscription,
   upsertDigestSubscription,
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
+import { listPriceSnapshotsForDeal } from "@aussie-deal-hub/db/repositories/priceSnapshots";
 import { buildApp } from "../src/app";
 
-interface HttpClient {
-  request: (
-    path: string,
-    init?: {
-      body?: unknown;
-      headers?: Record<string, string>;
-      method?: string;
-    },
-  ) => Promise<{ status: number; body: unknown }>;
-  close: () => Promise<void>;
+const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
+
+interface AppRequest {
+  method: string;
+  path: string;
+  body?: unknown;
+  headers?: Record<string, string>;
 }
 
-async function createHttpClient(): Promise<HttpClient> {
-  const app = buildApp();
-  const server = app.listen(0, "127.0.0.1");
-
-  await new Promise<void>((resolve) => {
-    server.once("listening", () => resolve());
+async function dispatchRequest(app: Express, request: AppRequest) {
+  const req = createRequest({
+    method: request.method,
+    url: request.path,
+    headers: {
+      "content-type": "application/json",
+      ...request.headers,
+    },
+    body: request.body,
+  });
+  const response = createResponse({
+    eventEmitter: EventEmitter,
   });
 
-  const address = server.address() as AddressInfo;
-  const baseUrl = `http://127.0.0.1:${address.port}`;
+  await new Promise<void>((resolve) => {
+    response.on("end", () => resolve());
+    app.handle(req, response);
+  });
 
   return {
-    async request(path, init = {}) {
-      const response = await fetch(`${baseUrl}${path}`, {
-        method: init.method ?? "GET",
-        headers: {
-          "content-type": "application/json",
-          ...init.headers,
-        },
-        body: init.body === undefined ? undefined : JSON.stringify(init.body),
-      });
-      const text = await response.text();
-      let body: unknown = text;
-
-      try {
-        body = JSON.parse(text);
-      } catch {
-        body = text;
-      }
-
-      return {
-        status: response.status,
-        body,
-      };
-    },
-    close() {
-      return new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-
-          resolve();
-        });
-      });
-    },
+    status: response.statusCode,
+    body: response._getJSONData(),
   };
 }
 
-async function signIn(client: HttpClient, email: string) {
-  await client.request("/v1/auth/request-code", {
+async function signIn(app: Express, email: string) {
+  await dispatchRequest(app, {
     method: "POST",
+    path: "/v1/auth/request-code",
     body: { email },
   });
 
-  const verify = await client.request("/v1/auth/verify-code", {
+  const verify = await dispatchRequest(app, {
     method: "POST",
+    path: "/v1/auth/verify-code",
     body: {
       email,
       code: "123456",
@@ -91,25 +68,31 @@ async function signIn(client: HttpClient, email: string) {
   return (verify.body as { sessionToken: string }).sessionToken;
 }
 
-const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
-
 describeDb("favorites persistence", () => {
   const validDealId = "nintendo-switch-oled-amazon-au";
 
   it("keeps favorites across normalized email variants and persists digest preferences", async () => {
     const baseEmail = `shopper.${randomUUID()}@example.com`;
     const upperEmail = `  ${baseEmail.toUpperCase()}  `;
-    const firstClient = await createHttpClient();
-    let secondClient: HttpClient | null = null;
+    const app = buildApp({
+      digestPreferencesStore: {
+        getByEmail: getDigestSubscription,
+        upsertByEmail(email, input) {
+          return upsertDigestSubscription({ email, ...input });
+        },
+      },
+      priceSnapshotStore: {
+        listSnapshotsForDeal: listPriceSnapshotsForDeal,
+      },
+    });
 
     try {
-      const firstSessionToken = await signIn(firstClient, upperEmail);
+      const firstSessionToken = await signIn(app, upperEmail);
 
-      const favorite = await firstClient.request("/v1/favorites", {
+      const favorite = await dispatchRequest(app, {
         method: "POST",
-        body: {
-          dealId: validDealId,
-        },
+        path: "/v1/favorites",
+        body: { dealId: validDealId },
         headers: {
           "x-session-token": firstSessionToken,
         },
@@ -117,12 +100,11 @@ describeDb("favorites persistence", () => {
 
       expect(favorite.status).toBe(201);
 
-      await firstClient.close();
+      const secondSessionToken = await signIn(app, baseEmail);
 
-      secondClient = await createHttpClient();
-      const secondSessionToken = await signIn(secondClient, baseEmail);
-
-      const favorites = await secondClient.request("/v1/favorites", {
+      const favorites = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/favorites",
         headers: {
           "x-session-token": secondSessionToken,
         },
@@ -133,18 +115,44 @@ describeDb("favorites persistence", () => {
         items: [{ dealId: validDealId }],
       });
 
-      await secondClient.close();
+      const defaults = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/digest-preferences",
+        headers: {
+          "x-session-token": secondSessionToken,
+        },
+      });
 
-      await upsertDigestSubscription({
-        email: upperEmail,
+      expect(defaults.status).toBe(200);
+      expect(defaults.body).toEqual({
+        locale: "en",
+        frequency: "daily",
+        categories: [],
+      });
+
+      const updatedPreferences = await dispatchRequest(app, {
+        method: "PUT",
+        path: "/v1/digest-preferences",
+        body: {
+          locale: "zh",
+          frequency: "daily",
+          categories: ["deals", "historical-lows"],
+        },
+        headers: {
+          "x-session-token": secondSessionToken,
+        },
+      });
+
+      expect(updatedPreferences.status).toBe(200);
+      expect(updatedPreferences.body).toEqual({
         locale: "zh",
         frequency: "daily",
         categories: ["deals", "historical-lows"],
       });
 
-      const subscription = await getDigestSubscription(baseEmail);
+      const persistedPreferences = await getDigestSubscription(baseEmail);
 
-      expect(subscription).toEqual({
+      expect(persistedPreferences).toEqual({
         locale: "zh",
         frequency: "daily",
         categories: ["deals", "historical-lows"],
@@ -152,16 +160,14 @@ describeDb("favorites persistence", () => {
     } finally {
       await prisma.favorite.deleteMany({
         where: {
-          normalizedEmail: baseEmail,
+          normalizedEmail: baseEmail.trim().toLowerCase(),
         },
       });
       await prisma.emailDigestSubscription.deleteMany({
         where: {
-          normalizedEmail: baseEmail,
+          normalizedEmail: baseEmail.trim().toLowerCase(),
         },
       });
-      await secondClient?.close().catch(() => undefined);
-      await firstClient.close().catch(() => undefined);
     }
   });
 });

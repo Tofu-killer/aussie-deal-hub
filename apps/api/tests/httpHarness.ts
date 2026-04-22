@@ -7,6 +7,7 @@ interface AppRequest {
   method: string;
   path: string;
   body?: unknown;
+  headers?: Record<string, string>;
 }
 
 interface AppResponse {
@@ -23,6 +24,7 @@ export async function dispatchRequest(
     url: request.path,
     headers: {
       "content-type": "application/json",
+      ...request.headers,
     },
     body: request.body,
   });
