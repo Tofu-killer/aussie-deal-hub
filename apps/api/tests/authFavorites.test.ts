@@ -5,6 +5,7 @@ import type { Express } from "express";
 import { describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app";
+import type { FavoritesStore } from "../src/routes/favorites";
 
 interface AppRequest {
   method: string;
@@ -38,11 +39,32 @@ async function dispatchRequest(app: Express, request: AppRequest) {
   };
 }
 
+function createInMemoryFavoritesStore(): FavoritesStore {
+  const favorites = new Map<string, string[]>();
+
+  return {
+    async listByEmail(email) {
+      return (favorites.get(email.trim().toLowerCase()) ?? []).map((dealId) => ({ dealId }));
+    },
+    async saveFavorite(email, dealId) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const bucket = favorites.get(normalizedEmail) ?? [];
+
+      if (!bucket.includes(dealId)) {
+        bucket.push(dealId);
+        favorites.set(normalizedEmail, bucket);
+      }
+
+      return { dealId };
+    },
+  };
+}
+
 describe("auth and favorites", () => {
   const validDealId = "nintendo-switch-oled-amazon-au";
 
   it("consumes a one-time code after successful verification", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     await dispatchRequest(app, {
       method: "POST",
@@ -82,7 +104,7 @@ describe("auth and favorites", () => {
   });
 
   it("rejects invalid codes and unauthorized favorite writes", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     const requestCode = await dispatchRequest(app, {
       method: "POST",
@@ -123,7 +145,7 @@ describe("auth and favorites", () => {
   });
 
   it("verifies an email code and persists a favorite for the session", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     const requestCode = await dispatchRequest(app, {
       method: "POST",
@@ -184,7 +206,7 @@ describe("auth and favorites", () => {
   });
 
   it("keeps favorites when the same email signs in again", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     await dispatchRequest(app, {
       method: "POST",
@@ -246,7 +268,7 @@ describe("auth and favorites", () => {
   });
 
   it("rejects invalid deal IDs before persisting favorites", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     await dispatchRequest(app, {
       method: "POST",
@@ -303,7 +325,7 @@ describe("auth and favorites", () => {
   });
 
   it("rejects favorite writes for unknown published deals", async () => {
-    const app = buildApp();
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
 
     await dispatchRequest(app, {
       method: "POST",

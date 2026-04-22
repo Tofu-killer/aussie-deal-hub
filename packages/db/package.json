@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./repositories/digestSubscriptions": "./src/repositories/digestSubscriptions.ts",
+    "./repositories/favorites": "./src/repositories/favorites.ts"
   },
   "scripts": {
     "db:push": "prisma db push --skip-generate",

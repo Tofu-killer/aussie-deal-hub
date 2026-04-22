@@ -51,6 +51,9 @@ importers:
       '@aussie-deal-hub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@aussie-deal-hub/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       express:
         specifier: ^5.1.0
         version: 5.2.1

@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@aussie-deal-hub/ai": "workspace:*",
+    "@aussie-deal-hub/db": "workspace:*",
     "express": "^5.1.0"
   },
   "devDependencies": {

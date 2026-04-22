@@ -72,3 +72,21 @@ model DealLocale {
 
   @@unique([dealId, locale])
 }
+
+model Favorite {
+  normalizedEmail String
+  dealSlug        String
+  createdAt       DateTime @default(now())
+
+  @@id([normalizedEmail, dealSlug])
+  @@index([normalizedEmail])
+}
+
+model EmailDigestSubscription {
+  normalizedEmail String   @id
+  locale          String   @default("en")
+  frequency       String   @default("daily")
+  categories      String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

@@ -1,6 +1,16 @@
 import { Router } from "express";
 
+import { listFavoritesByEmail, upsertFavorite } from "@aussie-deal-hub/db/repositories/favorites";
 import type { SessionRecord } from "./auth.ts";
+
+export interface FavoriteRecord {
+  dealId: string;
+}
+
+export interface FavoritesStore {
+  listByEmail(email: string): Promise<FavoriteRecord[]>;
+  saveFavorite(email: string, dealId: string): Promise<FavoriteRecord>;
+}
 
 interface CreateFavoriteInput {
   dealId: string;
@@ -31,12 +41,17 @@ function readAuthorizedSessionToken(
 
 export function createFavoritesRouter(
   sessions: Map<string, SessionRecord>,
-  favorites: Map<string, string[]>,
   publishedDealIds: Set<string>,
+  store: FavoritesStore = {
+    listByEmail: listFavoritesByEmail,
+    saveFavorite(email, dealId) {
+      return upsertFavorite({ email, dealId });
+    },
+  },
 ) {
   const router = Router();
 
-  router.get("/", (request, response) => {
+  router.get("/", async (request, response) => {
     const session = readAuthorizedSessionToken(
       request.header("x-session-token") ?? undefined,
       sessions,
@@ -47,12 +62,14 @@ export function createFavoritesRouter(
       return;
     }
 
+    const favorites = await store.listByEmail(session.email);
+
     response.json({
-      items: (favorites.get(session.email) ?? []).map((dealId) => ({ dealId })),
+      items: favorites,
     });
   });
 
-  router.post("/", (request, response) => {
+  router.post("/", async (request, response) => {
     const session = readAuthorizedSessionToken(
       request.header("x-session-token") ?? undefined,
       sessions,
@@ -75,12 +92,7 @@ export function createFavoritesRouter(
       return;
     }
 
-    const sessionFavorites = favorites.get(session.email) ?? [];
-
-    if (!sessionFavorites.includes(input.dealId)) {
-      sessionFavorites.push(input.dealId);
-      favorites.set(session.email, sessionFavorites);
-    }
+    await store.saveFavorite(session.email, input.dealId);
 
     response.status(201).json({ dealId: input.dealId });
   });
