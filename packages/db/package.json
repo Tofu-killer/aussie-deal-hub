@@ -5,7 +5,8 @@
   "exports": {
     "./client": "./src/client.ts",
     "./repositories/digestSubscriptions": "./src/repositories/digestSubscriptions.ts",
-    "./repositories/favorites": "./src/repositories/favorites.ts"
+    "./repositories/favorites": "./src/repositories/favorites.ts",
+    "./repositories/priceSnapshots": "./src/repositories/priceSnapshots.ts"
   },
   "scripts": {
     "db:push": "prisma db push --skip-generate",

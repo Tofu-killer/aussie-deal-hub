@@ -4,10 +4,16 @@ import { createAdminLeadsRouter, type LeadRecord } from "./routes/adminLeads.ts"
 import { createAuthRouter, type SessionRecord } from "./routes/auth.ts";
 import { createFavoritesRouter, type FavoritesStore } from "./routes/favorites.ts";
 import { createHealthRouter } from "./routes/health.ts";
-import { createPublicDealsRouter, getPublishedDealIds, seedPublishedDeals } from "./routes/publicDeals.ts";
+import {
+  createPublicDealsRouter,
+  getPublishedDealIds,
+  type PriceSnapshotStore,
+  seedPublishedDeals,
+} from "./routes/publicDeals.ts";
 
 interface BuildAppOptions {
   favoritesStore?: FavoritesStore;
+  priceSnapshotStore?: PriceSnapshotStore;
 }
 
 export function buildApp(options: BuildAppOptions = {}) {
@@ -27,7 +33,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     "/v1/favorites",
     createFavoritesRouter(sessions, publishedDealIds, options.favoritesStore),
   );
-  app.use("/v1/public", createPublicDealsRouter(publishedDeals));
+  app.use("/v1/public", createPublicDealsRouter(publishedDeals, options.priceSnapshotStore));
 
   app.use((_request, response) => {
     response.status(404).json({ message: "Route not found." });

@@ -1,4 +1,8 @@
 import { Router } from "express";
+import {
+  seededSelectedPriceSnapshots as defaultSelectedPriceSnapshots,
+  selectedPriceSnapshotDealSlug,
+} from "@aussie-deal-hub/db/repositories/priceSnapshots";
 
 export interface PublicDealRecord {
   locale: string;
@@ -6,6 +10,17 @@ export interface PublicDealRecord {
   title: string;
   summary: string;
   category: string;
+}
+
+export interface PublicPriceSnapshotRecord {
+  label: string;
+  merchant: string;
+  observedAt: string;
+  price: string;
+}
+
+export interface PriceSnapshotStore {
+  listSnapshotsForDeal(dealSlug: string): Promise<PublicPriceSnapshotRecord[]>;
 }
 
 export function seedPublishedDeals() {
@@ -45,10 +60,21 @@ export function getPublishedDealIds(store: Map<string, PublicDealRecord>) {
   return new Set(Array.from(store.values(), (deal) => deal.slug));
 }
 
-export function createPublicDealsRouter(store: Map<string, PublicDealRecord>) {
+function createDefaultPriceSnapshotStore(): PriceSnapshotStore {
+  return {
+    async listSnapshotsForDeal(dealSlug: string) {
+      return dealSlug === selectedPriceSnapshotDealSlug ? defaultSelectedPriceSnapshots : [];
+    },
+  };
+}
+
+export function createPublicDealsRouter(
+  store: Map<string, PublicDealRecord>,
+  priceSnapshotStore: PriceSnapshotStore = createDefaultPriceSnapshotStore(),
+) {
   const router = Router();
 
-  router.get("/deals/:locale/:slug", (request, response) => {
+  router.get("/deals/:locale/:slug", async (request, response) => {
     const deal = getPublishedDeal(
       store,
       request.params.locale ?? "",
@@ -60,7 +86,14 @@ export function createPublicDealsRouter(store: Map<string, PublicDealRecord>) {
       return;
     }
 
-    response.json(deal);
+    const snapshots = await priceSnapshotStore.listSnapshotsForDeal(deal.slug);
+
+    response.json({
+      ...deal,
+      priceContext: {
+        snapshots,
+      },
+    });
   });
 
   return router;

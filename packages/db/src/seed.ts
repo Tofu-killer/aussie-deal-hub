@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { prisma } from "./client";
+import { seedSelectedPriceSnapshots } from "./repositories/priceSnapshots.ts";
 
 export async function seedCoreData() {
   await prisma.source.upsert({
@@ -23,6 +24,7 @@ export async function seedCoreData() {
 
 async function main() {
   await seedCoreData();
+  await seedSelectedPriceSnapshots();
 }
 
 const invokedAsScript =
