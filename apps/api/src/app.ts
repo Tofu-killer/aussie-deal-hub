@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 
 import { createAdminCatalogRouter } from "./routes/adminCatalog.ts";
 import {
@@ -38,6 +38,7 @@ interface BuildAppOptions {
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
   healthCheck?: HealthChecker;
+  readyCheck?: HealthChecker;
   publishedDealStore?: PublishedDealReader &
     Partial<PublishedDealListReader> &
     Partial<PublishedDealPublisher> &
@@ -91,6 +92,8 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use(express.json());
   app.use("/health", createHealthRouter(options.healthCheck));
   app.use("/v1/health", createHealthRouter(options.healthCheck));
+  app.use("/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
+  app.use("/v1/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
   app.use("/v1/auth", createAuthRouter(codes, sessions));
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter());
@@ -124,6 +127,15 @@ export function buildApp(options: BuildAppOptions = {}) {
 
   app.use((_request, response) => {
     response.status(404).json({ message: "Route not found." });
+  });
+
+  app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
+    const isDependencyError =
+      error instanceof Error && error.name === "PrismaClientInitializationError";
+
+    response.status(isDependencyError ? 503 : 500).json({
+      message: isDependencyError ? "Dependency unavailable." : "Internal server error.",
+    });
   });
 
   return app;

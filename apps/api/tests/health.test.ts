@@ -5,21 +5,27 @@ import { createDependencyHealthChecker } from "../src/routes/health";
 import { dispatchRequest } from "./httpHarness";
 
 describe("health endpoint", () => {
-  it("returns 200 when no health checker is configured", async () => {
+  it("returns 200 when no liveness or readiness checker is configured", async () => {
     const app = buildApp();
 
-    const response = await dispatchRequest(app, {
+    const healthResponse = await dispatchRequest(app, {
       method: "GET",
       path: "/v1/health",
     });
+    const readyResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/ready",
+    });
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ ok: true });
+    expect(healthResponse.status).toBe(200);
+    expect(healthResponse.body).toEqual({ ok: true });
+    expect(readyResponse.status).toBe(200);
+    expect(readyResponse.body).toEqual({ ok: true });
   });
 
-  it("returns 503 JSON when a dependency is unavailable", async () => {
+  it("returns 503 JSON on /ready when a dependency is unavailable", async () => {
     const app = buildApp({
-      healthCheck: async () => ({
+      readyCheck: async () => ({
         ok: false,
         dependencies: {
           db: "unavailable",
@@ -27,13 +33,19 @@ describe("health endpoint", () => {
       }),
     });
 
-    const response = await dispatchRequest(app, {
+    const healthResponse = await dispatchRequest(app, {
       method: "GET",
       path: "/v1/health",
     });
+    const readyResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/ready",
+    });
 
-    expect(response.status).toBe(503);
-    expect(response.body).toEqual({
+    expect(healthResponse.status).toBe(200);
+    expect(healthResponse.body).toEqual({ ok: true });
+    expect(readyResponse.status).toBe(503);
+    expect(readyResponse.body).toEqual({
       ok: false,
       dependencies: {
         db: "unavailable",
