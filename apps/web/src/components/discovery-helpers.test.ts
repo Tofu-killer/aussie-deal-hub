@@ -28,6 +28,15 @@ describe("discovery helpers", () => {
     expect(searchDeals("免费", "zh").map((deal) => deal.slug)).toContain("epic-game-freebie-week");
   });
 
+  it("matches seeded deals by merchant name and merchant id", () => {
+    expect(searchDeals("Epic Games Store", "en").map((deal) => deal.slug)).toContain(
+      "epic-game-freebie-week",
+    );
+    expect(searchDeals("epic-games-store", "en").map((deal) => deal.slug)).toContain(
+      "epic-game-freebie-week",
+    );
+  });
+
   it("only returns related deals that share a primary category, or empty when none match", () => {
     const relatedToSwitch = getRelatedDeals("nintendo-switch-oled-amazon-au", { limit: 3 });
     const relatedSlugs = relatedToSwitch.map((deal) => deal.slug);

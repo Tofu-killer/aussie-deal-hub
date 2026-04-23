@@ -193,4 +193,26 @@ describe("home hero search and search results page", () => {
       }).getAttribute("href"),
     ).toBe("/en/deals/breville-barista-express-for-a-499");
   });
+
+  it("renders merged live API deals for price token queries", async () => {
+    stubLiveDealsResponse();
+    const actualDiscovery = await vi.importActual<typeof import("../lib/discovery")>(
+      "../lib/discovery",
+    );
+    vi.mocked(searchDeals).mockImplementationOnce(actualDiscovery.searchDeals);
+
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({ q: "499.00" }),
+      }),
+    );
+
+    expect(searchDeals).toHaveBeenCalledWith("499.00", "en", undefined, expect.any(Array));
+    expect(
+      screen.getByRole("link", {
+        name: "Breville Barista Express for A$499",
+      }).getAttribute("href"),
+    ).toBe("/en/deals/breville-barista-express-for-a-499");
+  });
 });

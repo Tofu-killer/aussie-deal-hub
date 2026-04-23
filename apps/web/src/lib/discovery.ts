@@ -19,6 +19,18 @@ interface RelatedDealsOptions {
   limit?: number;
 }
 
+function getSearchablePriceTokens(price: string): string[] {
+  const normalizedPrice = price.trim();
+  if (!normalizedPrice) {
+    return [];
+  }
+
+  const numericPrice = normalizedPrice.replace(/[^0-9.]/g, "");
+  return numericPrice && numericPrice !== normalizedPrice
+    ? [normalizedPrice, numericPrice]
+    : [normalizedPrice];
+}
+
 function buildSearchCorpus(deal: PublicDealRecord): string {
   const categoryLabels = deal.categories.flatMap((category) => [
     PUBLIC_DEAL_CATEGORY_LABELS[category].en,
@@ -28,10 +40,17 @@ function buildSearchCorpus(deal: PublicDealRecord): string {
     deal.locales[locale].title,
     deal.locales[locale].summary,
   ]);
+  const merchantTokens = [deal.merchant.id, deal.merchant.name];
+  const priceTokens = [
+    ...getSearchablePriceTokens(deal.currentPrice),
+    ...getSearchablePriceTokens(deal.originalPrice),
+  ];
 
   return [
     deal.slug,
     deal.discountLabel,
+    ...merchantTokens,
+    ...priceTokens,
     ...deal.categories,
     ...categoryLabels,
     ...localizedText,
