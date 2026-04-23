@@ -263,6 +263,34 @@ describe("LeadReviewForm", () => {
     expect(screen.getByText("https://www.amazon.com.au/deal")).toBeTruthy();
   });
 
+  it("renders published queue status fallback labels", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        createJsonResponse({
+          items: [
+            {
+              id: "lead_published",
+              sourceId: "src_bigw",
+              originalTitle: "Big W LEGO Bonsai Tree A$59",
+              originalUrl: "https://www.bigw.com.au/deal/lego-bonsai",
+              snippet: "Weekend toy sale.",
+              createdAt: "2026-04-23T08:00:00.000Z",
+              queue: {
+                status: "published",
+              },
+            },
+          ],
+        }),
+      ),
+    );
+
+    await renderResolvedPage(LeadsPage());
+
+    expect(screen.getByText("Published")).toBeTruthy();
+  });
+
   it("loads lead detail metadata from the admin leads API and renders the review form", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const fetchMock = vi.fn().mockResolvedValue(

@@ -91,7 +91,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/health", createHealthRouter());
   app.use("/v1/health", createHealthRouter());
   app.use("/v1/auth", createAuthRouter(codes, sessions));
-  app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore));
+  app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter());
   app.use(
     "/v1/admin/publishing",

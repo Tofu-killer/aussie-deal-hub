@@ -41,6 +41,8 @@ function readBoolean(value: unknown) {
 
 function getLeadQueueLabel(status: string) {
   switch (status) {
+    case "published":
+      return "Published";
     case "draft_saved":
       return "Draft saved";
     case "queued_to_publish":

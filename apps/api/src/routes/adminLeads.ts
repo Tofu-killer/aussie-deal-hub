@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { reviewLead, type LeadReview } from "@aussie-deal-hub/ai/reviewLead";
+import type { PublishedDealSlugLookup } from "./publicDeals.ts";
 
 export interface LeadRecord {
   id: string;
@@ -55,7 +56,7 @@ export interface AdminLeadStore {
 
 export type LeadReviewStore = Map<string, StoredLeadReviewDraft>;
 
-export type LeadQueueStatus = "pending_review" | "draft_saved" | "queued_to_publish";
+export type LeadQueueStatus = "pending_review" | "draft_saved" | "queued_to_publish" | "published";
 
 export interface LeadQueueSummary {
   status: LeadQueueStatus;
@@ -195,7 +196,16 @@ export function saveLeadReviewDraft(
   return reviewDraft;
 }
 
-function getLeadQueueStatus(review?: StoredLeadReviewDraft | null): LeadQueueStatus {
+async function getLeadQueueStatus(
+  leadId: string,
+  review?: StoredLeadReviewDraft | null,
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<LeadQueueStatus> {
+  const publishedSlug = await publishedDealStore?.getPublishedDealSlugForLead?.(leadId, "en");
+  if (publishedSlug) {
+    return "published";
+  }
+
   if (!review) {
     return "pending_review";
   }
@@ -205,6 +215,8 @@ function getLeadQueueStatus(review?: StoredLeadReviewDraft | null): LeadQueueSta
 
 function getLeadQueueLabel(status: LeadQueueStatus) {
   switch (status) {
+    case "published":
+      return "Published";
     case "draft_saved":
       return "Draft saved";
     case "queued_to_publish":
@@ -228,11 +240,12 @@ function summarizeLeadReview(review: StoredLeadReviewDraft): LeadListReviewSumma
   };
 }
 
-function buildLeadListItem(
+async function buildLeadListItem(
   record: StoredLeadRecord,
-): LeadListItem {
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<LeadListItem> {
   const { lead, review } = record;
-  const status = getLeadQueueStatus(review);
+  const status = await getLeadQueueStatus(lead.id, review, publishedDealStore);
 
   return review
     ? {
@@ -254,12 +267,17 @@ function buildLeadListItem(
 
 export function createAdminLeadsRouter(
   store: AdminLeadStore,
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
 ) {
   const router = Router();
 
   router.get("/leads", async (_request, response) => {
     response.json({
-      items: (await store.listLeadRecords()).map((record) => buildLeadListItem(record)),
+      items: await Promise.all(
+        (await store.listLeadRecords()).map((record) =>
+          buildLeadListItem(record, publishedDealStore),
+        ),
+      ),
     });
   });
 

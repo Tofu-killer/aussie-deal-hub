@@ -446,6 +446,74 @@ describe("admin lead pipeline", () => {
       ],
     });
   });
+
+  it("marks a queued review as published after it is materialized into the public catalog", async () => {
+    const app = buildApp();
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_bigw",
+        originalTitle: "Big W AU LEGO Bonsai Tree A$59",
+        originalUrl: "https://www.bigw.com.au/deal/lego-bonsai",
+        snippet: "Weekend toy sale.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const leadId = String((leadResponse.body as { id: string }).id);
+    const draftResponse = await dispatchRequest(app, {
+      method: "PUT",
+      path: `/v1/admin/leads/${leadId}/review`,
+      body: {
+        leadId,
+        category: "Toys",
+        confidence: 88,
+        riskLabels: [],
+        tags: ["lego"],
+        featuredSlot: "weekend",
+        publishAt: "2026-04-24T11:00:00.000Z",
+        locales: {
+          en: {
+            title: "LEGO Bonsai Tree for A$59 at Big W",
+            summary: "Weekend sale drops the LEGO display set to A$59.",
+          },
+          zh: {
+            title: "Big W 乐高盆景树套装 A$59",
+            summary: "周末玩具促销，展示款乐高套装降至 A$59。",
+          },
+        },
+        publish: true,
+      },
+    });
+    const publishResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: `/v1/admin/publishing/${leadId}/publish`,
+    });
+
+    expect(draftResponse.status).toBe(200);
+    expect(publishResponse.status).toBe(200);
+
+    const queueResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/leads",
+    });
+
+    expect(queueResponse.status).toBe(200);
+    expect(queueResponse.body).toMatchObject({
+      items: [
+        {
+          id: leadId,
+          queue: {
+            status: "published",
+            label: "Published",
+          },
+        },
+      ],
+    });
+  });
 });
 
 describeDb("admin lead persistence", () => {
