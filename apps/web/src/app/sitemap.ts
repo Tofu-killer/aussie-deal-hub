@@ -1,7 +1,22 @@
 import type { MetadataRoute } from "next";
 
-import { buildPublicSitemapEntries } from "../lib/publicDeals";
+import { listPublicDeals } from "../lib/serverApi";
+import {
+  buildPublicSitemapEntries,
+  normalizeLivePublicDeal,
+  type SupportedLocale,
+} from "../lib/publicDeals";
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return buildPublicSitemapEntries();
+const SITEMAP_LOCALES: SupportedLocale[] = ["en", "zh"];
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const liveDeals = (
+    await Promise.all(
+      SITEMAP_LOCALES.map(async (locale) =>
+        (await listPublicDeals(locale)).map((deal) => normalizeLivePublicDeal(deal, locale)),
+      ),
+    )
+  ).flat();
+
+  return buildPublicSitemapEntries(liveDeals);
 }

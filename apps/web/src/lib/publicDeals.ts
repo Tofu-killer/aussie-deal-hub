@@ -891,26 +891,32 @@ export function buildDealPageMetadata(
   };
 }
 
-function getLatestPublishedAtForCategory(category: PublicDealCategory) {
-  return PUBLIC_DEALS.filter((deal) => deal.categories.includes(category))
+function getLatestPublishedAtForCategory(
+  category: PublicDealCategory,
+  deals: PublicDealRecord[] = PUBLIC_DEALS,
+) {
+  return deals.filter((deal) => deal.categories.includes(category))
     .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))[0]
     ?.publishedAt;
 }
 
-export function buildPublicSitemapEntries(): MetadataRoute.Sitemap {
+export function buildPublicSitemapEntries(
+  liveDeals: PublicDealRecord[] = [],
+): MetadataRoute.Sitemap {
+  const sitemapDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
   const localeEntries: MetadataRoute.Sitemap = (["en", "zh"] as SupportedLocale[]).map(
     (locale) => ({
       url: buildPublicUrl(buildLocaleHref(locale, "")),
-      lastModified: getLatestDeals(1)[0]?.publishedAt ?? new Date().toISOString(),
+      lastModified: getLatestDeals(1, sitemapDeals)[0]?.publishedAt ?? new Date().toISOString(),
     }),
   );
   const categoryEntries: MetadataRoute.Sitemap = PUBLIC_PRIMARY_CATEGORIES.flatMap((category) =>
     (["en", "zh"] as SupportedLocale[]).map((locale) => ({
       url: buildPublicUrl(buildLocaleHref(locale, `/categories/${category}`)),
-      lastModified: getLatestPublishedAtForCategory(category) ?? new Date().toISOString(),
+      lastModified: getLatestPublishedAtForCategory(category, sitemapDeals) ?? new Date().toISOString(),
     })),
   );
-  const detailEntries: MetadataRoute.Sitemap = getSeededPublicDeals().flatMap((deal) =>
+  const detailEntries: MetadataRoute.Sitemap = sitemapDeals.flatMap((deal) =>
     (["en", "zh"] as SupportedLocale[]).map((locale) => ({
       url: buildPublicUrl(buildLocaleHref(locale, `/deals/${deal.slug}`)),
       lastModified: deal.publishedAt,

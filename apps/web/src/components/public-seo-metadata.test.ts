@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { listPublicDeals } from "../lib/serverApi";
+
+vi.mock("../lib/serverApi", () => ({
+  getPublicDealFromApi: vi.fn(),
+  listPriceSnapshots: vi.fn(),
+  listPublicDeals: vi.fn(),
+}));
 
 const SITE_URL = "https://deals.example";
 const CATEGORY_URLS = [
@@ -19,9 +27,12 @@ const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 describe("public SEO metadata and discovery files", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SITE_URL = SITE_URL;
+    vi.mocked(listPublicDeals).mockResolvedValue([]);
   });
 
   afterEach(() => {
+    vi.clearAllMocks();
+
     if (originalSiteUrl) {
       process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
       return;
@@ -113,12 +124,30 @@ describe("public SEO metadata and discovery files", () => {
   });
 
   it("publishes sitemap entries for locale homes, primary categories, and seeded deal details", async () => {
+    vi.mocked(listPublicDeals).mockResolvedValue([
+      {
+        slug: "live-only-coffee-subscription",
+        category: "deals",
+        currentPrice: "19",
+        locale: "en",
+        merchant: "Live Roasters",
+        publishedAt: "2026-04-23T11:00:00.000Z",
+        summary: "Live-only catalog deal.",
+        title: "Live-only coffee subscription",
+      },
+    ]);
+
     const sitemapModule = await import("../app/sitemap");
 
     expect(sitemapModule.default).toBeTypeOf("function");
 
     const entries = await sitemapModule.default();
     const urls = entries.map((entry) => entry.url);
+    const enHomeEntry = entries.find((entry) => entry.url === `${SITE_URL}/en`);
+    const zhHomeEntry = entries.find((entry) => entry.url === `${SITE_URL}/zh`);
+    const enDealsCategory = entries.find(
+      (entry) => entry.url === `${SITE_URL}/en/categories/deals`,
+    );
     const zhFreebiesCategory = entries.find(
       (entry) => entry.url === `${SITE_URL}/zh/categories/freebies`,
     );
@@ -135,9 +164,14 @@ describe("public SEO metadata and discovery files", () => {
           `${SITE_URL}/en/deals/${slug}`,
           `${SITE_URL}/zh/deals/${slug}`,
         ]),
+        `${SITE_URL}/en/deals/live-only-coffee-subscription`,
+        `${SITE_URL}/zh/deals/live-only-coffee-subscription`,
       ]),
     );
     expect(urls.every((url) => !url.includes("sessionToken"))).toBe(true);
+    expect(enHomeEntry?.lastModified).toBe("2026-04-23T11:00:00.000Z");
+    expect(zhHomeEntry?.lastModified).toBe("2026-04-23T11:00:00.000Z");
+    expect(enDealsCategory?.lastModified).toBe("2026-04-23T11:00:00.000Z");
     expect(zhFreebiesCategory?.lastModified).toBe("2026-04-20T09:00:00.000Z");
     expect(enGiftCardCategory?.lastModified).toBe("2026-04-19T09:00:00.000Z");
   });
