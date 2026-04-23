@@ -17,7 +17,11 @@ interface LoadSummaryResult {
   error: string | null;
 }
 
-type LeadQueueStatus = "pending_review" | "draft_saved" | "queued_to_publish";
+type LeadQueueStatus =
+  | "pending_review"
+  | "draft_saved"
+  | "queued_to_publish"
+  | "published";
 
 function getAdminApiBaseUrl() {
   return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
@@ -64,7 +68,12 @@ function createErrorCard(title: string, error: string): SummaryCardState {
 }
 
 function isLeadQueueStatus(value: string): value is LeadQueueStatus {
-  return value === "pending_review" || value === "draft_saved" || value === "queued_to_publish";
+  return (
+    value === "pending_review" ||
+    value === "draft_saved" ||
+    value === "queued_to_publish" ||
+    value === "published"
+  );
 }
 
 function readLeadQueueStatus(item: unknown): LeadQueueStatus {
@@ -91,6 +100,8 @@ function formatLeadQueueStatusLine(status: LeadQueueStatus, count: number) {
   switch (status) {
     case "draft_saved":
       return `${count} ${count === 1 ? "draft saved" : "drafts saved"}`;
+    case "published":
+      return `${count} published`;
     case "queued_to_publish":
       return `${count} queued to publish`;
     default:
@@ -117,7 +128,12 @@ function summarizeLeadQueue(result: LoadSummaryResult): SummaryCardState {
   });
 
   const lines = [`${total} ${total === 1 ? "lead" : "leads"} in queue`];
-  const statusOrder: LeadQueueStatus[] = ["pending_review", "draft_saved", "queued_to_publish"];
+  const statusOrder: LeadQueueStatus[] = [
+    "pending_review",
+    "draft_saved",
+    "queued_to_publish",
+    "published",
+  ];
 
   statusOrder.forEach((status) => {
     const count = statusCounts.get(status) ?? 0;

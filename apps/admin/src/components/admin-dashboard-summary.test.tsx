@@ -229,4 +229,36 @@ describe("admin dashboard summary", () => {
     );
     expect(screen.getByRole("link", { name: "Manage tags" }).getAttribute("href")).toBe("/tags");
   });
+
+  it("counts published leads in the live summary", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "lead_published",
+              sourceId: "src_amazon",
+              originalTitle: "Nintendo Switch OLED",
+              originalUrl: "https://www.amazon.com.au/deal",
+              snippet: "Published deal.",
+              createdAt: "2026-04-23T08:00:00.000Z",
+              queue: {
+                status: "published",
+                label: "Published",
+              },
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderAdminHomePage();
+
+    expect(await screen.findByText("1 lead in queue")).toBeTruthy();
+    expect(screen.getByText("1 published")).toBeTruthy();
+  });
 });
