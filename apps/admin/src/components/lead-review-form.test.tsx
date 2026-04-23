@@ -339,6 +339,56 @@ describe("LeadReviewForm", () => {
     expect(screen.getByRole("button", { name: "Publish Deal" })).toBeTruthy();
   });
 
+  it("loads a new lead detail and renders the deterministic AI preview instead of weak local defaults", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const leadId = "lead_42";
+    const fetchMock = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        id: leadId,
+        sourceId: "src_amazon",
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+        createdAt: "2026-04-23T08:00:00.000Z",
+        review: {
+          category: "Deals",
+          confidence: 88,
+          riskLabels: [],
+          locales: {
+            en: {
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+              summary: "Coupon GAME20 expires tonight.",
+            },
+            zh: {
+              title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+              summary: "优惠码 GAME20 今晚到期。",
+            },
+          },
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<LeadDetailPage params={Promise.resolve({ leadId })} />);
+
+    expect(await screen.findByRole("heading", { name: `Lead ${leadId}` })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/leads/lead_42", {
+      cache: "no-store",
+    });
+    expect((await screen.findByLabelText("English title") as HTMLInputElement).value).toBe(
+      "Nintendo Switch OLED for A$399 at Amazon AU",
+    );
+    expect((screen.getByLabelText("Chinese title") as HTMLInputElement).value).toBe(
+      "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+    );
+    expect((screen.getByLabelText("Category") as HTMLInputElement).value).toBe("Deals");
+    expect((screen.getByLabelText("Confidence") as HTMLInputElement).value).toBe("88");
+    expect((screen.getByLabelText("Chinese summary") as HTMLTextAreaElement).value).toBe(
+      "优惠码 GAME20 今晚到期。",
+    );
+    expect(screen.queryByDisplayValue("Uncategorized")).toBeNull();
+  });
+
   it("submits the lead review draft to the admin review write route and shows success feedback", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {

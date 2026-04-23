@@ -1,8 +1,16 @@
 import React from "react";
 import { notFound, redirect } from "next/navigation";
 
-import { appendSessionToken, buildLocaleHref, getLocaleCopy, getPublicDeal, isSupportedLocale } from "../../../lib/publicDeals";
-import { listFavoriteDealIds, removeFavoriteDealId } from "../../../lib/serverApi";
+import {
+  appendSessionToken,
+  buildLocaleHref,
+  getLocaleCopy,
+  getPublicDeal,
+  isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
+} from "../../../lib/publicDeals";
+import { listFavoriteDealIds, listPublicDeals, removeFavoriteDealId } from "../../../lib/serverApi";
 
 interface FavoritesPageProps {
   params: Promise<{
@@ -127,8 +135,20 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
   let favoritesError: string | null = null;
 
   try {
-    favoriteItems = (await listFavoriteDealIds(sessionToken)).map((favorite) => {
-      const deal = getPublicDeal(favorite.dealId);
+    const favorites = await listFavoriteDealIds(sessionToken);
+    const publicDeals =
+      favorites.length > 0
+        ? mergePublicDeals(
+            (await listPublicDeals(activeLocale)).map((deal) =>
+              normalizeLivePublicDeal(deal, activeLocale),
+            ),
+          )
+        : null;
+
+    favoriteItems = favorites.map((favorite) => {
+      const deal = publicDeals
+        ? getPublicDeal(favorite.dealId, publicDeals)
+        : getPublicDeal(favorite.dealId);
 
       if (deal) {
         return {

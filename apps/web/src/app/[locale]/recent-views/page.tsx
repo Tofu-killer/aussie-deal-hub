@@ -8,7 +8,10 @@ import {
   buildLocaleHref,
   getPublicDeal,
   isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
 } from "../../../lib/publicDeals";
+import { listPublicDeals } from "../../../lib/serverApi";
 
 interface RecentViewsPageProps {
   params: Promise<{
@@ -89,8 +92,17 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
 
   const cookieStore = await cookies();
   const recentViewsCookieValue = cookieStore.get(RECENT_VIEWS_COOKIE_NAME)?.value;
-  const recentDeals = getRecentViewSlugsFromCookie(recentViewsCookieValue)
-    .map((slug) => getPublicDeal(slug))
+  const recentViewSlugs = getRecentViewSlugsFromCookie(recentViewsCookieValue);
+  const publicDeals =
+    recentViewSlugs.length > 0
+      ? mergePublicDeals(
+          (await listPublicDeals(activeLocale)).map((deal) =>
+            normalizeLivePublicDeal(deal, activeLocale),
+          ),
+        )
+      : null;
+  const recentDeals = recentViewSlugs
+    .map((slug) => (publicDeals ? getPublicDeal(slug, publicDeals) : getPublicDeal(slug)))
     .filter((deal) => deal !== null);
 
   const title = activeLocale === "en" ? "Recently viewed" : "最近浏览";

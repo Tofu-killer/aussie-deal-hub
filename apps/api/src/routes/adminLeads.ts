@@ -290,7 +290,10 @@ export function createAdminLeadsRouter(
       return;
     }
 
-    response.json(record.review ? { ...record.lead, review: record.review } : record.lead);
+    response.json({
+      ...record.lead,
+      review: record.review ?? reviewStoredLead(record.lead),
+    });
   });
 
   router.post("/leads", async (request, response) => {

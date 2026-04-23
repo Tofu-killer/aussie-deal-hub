@@ -172,6 +172,72 @@ describe("recent views tracking and page", () => {
     );
   });
 
+  it("renders live-only recent views from the batched public deals list", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get(name: string) {
+        if (name !== RECENT_VIEWS_COOKIE_NAME) {
+          return undefined;
+        }
+
+        return {
+          name,
+          value: buildRecentViewsCookieValue(["live-only-weekend-bundle"]),
+        };
+      },
+    } as Awaited<ReturnType<typeof cookies>>);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                slug: "live-only-weekend-bundle",
+                title: "Weekend bundle for A$179 at JB Hi-Fi",
+                summary: "Live catalog weekend bundle with pickup available.",
+                category: "deals",
+                locale: "en",
+                merchant: "JB Hi-Fi",
+                currentPrice: "179",
+                affiliateUrl: "https://example.test/live-only-weekend-bundle",
+                publishedAt: "2026-04-23T10:00:00.000Z",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${String(input)}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      await RecentViewsPage({
+        params: Promise.resolve({ locale: "en" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", {
+        name: "Weekend bundle for A$179 at JB Hi-Fi",
+      }).getAttribute("href"),
+    ).toBe("/en/deals/live-only-weekend-bundle");
+    expect(screen.getByText("Live catalog weekend bundle with pickup available.")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/v1/public/deals/en",
+      expect.objectContaining({
+        cache: "no-store",
+      }),
+    );
+  });
+
   it("renders chinese empty state when cookie is missing", async () => {
     vi.mocked(cookies).mockResolvedValue({
       get() {

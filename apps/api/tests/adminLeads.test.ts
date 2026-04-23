@@ -93,7 +93,7 @@ describe("admin lead pipeline", () => {
     });
   });
 
-  it("returns a stored lead from the admin detail read endpoint", async () => {
+  it("returns a deterministic review preview from the admin detail read endpoint when no draft is saved", async () => {
     const app = buildApp();
 
     const leadResponse = await dispatchRequest(app, {
@@ -115,7 +115,24 @@ describe("admin lead pipeline", () => {
     });
 
     expect(detailResponse.status).toBe(200);
-    expect(detailResponse.body).toEqual(leadResponse.body);
+    expect(detailResponse.body).toEqual({
+      ...leadResponse.body,
+      review: {
+        category: "Deals",
+        confidence: 88,
+        riskLabels: [],
+        locales: {
+          en: {
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            summary: "Coupon GAME20 expires tonight.",
+          },
+          zh: {
+            title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+            summary: "优惠码 GAME20 今晚到期。",
+          },
+        },
+      },
+    });
   });
 
   it("returns 404 when the admin detail read endpoint cannot find the lead", async () => {
@@ -562,7 +579,24 @@ describeDb("admin lead persistence", () => {
       });
 
       expect(detailResponse.status).toBe(200);
-      expect(detailResponse.body).toEqual(createResponse.body);
+      expect(detailResponse.body).toEqual({
+        ...createResponse.body,
+        review: {
+          category: "Deals",
+          confidence: 88,
+          riskLabels: [],
+          locales: {
+            en: {
+              title: "AU Dyson V8 for A$349 at JB Hi-Fi",
+              summary: "Bonus tools bundle included.",
+            },
+            zh: {
+              title: "JB Hi-Fi AU Dyson V8 到手 A$349",
+              summary: "JB Hi-Fi 的 AU Dyson V8 价格来到 A$349。",
+            },
+          },
+        },
+      });
     } finally {
       await prisma.lead.deleteMany({
         where: {
