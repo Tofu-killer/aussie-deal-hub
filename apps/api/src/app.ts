@@ -23,8 +23,11 @@ import {
 import { createFavoritesRouter, type FavoritesStore } from "./routes/favorites.ts";
 import { createHealthRouter } from "./routes/health.ts";
 import {
+  createSeedPublishedDealStore,
   createPublicDealsRouter,
-  getPublishedDealIds,
+  type PublishedDealReader,
+  type PublishedDealPublisher,
+  type PublishedDealSlugLookup,
   type PriceSnapshotStore,
   seedPublishedDeals,
 } from "./routes/publicDeals.ts";
@@ -33,6 +36,7 @@ interface BuildAppOptions {
   adminLeadStore?: AdminLeadStore;
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
+  publishedDealStore?: PublishedDealReader & Partial<PublishedDealPublisher> & Partial<PublishedDealSlugLookup>;
   priceSnapshotStore?: PriceSnapshotStore;
   sourceStore?: SourcesStore;
 }
@@ -43,7 +47,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   const codes = new Map<string, string>();
   const sessions = new Map<string, SessionRecord>();
   const publishedDeals = seedPublishedDeals();
-  const publishedDealIds = getPublishedDealIds(publishedDeals);
+  const publishedDealStore = options.publishedDealStore ?? createSeedPublishedDealStore(publishedDeals);
   const digestPreferences = new Map<string, DigestPreferencesRecord>();
   const app = express();
   const adminLeadStore =
@@ -85,7 +89,10 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/v1/auth", createAuthRouter(codes, sessions));
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore));
   app.use("/v1/admin", createAdminCatalogRouter());
-  app.use("/v1/admin/publishing", createAdminPublishingRouter(adminLeadStore));
+  app.use(
+    "/v1/admin/publishing",
+    createAdminPublishingRouter(adminLeadStore, publishedDealStore),
+  );
   app.use("/v1/admin", createAdminPreviewRouter());
   app.use("/v1/admin/sources", createAdminSourcesRouter(options.sourceStore));
   app.use(
@@ -106,9 +113,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   );
   app.use(
     "/v1/favorites",
-    createFavoritesRouter(sessions, publishedDealIds, options.favoritesStore),
+    createFavoritesRouter(sessions, publishedDealStore, options.favoritesStore),
   );
-  app.use("/v1/public", createPublicDealsRouter(publishedDeals, options.priceSnapshotStore));
+  app.use("/v1/public", createPublicDealsRouter(publishedDealStore, options.priceSnapshotStore));
 
   app.use((_request, response) => {
     response.status(404).json({ message: "Route not found." });

@@ -19,6 +19,46 @@ export interface PublicPriceSnapshotRecord {
   price: string;
 }
 
+export interface PublishPublicDealLocaleInput {
+  locale: string;
+  slug: string;
+  title: string;
+  summary: string;
+}
+
+export interface PublishPublicDealInput {
+  leadId: string;
+  merchant: string;
+  category: string;
+  currentPrice: string;
+  affiliateUrl: string;
+  locales: PublishPublicDealLocaleInput[];
+}
+
+export interface PublishPublicDealResult {
+  leadId: string;
+  status: string;
+  locales: Array<{
+    locale: string;
+    slug: string;
+  }>;
+}
+
+export interface PublishedDealReader {
+  getPublishedDeal(locale: string, slug: string): Promise<PublicDealRecord | null>;
+  hasPublishedDealSlug(slug: string): Promise<boolean>;
+}
+
+export interface PublishedDealPublisher {
+  publishDeal(input: PublishPublicDealInput): Promise<PublishPublicDealResult>;
+}
+
+export interface PublishedDealSlugLookup {
+  getPublishedDealSlugForLead(leadId: string, locale: string): Promise<string | null>;
+}
+
+export type PublishedDealStore = PublishedDealReader & PublishedDealPublisher & PublishedDealSlugLookup;
+
 export interface PriceSnapshotStore {
   listSnapshotsForDeal(dealSlug: string): Promise<PublicPriceSnapshotRecord[]>;
 }
@@ -60,6 +100,45 @@ export function getPublishedDealIds(store: Map<string, PublicDealRecord>) {
   return new Set(Array.from(store.values(), (deal) => deal.slug));
 }
 
+export function createSeedPublishedDealStore(
+  store: Map<string, PublicDealRecord>,
+): PublishedDealStore {
+  const leadLocaleSlugs = new Map<string, string>();
+
+  return {
+    async getPublishedDeal(locale, slug) {
+      return getPublishedDeal(store, locale, slug) ?? null;
+    },
+    async hasPublishedDealSlug(slug) {
+      return getPublishedDealIds(store).has(slug);
+    },
+    async getPublishedDealSlugForLead(leadId, locale) {
+      return leadLocaleSlugs.get(`${leadId}:${locale}`) ?? null;
+    },
+    async publishDeal(input) {
+      for (const locale of input.locales) {
+        store.set(`${locale.locale}:${locale.slug}`, {
+          locale: locale.locale,
+          slug: locale.slug,
+          title: locale.title,
+          summary: locale.summary,
+          category: input.category,
+        });
+        leadLocaleSlugs.set(`${input.leadId}:${locale.locale}`, locale.slug);
+      }
+
+      return {
+        leadId: input.leadId,
+        status: "published",
+        locales: input.locales.map((locale) => ({
+          locale: locale.locale,
+          slug: locale.slug,
+        })),
+      };
+    },
+  };
+}
+
 function createDefaultPriceSnapshotStore(): PriceSnapshotStore {
   return {
     async listSnapshotsForDeal(dealSlug: string) {
@@ -69,14 +148,14 @@ function createDefaultPriceSnapshotStore(): PriceSnapshotStore {
 }
 
 export function createPublicDealsRouter(
-  store: Map<string, PublicDealRecord>,
+  store: PublishedDealReader | Map<string, PublicDealRecord>,
   priceSnapshotStore: PriceSnapshotStore = createDefaultPriceSnapshotStore(),
 ) {
   const router = Router();
+  const publishedDealStore = store instanceof Map ? createSeedPublishedDealStore(store) : store;
 
   router.get("/deals/:locale/:slug", async (request, response) => {
-    const deal = getPublishedDeal(
-      store,
+    const deal = await publishedDealStore.getPublishedDeal(
       request.params.locale ?? "",
       request.params.slug ?? "",
     );

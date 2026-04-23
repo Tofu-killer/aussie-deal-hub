@@ -6,6 +6,7 @@ import {
   upsertFavorite,
 } from "@aussie-deal-hub/db/repositories/favorites";
 import type { SessionRecord } from "./auth.ts";
+import type { PublishedDealReader } from "./publicDeals.ts";
 
 export interface FavoriteRecord {
   dealId: string;
@@ -44,9 +45,16 @@ function readAuthorizedSessionToken(
   return sessions.get(headerValue);
 }
 
+async function hasPublishedDealSlug(
+  store: Pick<PublishedDealReader, "hasPublishedDealSlug"> | Set<string>,
+  slug: string,
+) {
+  return store instanceof Set ? store.has(slug) : store.hasPublishedDealSlug(slug);
+}
+
 export function createFavoritesRouter(
   sessions: Map<string, SessionRecord>,
-  publishedDealIds: Set<string>,
+  publishedDealStore: Pick<PublishedDealReader, "hasPublishedDealSlug"> | Set<string>,
   store: FavoritesStore = {
     listByEmail: listFavoritesByEmail,
     saveFavorite(email, dealId) {
@@ -97,7 +105,7 @@ export function createFavoritesRouter(
       return;
     }
 
-    if (!publishedDealIds.has(input.dealId)) {
+    if (!(await hasPublishedDealSlug(publishedDealStore, input.dealId))) {
       response.status(400).json({ message: "Deal ID is invalid." });
       return;
     }

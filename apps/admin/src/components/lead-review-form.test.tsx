@@ -391,7 +391,115 @@ describe("LeadReviewForm", () => {
     expect(await screen.findByText("Draft saved.")).toBeTruthy();
   });
 
-  it("shows failure feedback when the lead review write route rejects the submission", async () => {
+  it("saves the review draft before calling the publish route and shows publish success feedback", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : String(input);
+
+      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+        return createJsonResponse({
+          id: "lead_42",
+          sourceId: "src_amazon",
+          originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+          originalUrl: "https://www.amazon.com.au/deal",
+          snippet: "Coupon GAME20 expires tonight.",
+          createdAt: "2026-04-23T08:00:00.000Z",
+          review: {
+            category: "Deals",
+            confidence: 88,
+            riskLabels: ["Limited stock"],
+            tags: ["gaming"],
+            featuredSlot: "sidebar",
+            publishAt: "2026-04-24T09:00:00.000Z",
+            locales: {
+              en: {
+                title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                summary: "Coupon GAME20 expires tonight.",
+              },
+              zh: {
+                title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                summary: "优惠码 GAME20 今晚到期。",
+              },
+            },
+          },
+        });
+      }
+
+      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+        return createJsonResponse({ ok: true });
+      }
+
+      if (url === "http://preview-api.test/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
+        return createJsonResponse({ ok: true });
+      }
+
+      return createJsonResponse({ message: `Unexpected fetch for ${url}` }, false);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    render(<LeadDetailPage params={Promise.resolve({ leadId: "lead_42" })} />);
+
+    expect(await screen.findByDisplayValue("Nintendo Switch OLED for A$399 at Amazon AU")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Publish Deal" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/leads/lead_42/review", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        leadId: "lead_42",
+        category: "Deals",
+        confidence: 88,
+        riskLabels: ["Limited stock"],
+        tags: ["gaming"],
+        featuredSlot: "sidebar",
+        publishAt: "2026-04-24T09:00:00.000Z",
+        locales: {
+          en: {
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            summary: "Coupon GAME20 expires tonight.",
+          },
+          zh: {
+            title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+            summary: "优惠码 GAME20 今晚到期。",
+          },
+        },
+        publish: false,
+      }),
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "http://preview-api.test/v1/admin/publishing/lead_42/publish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        leadId: "lead_42",
+        category: "Deals",
+        confidence: 88,
+        riskLabels: ["Limited stock"],
+        tags: ["gaming"],
+        featuredSlot: "sidebar",
+        publishAt: "2026-04-24T09:00:00.000Z",
+        locales: {
+          en: {
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            summary: "Coupon GAME20 expires tonight.",
+          },
+          zh: {
+            title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+            summary: "优惠码 GAME20 今晚到期。",
+          },
+        },
+        publish: true,
+      }),
+    });
+    expect(await screen.findByText("Deal queued for publishing.")).toBeTruthy();
+  });
+
+  it("shows failure feedback when saving the review draft before publishing fails", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
@@ -440,6 +548,64 @@ describe("LeadReviewForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Publish Deal" }));
 
-    expect(await screen.findByText("Failed to submit review.")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText("Failed to save review before publishing.")).toBeTruthy();
+  });
+
+  it("shows failure feedback when the publish route rejects the submission after saving the draft", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : String(input);
+
+      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+        return createJsonResponse({
+          id: "lead_42",
+          sourceId: "src_amazon",
+          originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+          originalUrl: "https://www.amazon.com.au/deal",
+          snippet: "Coupon GAME20 expires tonight.",
+          createdAt: "2026-04-23T08:00:00.000Z",
+          review: {
+            category: "Deals",
+            confidence: 88,
+            riskLabels: ["Limited stock"],
+            tags: ["gaming"],
+            featuredSlot: "sidebar",
+            publishAt: "2026-04-24T09:00:00.000Z",
+            locales: {
+              en: {
+                title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                summary: "Coupon GAME20 expires tonight.",
+              },
+              zh: {
+                title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                summary: "优惠码 GAME20 今晚到期。",
+              },
+            },
+          },
+        });
+      }
+
+      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+        return createJsonResponse({ ok: true });
+      }
+
+      if (url === "http://preview-api.test/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
+        return createJsonResponse({ message: "publish failed" }, false);
+      }
+
+      return createJsonResponse({ message: `Unexpected fetch for ${url}` }, false);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    render(<LeadDetailPage params={Promise.resolve({ leadId: "lead_42" })} />);
+
+    expect(await screen.findByDisplayValue("Nintendo Switch OLED for A$399 at Amazon AU")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Publish Deal" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(await screen.findByText("Draft saved, but failed to queue deal for publishing.")).toBeTruthy();
   });
 });

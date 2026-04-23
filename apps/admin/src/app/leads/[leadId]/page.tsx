@@ -182,6 +182,35 @@ async function submitLeadReview(submission: LeadReviewSubmission) {
   }
 }
 
+async function publishLeadReview(submission: LeadReviewSubmission) {
+  try {
+    const response = await fetch(
+      `${getAdminApiBaseUrl()}/v1/admin/publishing/${submission.leadId}/publish`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(submission),
+      },
+    );
+
+    if (!response.ok) {
+      return {
+        error: "Failed to publish deal.",
+      };
+    }
+
+    return {
+      error: null,
+    };
+  } catch {
+    return {
+      error: "Failed to publish deal.",
+    };
+  }
+}
+
 async function resolveLeadId(params: LeadDetailPageProps["params"]) {
   const resolvedParams = await params;
   return resolvedParams.leadId;
@@ -230,14 +259,37 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
   async function handleSubmit(submission: LeadReviewSubmission) {
     setFeedback(null);
 
-    const result = await submitLeadReview(submission);
+    if (!submission.publish) {
+      const result = await submitLeadReview(submission);
 
-    if (result.error) {
-      setFeedback(result.error);
+      if (result.error) {
+        setFeedback(result.error);
+        return;
+      }
+
+      setFeedback("Draft saved.");
       return;
     }
 
-    setFeedback(submission.publish ? "Deal queued for publishing." : "Draft saved.");
+    const draftSubmission = {
+      ...submission,
+      publish: false,
+    };
+    const draftResult = await submitLeadReview(draftSubmission);
+
+    if (draftResult.error) {
+      setFeedback("Failed to save review before publishing.");
+      return;
+    }
+
+    const publishResult = await publishLeadReview(submission);
+
+    if (publishResult.error) {
+      setFeedback("Draft saved, but failed to queue deal for publishing.");
+      return;
+    }
+
+    setFeedback("Deal queued for publishing.");
   }
 
   return (

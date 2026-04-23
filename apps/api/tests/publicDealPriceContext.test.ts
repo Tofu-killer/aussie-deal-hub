@@ -117,3 +117,56 @@ describeDb("public deal price context", () => {
     }
   });
 });
+
+describe("public deal price context for persisted deal store", () => {
+  it("returns price snapshots for a deal loaded from the injected public deal store", async () => {
+    const snapshots: PriceSnapshotRecord[] = [
+      {
+        label: "Launch deal",
+        merchant: "Amazon AU",
+        observedAt: "2026-04-22T00:00:00.000Z",
+        price: "249.00",
+      },
+    ];
+    const app = buildApp({
+      publishedDealStore: {
+        async getPublishedDeal(locale: string, slug: string) {
+          if (locale !== "en" || slug !== "anker-power-station-for-a-249") {
+            return null;
+          }
+
+          return {
+            locale: "en",
+            slug: "anker-power-station-for-a-249",
+            title: "Anker power station for A$249",
+            summary: "Portable power station deal with historical context.",
+            category: "Outdoors",
+          };
+        },
+        async hasPublishedDealSlug(slug: string) {
+          return slug === "anker-power-station-for-a-249";
+        },
+      },
+      priceSnapshotStore: {
+        async listSnapshotsForDeal(dealSlug: string) {
+          return dealSlug === "anker-power-station-for-a-249" ? snapshots : [];
+        },
+      },
+    } as never);
+
+    const response = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/public/deals/en/anker-power-station-for-a-249",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      locale: "en",
+      slug: "anker-power-station-for-a-249",
+      category: "Outdoors",
+      priceContext: {
+        snapshots,
+      },
+    });
+  });
+});

@@ -152,6 +152,307 @@ describe("admin publishing queue", () => {
       ],
     });
   });
+
+  it("publishes a saved review draft into the public deal store", async () => {
+    const publishedDeals = new Map<string, {
+      locale: string;
+      slug: string;
+      title: string;
+      summary: string;
+      category: string;
+    }>();
+    const publishedDealStore = {
+      async publishDeal(input: {
+        leadId: string;
+        category: string;
+        locales: Array<{
+          locale: string;
+          slug: string;
+          title: string;
+          summary: string;
+        }>;
+      }) {
+        for (const locale of input.locales) {
+          publishedDeals.set(`${locale.locale}:${locale.slug}`, {
+            locale: locale.locale,
+            slug: locale.slug,
+            title: locale.title,
+            summary: locale.summary,
+            category: input.category,
+          });
+        }
+
+        return {
+          leadId: input.leadId,
+          status: "published",
+          locales: input.locales.map((locale) => ({
+            locale: locale.locale,
+            slug: locale.slug,
+          })),
+        };
+      },
+      async getPublishedDeal(locale: string, slug: string) {
+        return publishedDeals.get(`${locale}:${slug}`) ?? null;
+      },
+      async hasPublishedDealSlug(slug: string) {
+        return Array.from(publishedDeals.values()).some((deal) => deal.slug === slug);
+      },
+    };
+    const app = buildApp({ publishedDealStore } as never);
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_bigw",
+        originalTitle: "Big W AU LEGO Bonsai Tree A$59",
+        originalUrl: "https://www.bigw.com.au/deal/lego-bonsai",
+        snippet: "Weekend toy sale.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const leadId = String((leadResponse.body as { id: string }).id);
+
+    const draftResponse = await dispatchRequest(app, {
+      method: "PUT",
+      path: `/v1/admin/leads/${leadId}/review`,
+      body: {
+        leadId,
+        category: "Toys",
+        confidence: 88,
+        riskLabels: [],
+        tags: ["lego"],
+        featuredSlot: "weekend",
+        publishAt: "2026-04-24T11:00:00.000Z",
+        locales: {
+          en: {
+            title: "LEGO Bonsai Tree for A$59 at Big W",
+            summary: "Weekend sale drops the LEGO display set to A$59.",
+          },
+          zh: {
+            title: "Big W 乐高盆景树套装 A$59",
+            summary: "周末玩具促销，展示款乐高套装降至 A$59。",
+          },
+        },
+        publish: false,
+      },
+    });
+
+    expect(draftResponse.status).toBe(200);
+
+    const publishResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: `/v1/admin/publishing/${leadId}/publish`,
+    });
+
+    expect(publishResponse.status).toBe(200);
+    expect(publishResponse.body).toEqual({
+      leadId,
+      status: "published",
+      locales: [
+        {
+          locale: "en",
+          slug: "lego-bonsai-tree-for-a-59-at-big-w",
+        },
+        {
+          locale: "zh",
+          slug: "big-w-乐高盆景树套装-a-59",
+        },
+      ],
+    });
+
+    const publicDealResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/public/deals/en/lego-bonsai-tree-for-a-59-at-big-w",
+    });
+
+    expect(publicDealResponse.status).toBe(200);
+    expect(publicDealResponse.body).toMatchObject({
+      locale: "en",
+      slug: "lego-bonsai-tree-for-a-59-at-big-w",
+      title: "LEGO Bonsai Tree for A$59 at Big W",
+      summary: "Weekend sale drops the LEGO display set to A$59.",
+      category: "Toys",
+      priceContext: {
+        snapshots: [],
+      },
+    });
+
+    const queueResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/publishing",
+    });
+
+    expect(queueResponse.status).toBe(200);
+    expect(queueResponse.body).toEqual({
+      items: [
+        {
+          id: `${leadId}:en-AU`,
+          leadId,
+          deal: "LEGO Bonsai Tree for A$59 at Big W",
+          featuredSlot: "weekend",
+          publishAt: "2026-04-24T11:00:00.000Z",
+          locale: "en-AU",
+          status: "scheduled",
+        },
+        {
+          id: `${leadId}:zh-CN`,
+          leadId,
+          deal: "Big W 乐高盆景树套装 A$59",
+          featuredSlot: "weekend",
+          publishAt: "2026-04-24T11:00:00.000Z",
+          locale: "zh-CN",
+          status: "scheduled",
+        },
+      ],
+    });
+  });
+
+  it("deduplicates colliding published slugs before calling the published deal store", async () => {
+    const publishedDeals = new Map<string, {
+      leadId: string;
+      locale: string;
+      slug: string;
+      title: string;
+      summary: string;
+      category: string;
+    }>();
+    const publishedDealStore = {
+      async publishDeal(input: {
+        leadId: string;
+        category: string;
+        locales: Array<{
+          locale: string;
+          slug: string;
+          title: string;
+          summary: string;
+        }>;
+      }) {
+        for (const locale of input.locales) {
+          if (Array.from(publishedDeals.values()).some((deal) => deal.slug === locale.slug)) {
+            throw new Error(`Duplicate slug: ${locale.slug}`);
+          }
+        }
+
+        for (const locale of input.locales) {
+          publishedDeals.set(`${locale.locale}:${locale.slug}`, {
+            leadId: input.leadId,
+            locale: locale.locale,
+            slug: locale.slug,
+            title: locale.title,
+            summary: locale.summary,
+            category: input.category,
+          });
+        }
+
+        return {
+          leadId: input.leadId,
+          status: "published",
+          locales: input.locales.map((locale) => ({
+            locale: locale.locale,
+            slug: locale.slug,
+          })),
+        };
+      },
+      async getPublishedDeal(locale: string, slug: string) {
+        return publishedDeals.get(`${locale}:${slug}`) ?? null;
+      },
+      async hasPublishedDealSlug(slug: string) {
+        return Array.from(publishedDeals.values()).some((deal) => deal.slug === slug);
+      },
+      async getPublishedDealSlugForLead(leadId: string, locale: string) {
+        return Array.from(publishedDeals.values()).find(
+          (deal) => deal.leadId === leadId && deal.locale === locale,
+        )?.slug ?? null;
+      },
+    };
+    const app = buildApp({ publishedDealStore } as never);
+
+    for (const leadNumber of [1, 2]) {
+      const leadResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/leads",
+        body: {
+          sourceId: `src_duplicate_${leadNumber}`,
+          originalTitle: "Amazon AU Instant Pot Duo A$99",
+          originalUrl: `https://www.amazon.com.au/deal/instant-pot-${leadNumber}`,
+          snippet: "Pressure cooker promo.",
+        },
+      });
+
+      expect(leadResponse.status).toBe(201);
+
+      const leadId = String((leadResponse.body as { id: string }).id);
+      const saveDraftResponse = await dispatchRequest(app, {
+        method: "PUT",
+        path: `/v1/admin/leads/${leadId}/review`,
+        body: {
+          leadId,
+          category: "Kitchen",
+          confidence: 90,
+          riskLabels: [],
+          tags: ["cooking"],
+          featuredSlot: "homepage",
+          publishAt: "2026-04-24T12:00:00.000Z",
+          locales: {
+            en: {
+              title: "Instant Pot Duo for A$99 at Amazon AU",
+              summary: "Electric pressure cooker deal.",
+            },
+            zh: {
+              title: "亚马逊澳洲 Instant Pot Duo A$99",
+              summary: "电压力锅促销。",
+            },
+          },
+          publish: false,
+        },
+      });
+
+      expect(saveDraftResponse.status).toBe(200);
+    }
+
+    const firstPublishResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/publishing/lead_1/publish",
+    });
+    const secondPublishResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/publishing/lead_2/publish",
+    });
+
+    expect(firstPublishResponse.status).toBe(200);
+    expect(firstPublishResponse.body).toEqual({
+      leadId: "lead_1",
+      status: "published",
+      locales: [
+        {
+          locale: "en",
+          slug: "instant-pot-duo-for-a-99-at-amazon-au",
+        },
+        {
+          locale: "zh",
+          slug: "亚马逊澳洲-instant-pot-duo-a-99",
+        },
+      ],
+    });
+    expect(secondPublishResponse.status).toBe(200);
+    expect(secondPublishResponse.body).toEqual({
+      leadId: "lead_2",
+      status: "published",
+      locales: [
+        {
+          locale: "en",
+          slug: "instant-pot-duo-for-a-99-at-amazon-au-2",
+        },
+        {
+          locale: "zh",
+          slug: "亚马逊澳洲-instant-pot-duo-a-99-2",
+        },
+      ],
+    });
+  });
 });
 
 describeDb("admin publishing persistence", () => {

@@ -487,4 +487,52 @@ describe("auth and favorites", () => {
       message: "Deal ID is invalid.",
     });
   });
+
+  it("accepts favorite writes for persisted published deal slugs", async () => {
+    const persistedDealSlug = "breville-barista-express-for-a-499";
+    const app = buildApp({
+      favoritesStore: createInMemoryFavoritesStore(),
+      publishedDealStore: {
+        async getPublishedDeal() {
+          return null;
+        },
+        async hasPublishedDealSlug(slug: string) {
+          return slug === persistedDealSlug;
+        },
+      },
+    } as never);
+
+    await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/request-code",
+      body: {
+        email: "user@example.com",
+      },
+    });
+
+    const verifiedSession = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "123456",
+      },
+    });
+
+    const favorite = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/favorites",
+      body: {
+        dealId: persistedDealSlug,
+      },
+      headers: {
+        "x-session-token": (verifiedSession.body as { sessionToken: string }).sessionToken,
+      },
+    });
+
+    expect(favorite.status).toBe(201);
+    expect(favorite.body).toMatchObject({
+      dealId: persistedDealSlug,
+    });
+  });
 });
