@@ -29,10 +29,6 @@ const emptyCreateTagForm: CreateTagFormState = {
   name: "",
 };
 
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
@@ -88,7 +84,7 @@ function extractTagItems(body: unknown) {
 
 async function listTags(): Promise<TagLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/tags`, {
+    const response = await fetch("/v1/admin/tags", {
       cache: "no-store",
     });
 
@@ -115,7 +111,7 @@ async function listTags(): Promise<TagLoadResult> {
 
 async function createTag(name: string): Promise<TagCreateResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/tags`, {
+    const response = await fetch("/v1/admin/tags", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

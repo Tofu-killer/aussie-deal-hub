@@ -116,12 +116,12 @@ describe("sources page", () => {
     const row = await waitFor(() => getRowForSource("Amazon AU"));
     await user.click(within(row).getByRole("button", { name: "Disable" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/sources", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/sources", {
       cache: "no-store",
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://preview-api.test/v1/admin/sources/source_1",
+      "/v1/admin/sources/source_1",
       {
         method: "PATCH",
         headers: {
@@ -205,10 +205,10 @@ describe("sources page", () => {
     await user.type(screen.getByLabelText("Trust score"), "77");
     await user.click(screen.getByRole("button", { name: "Create source" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/sources", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/sources", {
       cache: "no-store",
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/sources", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/sources", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

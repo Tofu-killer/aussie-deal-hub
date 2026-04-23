@@ -21,7 +21,7 @@ import {
   type DigestPreferencesStore,
 } from "./routes/digestPreferences.ts";
 import { createFavoritesRouter, type FavoritesStore } from "./routes/favorites.ts";
-import { createHealthRouter } from "./routes/health.ts";
+import { createHealthRouter, type HealthChecker } from "./routes/health.ts";
 import {
   createSeedPublishedDealStore,
   createPublicDealsRouter,
@@ -37,6 +37,7 @@ interface BuildAppOptions {
   adminLeadStore?: AdminLeadStore;
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
+  healthCheck?: HealthChecker;
   publishedDealStore?: PublishedDealReader &
     Partial<PublishedDealListReader> &
     Partial<PublishedDealPublisher> &
@@ -88,8 +89,8 @@ export function buildApp(options: BuildAppOptions = {}) {
     } satisfies AdminLeadStore);
 
   app.use(express.json());
-  app.use("/health", createHealthRouter());
-  app.use("/v1/health", createHealthRouter());
+  app.use("/health", createHealthRouter(options.healthCheck));
+  app.use("/v1/health", createHealthRouter(options.healthCheck));
   app.use("/v1/auth", createAuthRouter(codes, sessions));
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter());

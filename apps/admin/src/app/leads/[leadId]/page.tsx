@@ -33,10 +33,6 @@ interface LeadDetailPageProps {
   }>;
 }
 
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
@@ -124,7 +120,7 @@ function normalizeLeadDetail(body: unknown): LeadDetailRecord | null {
 
 async function loadLeadDetail(leadId: string): Promise<LeadDetailLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/leads/${leadId}`, {
+    const response = await fetch(`/v1/admin/leads/${leadId}`, {
       cache: "no-store",
     });
 
@@ -158,7 +154,7 @@ async function loadLeadDetail(leadId: string): Promise<LeadDetailLoadResult> {
 
 async function submitLeadReview(submission: LeadReviewSubmission) {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/leads/${submission.leadId}/review`, {
+    const response = await fetch(`/v1/admin/leads/${submission.leadId}/review`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -184,16 +180,13 @@ async function submitLeadReview(submission: LeadReviewSubmission) {
 
 async function publishLeadReview(submission: LeadReviewSubmission) {
   try {
-    const response = await fetch(
-      `${getAdminApiBaseUrl()}/v1/admin/publishing/${submission.leadId}/publish`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(submission),
+    const response = await fetch(`/v1/admin/publishing/${submission.leadId}/publish`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify(submission),
+    });
 
     if (!response.ok) {
       return {

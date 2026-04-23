@@ -323,7 +323,7 @@ describe("LeadReviewForm", () => {
     render(<LeadDetailPage params={Promise.resolve({ leadId: "lead_42" })} />);
 
     expect(await screen.findByRole("heading", { name: "Lead lead_42" })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/leads/lead_42", {
+    expect(fetchMock).toHaveBeenCalledWith("/v1/admin/leads/lead_42", {
       cache: "no-store",
     });
     expect(await screen.findByText("src_amazon")).toBeTruthy();
@@ -372,7 +372,7 @@ describe("LeadReviewForm", () => {
     render(<LeadDetailPage params={Promise.resolve({ leadId })} />);
 
     expect(await screen.findByRole("heading", { name: `Lead ${leadId}` })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/leads/lead_42", {
+    expect(fetchMock).toHaveBeenCalledWith("/v1/admin/leads/lead_42", {
       cache: "no-store",
     });
     expect((await screen.findByLabelText("English title") as HTMLInputElement).value).toBe(
@@ -394,7 +394,7 @@ describe("LeadReviewForm", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+      if (url === "/v1/admin/leads/lead_42") {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
@@ -423,7 +423,7 @@ describe("LeadReviewForm", () => {
         });
       }
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+      if (url === "/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
         return createJsonResponse({ ok: true });
       }
 
@@ -440,7 +440,7 @@ describe("LeadReviewForm", () => {
     await user.type(screen.getByLabelText("Tags"), "gaming, console");
     await user.click(screen.getByRole("button", { name: "Save Draft" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/leads/lead_42/review", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/leads/lead_42/review", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -474,7 +474,7 @@ describe("LeadReviewForm", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+      if (url === "/v1/admin/leads/lead_42") {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
@@ -503,11 +503,11 @@ describe("LeadReviewForm", () => {
         });
       }
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+      if (url === "/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
         return createJsonResponse({ ok: true });
       }
 
-      if (url === "http://preview-api.test/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
+      if (url === "/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
         return createJsonResponse({ ok: true });
       }
 
@@ -522,7 +522,7 @@ describe("LeadReviewForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Publish Deal" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/leads/lead_42/review", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/leads/lead_42/review", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -548,7 +548,7 @@ describe("LeadReviewForm", () => {
         publish: false,
       }),
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "http://preview-api.test/v1/admin/publishing/lead_42/publish", {
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/v1/admin/publishing/lead_42/publish", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -582,7 +582,7 @@ describe("LeadReviewForm", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+      if (url === "/v1/admin/leads/lead_42") {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
@@ -611,7 +611,7 @@ describe("LeadReviewForm", () => {
         });
       }
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+      if (url === "/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
         return createJsonResponse({ message: "write failed" }, false);
       }
 
@@ -635,7 +635,7 @@ describe("LeadReviewForm", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42") {
+      if (url === "/v1/admin/leads/lead_42") {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
@@ -664,11 +664,11 @@ describe("LeadReviewForm", () => {
         });
       }
 
-      if (url === "http://preview-api.test/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
+      if (url === "/v1/admin/leads/lead_42/review" && init?.method === "PUT") {
         return createJsonResponse({ ok: true });
       }
 
-      if (url === "http://preview-api.test/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
+      if (url === "/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
         return createJsonResponse({ message: "publish failed" }, false);
       }
 

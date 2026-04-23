@@ -29,10 +29,6 @@ const emptyCreateMerchantForm: CreateMerchantFormState = {
   name: "",
 };
 
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
 }
@@ -88,7 +84,7 @@ function extractMerchantItems(body: unknown) {
 
 async function listMerchants(): Promise<MerchantLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/merchants`, {
+    const response = await fetch("/v1/admin/merchants", {
       cache: "no-store",
     });
 
@@ -115,7 +111,7 @@ async function listMerchants(): Promise<MerchantLoadResult> {
 
 async function createMerchant(name: string): Promise<MerchantCreateResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/merchants`, {
+    const response = await fetch("/v1/admin/merchants", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

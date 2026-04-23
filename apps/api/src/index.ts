@@ -1,5 +1,7 @@
 import { buildApp } from "./app.ts";
 import { parseApiEnv } from "../../../packages/config/src/env.ts";
+import { prisma } from "@aussie-deal-hub/db/client";
+import { createDependencyHealthChecker } from "./routes/health.ts";
 import {
   getDigestSubscription,
   upsertDigestSubscription,
@@ -28,6 +30,36 @@ async function listPublishedDealPriceSnapshots(dealSlug: string) {
   }
 }
 
+async function checkDatabaseHealth() {
+  return createDependencyHealthChecker({
+    db: async () => {
+      await prisma.$queryRawUnsafe("SELECT 1");
+    },
+    dbSchema: async () => {
+      await prisma.$transaction([
+        prisma.source.findFirst({ select: { id: true } }),
+        prisma.lead.findFirst({ select: { id: true } }),
+        prisma.deal.findFirst({ select: { id: true } }),
+        prisma.dealLocale.findFirst({ select: { id: true } }),
+        prisma.leadReviewDraft.findFirst({ select: { id: true } }),
+        prisma.leadReviewDraftLocale.findFirst({ select: { id: true } }),
+        prisma.favorite.findFirst({
+          select: {
+            normalizedEmail: true,
+            dealSlug: true,
+          },
+        }),
+        prisma.emailDigestSubscription.findFirst({
+          select: {
+            normalizedEmail: true,
+          },
+        }),
+        prisma.priceSnapshot.findFirst({ select: { id: true } }),
+      ]);
+    },
+  })();
+}
+
 buildApp({
   adminLeadStore,
   digestPreferencesStore: {
@@ -40,6 +72,7 @@ buildApp({
   priceSnapshotStore: {
     listSnapshotsForDeal: listPublishedDealPriceSnapshots,
   },
+  healthCheck: checkDatabaseHealth,
   sourceStore: {
     list: listSources,
     setEnabled: updateSourceEnabled,

@@ -46,13 +46,9 @@ const emptyCreateSourceForm: CreateSourceFormState = {
   trustScore: "",
 };
 
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-}
-
 async function listSources(): Promise<SourceLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/sources`, {
+    const response = await fetch("/v1/admin/sources", {
       cache: "no-store",
     });
 
@@ -78,7 +74,7 @@ async function listSources(): Promise<SourceLoadResult> {
 
 async function updateSourceEnabled(sourceId: string, enabled: boolean): Promise<SourceUpdateResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/sources/${sourceId}`, {
+    const response = await fetch(`/v1/admin/sources/${sourceId}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -107,7 +103,7 @@ async function updateSourceEnabled(sourceId: string, enabled: boolean): Promise<
 
 async function createSource(input: CreateSourceInput): Promise<SourceUpdateResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/sources`, {
+    const response = await fetch("/v1/admin/sources", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

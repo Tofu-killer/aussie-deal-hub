@@ -77,7 +77,7 @@ describe("catalog management pages", () => {
 
     expect(screen.getByRole("heading", { name: "Merchants" })).toBeTruthy();
     expect(screen.getByText("Review merchant health before publishing deals.")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/merchants", {
+    expect(fetchMock).toHaveBeenCalledWith("/v1/admin/merchants", {
       cache: "no-store",
     });
     const table = await screen.findByRole("table");
@@ -136,10 +136,10 @@ describe("catalog management pages", () => {
     await user.type(screen.getByLabelText("Merchant name"), "JB Hi-Fi");
     await user.click(screen.getByRole("button", { name: "Create merchant" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/merchants", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/merchants", {
       cache: "no-store",
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/merchants", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/merchants", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -196,7 +196,7 @@ describe("catalog management pages", () => {
 
     expect(screen.getByRole("heading", { name: "Tags" })).toBeTruthy();
     expect(screen.getByText("Audit public tagging before merchandising changes.")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/tags", {
+    expect(fetchMock).toHaveBeenCalledWith("/v1/admin/tags", {
       cache: "no-store",
     });
     const table = await screen.findByRole("table");
@@ -255,10 +255,10 @@ describe("catalog management pages", () => {
     await user.type(screen.getByLabelText("Tag name"), "Home Office");
     await user.click(screen.getByRole("button", { name: "Create tag" }));
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/tags", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/tags", {
       cache: "no-store",
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/tags", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/tags", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
