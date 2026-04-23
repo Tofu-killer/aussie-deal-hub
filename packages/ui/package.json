@@ -2,6 +2,10 @@
   "name": "@aussie-deal-hub/ui",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "node -e 'const fs=require(\"node:fs\");const os=require(\"node:os\");const path=require(\"node:path\");const {spawnSync}=require(\"node:child_process\");const packageRoot=process.cwd();const repoRoot=path.resolve(packageRoot,\"../..\");const tempConfigPath=path.join(os.tmpdir(),`aussie-deal-hub-ui-build-${process.pid}.json`);const compilerConfig={compilerOptions:{target:\"ES2022\",module:\"NodeNext\",moduleResolution:\"NodeNext\",strict:true,skipLibCheck:true,jsx:\"react-jsx\",noEmit:true,baseUrl:repoRoot,paths:{react:[\"apps/web/node_modules/@types/react/index.d.ts\"],\"react/jsx-runtime\":[\"apps/web/node_modules/@types/react/jsx-runtime.d.ts\"]}},files:[path.join(repoRoot,\"packages/ui/src/components/LocaleSwitch.tsx\"),path.join(repoRoot,\"packages/ui/src/components/PriceCard.tsx\")]};fs.writeFileSync(tempConfigPath,JSON.stringify(compilerConfig));try{const tscPath=require.resolve(\"typescript/bin/tsc\",{paths:[path.join(repoRoot,\"node_modules\")]});const result=spawnSync(process.execPath,[tscPath,\"-p\",tempConfigPath],{stdio:\"inherit\"});process.exit(result.status??1);}finally{fs.rmSync(tempConfigPath,{force:true});}'",
+    "test": "pnpm exec vitest run --environment jsdom src/components/*.test.tsx"
+  },
   "dependencies": {
     "react": "^19.0.0"
   },

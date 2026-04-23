@@ -19,9 +19,11 @@ export function PriceCard({
   originalPrice,
   originalPriceLabel = "",
 }: PriceCardProps) {
+  const currentPriceLabelId = React.useId();
+
   return (
-    <section>
-      <p>{currentPriceLabel}</p>
+    <section aria-labelledby={currentPriceLabelId}>
+      <p id={currentPriceLabelId}>{currentPriceLabel}</p>
       <strong>{currentPrice}</strong>
       {originalPrice ? (
         <p>

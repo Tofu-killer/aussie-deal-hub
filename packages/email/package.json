@@ -2,6 +2,9 @@
   "name": "@aussie-deal-hub/email",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/buildDailyDigest.ts"
+  },
   "exports": {
     "./buildDailyDigest": "./src/buildDailyDigest.ts"
   }

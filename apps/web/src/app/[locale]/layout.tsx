@@ -1,6 +1,7 @@
 import React, { type ReactNode } from "react";
+import type { Metadata } from "next";
 
-import { isSupportedLocale } from "../../lib/publicDeals";
+import { getPublicMetadataBase, isSupportedLocale } from "../../lib/publicDeals";
 
 interface LocaleLayoutProps {
   children: ReactNode;
@@ -8,6 +9,10 @@ interface LocaleLayoutProps {
     locale: string;
   }>;
 }
+
+export const metadata: Metadata = {
+  metadataBase: getPublicMetadataBase(),
+};
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
   const { locale } = await params;

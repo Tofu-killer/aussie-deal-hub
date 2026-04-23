@@ -1,4 +1,5 @@
 import React from "react";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import RecentViewTracker from "../../../../components/RecentViewTracker";
@@ -7,6 +8,7 @@ import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
 import { listPriceSnapshots } from "../../../../lib/serverApi";
 import {
   appendSessionToken,
+  buildDealPageMetadata,
   buildLocaleHref,
   getLocaleCopy,
   getLocaleSwitchLinks,
@@ -103,6 +105,23 @@ async function submitFavorite(sessionToken: string | undefined, slug: string) {
   if (!response.ok) {
     throw new Error(`Favorites API request failed: ${response.status}`);
   }
+}
+
+export async function generateMetadata({
+  params,
+}: Pick<DealDetailPageProps, "params">): Promise<Metadata> {
+  const { locale, slug } = await params;
+
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
+
+  const deal = getPublicDeal(slug);
+  if (!deal) {
+    notFound();
+  }
+
+  return buildDealPageMetadata(locale, deal);
 }
 
 export default async function DealDetailPage({ params, searchParams }: DealDetailPageProps) {

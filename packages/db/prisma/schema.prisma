@@ -21,21 +21,22 @@ model Source {
 }
 
 model Lead {
-  id            String   @id @default(cuid())
-  sourceId      String
-  originalTitle String
-  originalUrl   String
-  canonicalUrl  String
-  snippet       String
-  merchant      String?
-  reviewStatus  String   @default("pending")
-  aiConfidence  Int?
-  riskLabels    String[]
+  id             String           @id @default(cuid())
+  sourceId       String
+  originalTitle  String
+  originalUrl    String
+  canonicalUrl   String
+  snippet        String
+  merchant       String?
+  reviewStatus   String           @default("pending")
+  aiConfidence   Int?
+  riskLabels     String[]
   localizedHints String[]
-  source        Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  deal          Deal?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  source         Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  deal           Deal?
+  reviewDraft    LeadReviewDraft?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([sourceId, reviewStatus])
   @@index([canonicalUrl])
@@ -71,6 +72,33 @@ model DealLocale {
   deal           Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@unique([dealId, locale])
+}
+
+model LeadReviewDraft {
+  id           String                @id @default(cuid())
+  leadId       String                @unique
+  category     String
+  confidence   Int
+  riskLabels   String[]              @default([])
+  tags         String[]              @default([])
+  featuredSlot String                @default("")
+  publishAt    String
+  publish      Boolean               @default(false)
+  lead         Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  locales      LeadReviewDraftLocale[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+}
+
+model LeadReviewDraftLocale {
+  id            String          @id @default(cuid())
+  reviewDraftId String
+  locale        String
+  title         String
+  summary       String
+  reviewDraft   LeadReviewDraft @relation(fields: [reviewDraftId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewDraftId, locale])
 }
 
 model Favorite {

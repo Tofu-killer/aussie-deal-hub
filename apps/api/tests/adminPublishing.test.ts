@@ -1,7 +1,26 @@
+import { randomUUID } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
+import { prisma } from "@aussie-deal-hub/db/client";
 import { buildApp } from "../src/app";
 import { dispatchRequest } from "./httpHarness";
+
+const runDbTests = process.env.RUN_DB_TESTS === "1";
+
+if (runDbTests && !process.env.DATABASE_URL) {
+  throw new Error("RUN_DB_TESTS=1 requires DATABASE_URL to be set.");
+}
+
+const describeDb = runDbTests ? describe : describe.skip;
+
+async function buildDbApp() {
+  const { createAdminLeadRepository } = await import("@aussie-deal-hub/db/repositories/leads");
+
+  return buildApp({
+    adminLeadStore: createAdminLeadRepository(),
+  } as never);
+}
 
 describe("admin publishing queue", () => {
   it("lists locale-specific publishing queue items derived from saved review drafts", async () => {
@@ -132,5 +151,97 @@ describe("admin publishing queue", () => {
         },
       ],
     });
+  });
+});
+
+describeDb("admin publishing persistence", () => {
+  it("reads persisted publishing queue items after rebuilding the app", async () => {
+    const sourceId = `src_admin_${randomUUID()}`;
+    const app = await buildDbApp();
+
+    try {
+      const leadResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/leads",
+        body: {
+          sourceId,
+          originalTitle: "Amazon AU Kindle Paperwhite A$179",
+          originalUrl: `https://www.amazon.com.au/deal/${sourceId}`,
+          snippet: "Prime members get next-day delivery.",
+        },
+      });
+
+      expect(leadResponse.status).toBe(201);
+
+      const leadId = String((leadResponse.body as { id: string }).id);
+
+      const saveDraftResponse = await dispatchRequest(app, {
+        method: "PUT",
+        path: `/v1/admin/leads/${leadId}/review`,
+        body: {
+          leadId,
+          category: "Deals",
+          confidence: 89,
+          riskLabels: ["Prime shipping timing may vary"],
+          tags: ["ebooks", "reading"],
+          featuredSlot: "digest-primary",
+          publishAt: "2026-04-26T07:45:00.000Z",
+          locales: {
+            en: {
+              title: "Kindle Paperwhite for A$179 at Amazon AU",
+              summary: "Prime members get next-day delivery.",
+            },
+            zh: {
+              title: "亚马逊澳洲 Kindle Paperwhite 到手 A$179",
+              summary: "Prime 会员可享次日达。",
+            },
+          },
+          publish: false,
+        },
+      });
+
+      expect(saveDraftResponse.status).toBe(200);
+
+      const rebuiltApp = await buildDbApp();
+      const queueResponse = await dispatchRequest(rebuiltApp, {
+        method: "GET",
+        path: "/v1/admin/publishing",
+      });
+
+      expect(queueResponse.status).toBe(200);
+      expect(queueResponse.body).toEqual({
+        items: expect.arrayContaining([
+          {
+            id: `${leadId}:en-AU`,
+            leadId,
+            deal: "Kindle Paperwhite for A$179 at Amazon AU",
+            featuredSlot: "digest-primary",
+            publishAt: "2026-04-26T07:45:00.000Z",
+            locale: "en-AU",
+            status: "ready",
+          },
+          {
+            id: `${leadId}:zh-CN`,
+            leadId,
+            deal: "亚马逊澳洲 Kindle Paperwhite 到手 A$179",
+            featuredSlot: "digest-primary",
+            publishAt: "2026-04-26T07:45:00.000Z",
+            locale: "zh-CN",
+            status: "ready",
+          },
+        ]),
+      });
+    } finally {
+      await prisma.lead.deleteMany({
+        where: {
+          sourceId,
+        },
+      });
+      await prisma.source.deleteMany({
+        where: {
+          id: sourceId,
+        },
+      });
+    }
   });
 });

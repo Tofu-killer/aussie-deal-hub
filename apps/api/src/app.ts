@@ -2,11 +2,16 @@ import express from "express";
 
 import { createAdminCatalogRouter } from "./routes/adminCatalog.ts";
 import {
+  createLead,
   createAdminLeadsRouter,
+  saveLeadReviewDraft,
+  type AdminLeadStore,
   type LeadRecord,
   type LeadReviewStore,
 } from "./routes/adminLeads.ts";
-import { createAdminPublishingRouter } from "./routes/adminPublishing.ts";
+import {
+  createAdminPublishingRouter,
+} from "./routes/adminPublishing.ts";
 import { createAdminPreviewRouter } from "./routes/adminPreview.ts";
 import { createAdminSourcesRouter, type SourcesStore } from "./routes/adminSources.ts";
 import { createAuthRouter, type SessionRecord } from "./routes/auth.ts";
@@ -25,6 +30,7 @@ import {
 } from "./routes/publicDeals.ts";
 
 interface BuildAppOptions {
+  adminLeadStore?: AdminLeadStore;
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
   priceSnapshotStore?: PriceSnapshotStore;
@@ -40,14 +46,46 @@ export function buildApp(options: BuildAppOptions = {}) {
   const publishedDealIds = getPublishedDealIds(publishedDeals);
   const digestPreferences = new Map<string, DigestPreferencesRecord>();
   const app = express();
+  const adminLeadStore =
+    options.adminLeadStore ??
+    ({
+      async listLeadRecords() {
+        return Array.from(leads.values()).map((lead) => ({
+          lead,
+          review: leadReviews.get(lead.id) ?? null,
+        }));
+      },
+      async getLeadRecord(leadId) {
+        const lead = leads.get(leadId);
+
+        if (!lead) {
+          return null;
+        }
+
+        return {
+          lead,
+          review: leadReviews.get(leadId) ?? null,
+        };
+      },
+      async createLead(input) {
+        return createLead(leads, input);
+      },
+      async saveLeadReviewDraft(input) {
+        if (!leads.has(input.leadId)) {
+          return null;
+        }
+
+        return saveLeadReviewDraft(leadReviews, input);
+      },
+    } satisfies AdminLeadStore);
 
   app.use(express.json());
   app.use("/health", createHealthRouter());
   app.use("/v1/health", createHealthRouter());
   app.use("/v1/auth", createAuthRouter(codes, sessions));
-  app.use("/v1/admin", createAdminLeadsRouter(leads, leadReviews));
+  app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore));
   app.use("/v1/admin", createAdminCatalogRouter());
-  app.use("/v1/admin/publishing", createAdminPublishingRouter(leads, leadReviews));
+  app.use("/v1/admin/publishing", createAdminPublishingRouter(adminLeadStore));
   app.use("/v1/admin", createAdminPreviewRouter());
   app.use("/v1/admin/sources", createAdminSourcesRouter(options.sourceStore));
   app.use(

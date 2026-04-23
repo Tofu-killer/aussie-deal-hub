@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/jobs/buildDigest.ts src/jobs/reviewPendingLeads.ts",
     "test": "pnpm exec vitest run src/jobs/*.test.ts"
   },
   "exports": {

@@ -6,6 +6,7 @@
     "./client": "./src/client.ts",
     "./repositories/digestSubscriptions": "./src/repositories/digestSubscriptions.ts",
     "./repositories/favorites": "./src/repositories/favorites.ts",
+    "./repositories/leads": "./src/repositories/leads.ts",
     "./repositories/priceSnapshots": "./src/repositories/priceSnapshots.ts",
     "./repositories/sources": "./src/repositories/sources.ts"
   },

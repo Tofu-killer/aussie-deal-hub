@@ -1,9 +1,11 @@
 import React from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { LocaleSwitch } from "../../lib/ui";
 import {
   appendSessionToken,
+  buildHomePageMetadata,
   buildLocaleHref,
   getLatestDeals,
   getLocaleCopy,
@@ -76,6 +78,18 @@ function getAccountQuickLinks(
       },
     ],
   };
+}
+
+export async function generateMetadata({
+  params,
+}: Pick<LocaleHomePageProps, "params">): Promise<Metadata> {
+  const { locale } = await params;
+
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
+
+  return buildHomePageMetadata(locale);
 }
 
 export default async function LocaleHomePage({ params, searchParams }: LocaleHomePageProps) {

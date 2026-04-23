@@ -1,29 +1,25 @@
 import React from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getCategoryDealGroups } from "../../../../lib/discovery";
 import {
-  PUBLIC_DEAL_CATEGORY_LABELS,
+  PUBLIC_PRIMARY_CATEGORIES,
   appendQueryParams,
   appendSessionToken,
+  buildCategoryPageMetadata,
   buildLocaleHref,
   getSeededPublicDeals,
   getListingFilterQueryParams,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
+  getPublicCategoryTitle,
   hasActiveListingFilters,
   isSupportedLocale,
   type PublicDealCategory,
   type SupportedLocale,
 } from "../../../../lib/publicDeals";
 import { LocaleSwitch } from "../../../../lib/ui";
-
-const PRIMARY_CATEGORIES: PublicDealCategory[] = [
-  "deals",
-  "historical-lows",
-  "freebies",
-  "gift-card-offers",
-];
 
 interface CategoryPageProps {
   params: Promise<{
@@ -41,11 +37,7 @@ interface CategoryPageProps {
 }
 
 function isPrimaryCategory(category: string): category is PublicDealCategory {
-  return PRIMARY_CATEGORIES.includes(category as PublicDealCategory);
-}
-
-function getCategoryTitle(locale: SupportedLocale, label: string) {
-  return locale === "en" ? label : `${label}优惠`;
+  return PUBLIC_PRIMARY_CATEGORIES.includes(category as PublicDealCategory);
 }
 
 function toSingleSearchParam(value?: string | string[]) {
@@ -100,6 +92,18 @@ function getFilterCopy(locale: SupportedLocale) {
       };
 }
 
+export async function generateMetadata({
+  params,
+}: Pick<CategoryPageProps, "params">): Promise<Metadata> {
+  const { locale, category } = await params;
+
+  if (!isSupportedLocale(locale) || !isPrimaryCategory(category)) {
+    notFound();
+  }
+
+  return buildCategoryPageMetadata(locale, category);
+}
+
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { locale, category } = await params;
   if (!isSupportedLocale(locale) || !isPrimaryCategory(category)) {
@@ -119,7 +123,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const categoryGroup = categoryGroups.find(
     (group) => group.category === category,
   );
-  const categoryLabel = PUBLIC_DEAL_CATEGORY_LABELS[category][activeLocale];
   const categoryDeals = categoryGroup?.deals ?? [];
   const emptyStateLabel =
     activeLocale === "en" ? "No deals in this category yet." : "该分类暂无优惠。";
@@ -140,7 +143,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   return (
     <main>
       <LocaleSwitch currentLocale={activeLocale} locales={switchLinks} />
-      <h1>{getCategoryTitle(activeLocale, categoryLabel)}</h1>
+      <h1>{getPublicCategoryTitle(activeLocale, category)}</h1>
       <form method="get" action={buildLocaleHref(activeLocale, `/categories/${category}`)}>
         <p>
           <label htmlFor="category-merchant">{filterCopy.merchantLabel}</label>

@@ -1,3 +1,5 @@
+import type { Metadata, MetadataRoute } from "next";
+
 export type SupportedLocale = "en" | "zh";
 
 interface LocaleCopy {
@@ -52,6 +54,13 @@ export type PublicDealCategory =
   | "historical-lows"
   | "freebies"
   | "gift-card-offers";
+
+export const PUBLIC_PRIMARY_CATEGORIES: PublicDealCategory[] = [
+  "deals",
+  "historical-lows",
+  "freebies",
+  "gift-card-offers",
+];
 
 export interface PublicDealRecord {
   categories: PublicDealCategory[];
@@ -634,4 +643,138 @@ export function getHomeLocaleSwitchLinks(sessionToken?: string) {
     href: appendSessionToken(buildLocaleHref(candidateLocale, ""), sessionToken),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
+}
+
+const PUBLIC_SITE_NAME = "Aussie Deal Hub";
+const DEFAULT_PUBLIC_SITE_URL = "https://aussie-deal-hub.test";
+
+function getPublicSiteBaseUrl() {
+  const configuredSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? DEFAULT_PUBLIC_SITE_URL;
+
+  return configuredSiteUrl.endsWith("/") ? configuredSiteUrl : `${configuredSiteUrl}/`;
+}
+
+function trimLeadingSlash(path: string) {
+  return path.startsWith("/") ? path.slice(1) : path;
+}
+
+export function getPublicMetadataBase() {
+  return new URL(getPublicSiteBaseUrl());
+}
+
+export function buildPublicUrl(path: string) {
+  return new URL(trimLeadingSlash(path), getPublicSiteBaseUrl()).toString();
+}
+
+function buildLocalizedAlternates(
+  locale: SupportedLocale,
+  pathBuilder: (locale: SupportedLocale) => string,
+): Metadata["alternates"] {
+  return {
+    canonical: buildPublicUrl(pathBuilder(locale)),
+    languages: {
+      en: buildPublicUrl(pathBuilder("en")),
+      zh: buildPublicUrl(pathBuilder("zh")),
+    },
+  };
+}
+
+function buildMetadataTitle(title: string) {
+  return `${title} | ${PUBLIC_SITE_NAME}`;
+}
+
+export function getPublicCategoryTitle(locale: SupportedLocale, category: PublicDealCategory) {
+  const label = PUBLIC_DEAL_CATEGORY_LABELS[category][locale];
+
+  if (locale === "en") {
+    return label;
+  }
+
+  return label.endsWith("优惠") ? label : `${label}优惠`;
+}
+
+function getCategoryMetadataDescription(locale: SupportedLocale, category: PublicDealCategory) {
+  const label = PUBLIC_DEAL_CATEGORY_LABELS[category][locale];
+
+  return locale === "en"
+    ? `Browse ${label.toLowerCase()} from the seeded public Australian deal feed.`
+    : `浏览${label}分类中的 seeded public 澳洲优惠。`;
+}
+
+export function buildHomePageMetadata(locale: SupportedLocale): Metadata {
+  const copy = getLocaleCopy(locale);
+
+  return {
+    title: buildMetadataTitle(copy.homeTitle),
+    description: copy.homeIntro,
+    alternates: buildLocalizedAlternates(locale, (candidateLocale) =>
+      buildLocaleHref(candidateLocale, ""),
+    ),
+  };
+}
+
+export function buildCategoryPageMetadata(
+  locale: SupportedLocale,
+  category: PublicDealCategory,
+): Metadata {
+  return {
+    title: buildMetadataTitle(getPublicCategoryTitle(locale, category)),
+    description: getCategoryMetadataDescription(locale, category),
+    alternates: buildLocalizedAlternates(locale, (candidateLocale) =>
+      buildLocaleHref(candidateLocale, `/categories/${category}`),
+    ),
+  };
+}
+
+export function buildDealPageMetadata(
+  locale: SupportedLocale,
+  deal: PublicDealRecord,
+): Metadata {
+  return {
+    title: buildMetadataTitle(deal.locales[locale].title),
+    description: deal.locales[locale].summary,
+    alternates: buildLocalizedAlternates(locale, (candidateLocale) =>
+      buildLocaleHref(candidateLocale, `/deals/${deal.slug}`),
+    ),
+  };
+}
+
+function getLatestPublishedAtForCategory(category: PublicDealCategory) {
+  return PUBLIC_DEALS.filter((deal) => deal.categories.includes(category))
+    .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))[0]
+    ?.publishedAt;
+}
+
+export function buildPublicSitemapEntries(): MetadataRoute.Sitemap {
+  const localeEntries: MetadataRoute.Sitemap = (["en", "zh"] as SupportedLocale[]).map(
+    (locale) => ({
+      url: buildPublicUrl(buildLocaleHref(locale, "")),
+      lastModified: getLatestDeals(1)[0]?.publishedAt ?? new Date().toISOString(),
+    }),
+  );
+  const categoryEntries: MetadataRoute.Sitemap = PUBLIC_PRIMARY_CATEGORIES.flatMap((category) =>
+    (["en", "zh"] as SupportedLocale[]).map((locale) => ({
+      url: buildPublicUrl(buildLocaleHref(locale, `/categories/${category}`)),
+      lastModified: getLatestPublishedAtForCategory(category) ?? new Date().toISOString(),
+    })),
+  );
+  const detailEntries: MetadataRoute.Sitemap = getSeededPublicDeals().flatMap((deal) =>
+    (["en", "zh"] as SupportedLocale[]).map((locale) => ({
+      url: buildPublicUrl(buildLocaleHref(locale, `/deals/${deal.slug}`)),
+      lastModified: deal.publishedAt,
+    })),
+  );
+
+  return [...localeEntries, ...categoryEntries, ...detailEntries];
+}
+
+export function buildPublicRobots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+    },
+    sitemap: buildPublicUrl("/sitemap.xml"),
+  };
 }

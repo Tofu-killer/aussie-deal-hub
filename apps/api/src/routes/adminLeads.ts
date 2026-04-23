@@ -41,6 +41,18 @@ export interface StoredLeadReviewDraft extends LeadReviewDraftSubmission {
   updatedAt: string;
 }
 
+export interface StoredLeadRecord {
+  lead: LeadRecord;
+  review: StoredLeadReviewDraft | null;
+}
+
+export interface AdminLeadStore {
+  listLeadRecords(): Promise<StoredLeadRecord[]>;
+  getLeadRecord(leadId: string): Promise<StoredLeadRecord | null>;
+  createLead(input: CreateLeadInput): Promise<LeadRecord>;
+  saveLeadReviewDraft(input: LeadReviewDraftSubmission): Promise<StoredLeadReviewDraft | null>;
+}
+
 export type LeadReviewStore = Map<string, StoredLeadReviewDraft>;
 
 export type LeadQueueStatus = "pending_review" | "draft_saved" | "queued_to_publish";
@@ -75,8 +87,24 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isParseableDateTimeString(value: unknown): value is string {
+  if (!isNonEmptyString(value)) {
+    return false;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(value)) {
+    return false;
+  }
+
+  return !Number.isNaN(Date.parse(value));
 }
 
 function isLeadReviewLocaleDraft(value: unknown): value is LeadReviewLocaleDraft {
@@ -118,12 +146,11 @@ export function isLeadReviewDraftSubmission(value: unknown): value is LeadReview
   return (
     isNonEmptyString(candidate.leadId) &&
     isString(candidate.category) &&
-    typeof candidate.confidence === "number" &&
-    Number.isFinite(candidate.confidence) &&
+    isInteger(candidate.confidence) &&
     isStringArray(candidate.riskLabels) &&
     isStringArray(candidate.tags) &&
     isString(candidate.featuredSlot) &&
-    isString(candidate.publishAt) &&
+    isParseableDateTimeString(candidate.publishAt) &&
     Boolean(locales) &&
     isLeadReviewLocaleDraft(locales?.en) &&
     isLeadReviewLocaleDraft(locales?.zh) &&
@@ -150,16 +177,7 @@ export function createLead(
   return lead;
 }
 
-export function reviewStoredLead(
-  store: Map<string, LeadRecord>,
-  leadId: string,
-): LeadReview | undefined {
-  const lead = store.get(leadId);
-
-  if (!lead) {
-    return undefined;
-  }
-
+export function reviewStoredLead(lead: LeadRecord): LeadReview {
   return reviewLead(lead);
 }
 
@@ -177,7 +195,7 @@ export function saveLeadReviewDraft(
   return reviewDraft;
 }
 
-function getLeadQueueStatus(review?: StoredLeadReviewDraft): LeadQueueStatus {
+function getLeadQueueStatus(review?: StoredLeadReviewDraft | null): LeadQueueStatus {
   if (!review) {
     return "pending_review";
   }
@@ -211,9 +229,9 @@ function summarizeLeadReview(review: StoredLeadReviewDraft): LeadListReviewSumma
 }
 
 function buildLeadListItem(
-  lead: LeadRecord,
-  review?: StoredLeadReviewDraft,
+  record: StoredLeadRecord,
 ): LeadListItem {
+  const { lead, review } = record;
   const status = getLeadQueueStatus(review);
 
   return review
@@ -235,34 +253,29 @@ function buildLeadListItem(
 }
 
 export function createAdminLeadsRouter(
-  store: Map<string, LeadRecord>,
-  reviewStore: LeadReviewStore,
+  store: AdminLeadStore,
 ) {
   const router = Router();
 
-  router.get("/leads", (_request, response) => {
+  router.get("/leads", async (_request, response) => {
     response.json({
-      items: Array.from(store.values()).map((lead) =>
-        buildLeadListItem(lead, reviewStore.get(lead.id)),
-      ),
+      items: (await store.listLeadRecords()).map((record) => buildLeadListItem(record)),
     });
   });
 
-  router.get("/leads/:leadId", (request, response) => {
+  router.get("/leads/:leadId", async (request, response) => {
     const leadId = request.params.leadId ?? "";
-    const lead = store.get(leadId);
+    const record = await store.getLeadRecord(leadId);
 
-    if (!lead) {
+    if (!record) {
       response.status(404).json({ message: "Lead not found." });
       return;
     }
 
-    const review = reviewStore.get(leadId);
-
-    response.json(review ? { ...lead, review } : lead);
+    response.json(record.review ? { ...record.lead, review: record.review } : record.lead);
   });
 
-  router.post("/leads", (request, response) => {
+  router.post("/leads", async (request, response) => {
     const input = request.body as CreateLeadInput | undefined;
 
     if (!isCreateLeadInput(input)) {
@@ -270,29 +283,23 @@ export function createAdminLeadsRouter(
       return;
     }
 
-    response.status(201).json(createLead(store, input));
+    response.status(201).json(await store.createLead(input));
   });
 
-  router.post("/leads/:leadId/review", (request, response) => {
-    const review = reviewStoredLead(store, request.params.leadId ?? "");
+  router.post("/leads/:leadId/review", async (request, response) => {
+    const record = await store.getLeadRecord(request.params.leadId ?? "");
 
-    if (!review) {
+    if (!record) {
       response.status(404).json({ message: "Lead not found." });
       return;
     }
 
-    response.json(review);
+    response.json(reviewStoredLead(record.lead));
   });
 
-  router.put("/leads/:leadId/review", (request, response) => {
+  router.put("/leads/:leadId/review", async (request, response) => {
     const leadId = request.params.leadId ?? "";
-    const lead = store.get(leadId);
     const input = request.body as LeadReviewDraftSubmission | undefined;
-
-    if (!lead) {
-      response.status(404).json({ message: "Lead not found." });
-      return;
-    }
 
     if (!isLeadReviewDraftSubmission(input)) {
       response.status(400).json({ message: "Review draft payload is invalid." });
@@ -304,7 +311,14 @@ export function createAdminLeadsRouter(
       return;
     }
 
-    response.json(saveLeadReviewDraft(reviewStore, input));
+    const review = await store.saveLeadReviewDraft(input);
+
+    if (!review) {
+      response.status(404).json({ message: "Lead not found." });
+      return;
+    }
+
+    response.json(review);
   });
 
   return router;

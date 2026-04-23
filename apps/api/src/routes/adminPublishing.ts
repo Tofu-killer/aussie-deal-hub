@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import type { LeadRecord, LeadReviewStore, StoredLeadReviewDraft } from "./adminLeads.ts";
+import type { AdminLeadStore, StoredLeadRecord, StoredLeadReviewDraft } from "./adminLeads.ts";
 
 type PublishingLocale = "en-AU" | "zh-CN";
 type PublishingStatus = "scheduled" | "ready";
@@ -20,10 +20,10 @@ function getPublishingStatus(review: StoredLeadReviewDraft): PublishingStatus {
 }
 
 function buildPublishingQueueItem(
-  lead: LeadRecord,
-  review: StoredLeadReviewDraft,
+  record: StoredLeadRecord & { review: StoredLeadReviewDraft },
   locale: PublishingLocale,
 ): PublishingQueueItem {
+  const { lead, review } = record;
   const title =
     locale === "en-AU"
       ? review.locales.en.title || lead.originalTitle || lead.id
@@ -41,20 +41,17 @@ function buildPublishingQueueItem(
 }
 
 export function buildPublishingQueueItems(
-  leadStore: Map<string, LeadRecord>,
-  reviewStore: LeadReviewStore,
+  records: StoredLeadRecord[],
 ): PublishingQueueItem[] {
-  return Array.from(reviewStore.values())
-    .flatMap((review) => {
-      const lead = leadStore.get(review.leadId);
-
-      if (!lead) {
+  return records
+    .flatMap((record) => {
+      if (!record.review) {
         return [];
       }
 
       return [
-        buildPublishingQueueItem(lead, review, "en-AU"),
-        buildPublishingQueueItem(lead, review, "zh-CN"),
+        buildPublishingQueueItem(record as StoredLeadRecord & { review: StoredLeadReviewDraft }, "en-AU"),
+        buildPublishingQueueItem(record as StoredLeadRecord & { review: StoredLeadReviewDraft }, "zh-CN"),
       ];
     })
     .sort((left, right) => {
@@ -69,14 +66,13 @@ export function buildPublishingQueueItems(
 }
 
 export function createAdminPublishingRouter(
-  leadStore: Map<string, LeadRecord>,
-  reviewStore: LeadReviewStore,
+  store: Pick<AdminLeadStore, "listLeadRecords">,
 ) {
   const router = Router();
 
-  router.get("/", (_request, response) => {
+  router.get("/", async (_request, response) => {
     response.json({
-      items: buildPublishingQueueItems(leadStore, reviewStore),
+      items: buildPublishingQueueItems(await store.listLeadRecords()),
     });
   });
 
