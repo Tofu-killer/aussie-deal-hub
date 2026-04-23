@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { getCategoryDealGroups } from "../../../../lib/discovery";
+import { listPublicDeals } from "../../../../lib/serverApi";
 import {
   PUBLIC_PRIMARY_CATEGORIES,
   appendQueryParams,
@@ -16,7 +17,10 @@ import {
   getPublicCategoryTitle,
   hasActiveListingFilters,
   isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
   type PublicDealCategory,
+  type PublicDealRecord,
   type SupportedLocale,
 } from "../../../../lib/publicDeals";
 import { LocaleSwitch } from "../../../../lib/ui";
@@ -48,10 +52,10 @@ function toSingleSearchParam(value?: string | string[]) {
   return value ?? "";
 }
 
-function getMerchantOptions() {
+function getMerchantOptions(deals: PublicDealRecord[]) {
   const merchants = new Map<string, string>();
 
-  for (const deal of getSeededPublicDeals()) {
+  for (const deal of deals) {
     if (!merchants.has(deal.merchant.id)) {
       merchants.set(deal.merchant.id, deal.merchant.name);
     }
@@ -116,10 +120,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
   const hasFilters = hasActiveListingFilters(filters);
   const filterCopy = getFilterCopy(activeLocale);
-  const merchantOptions = getMerchantOptions();
+  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
+    normalizeLivePublicDeal(deal, activeLocale),
+  );
+  const publicDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
+  const merchantOptions = getMerchantOptions(publicDeals);
   const categoryGroups = hasFilters
-    ? getCategoryDealGroups(activeLocale, filters)
-    : getCategoryDealGroups(activeLocale);
+    ? getCategoryDealGroups(activeLocale, filters, publicDeals)
+    : getCategoryDealGroups(activeLocale, undefined, publicDeals);
   const categoryGroup = categoryGroups.find(
     (group) => group.category === category,
   );

@@ -491,6 +491,61 @@ describe("public deal surfaces", () => {
     chineseDetail.unmount();
   });
 
+  it("renders a live-only API deal with fallback detail modules", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/en/breville-barista-express-for-a-499"
+        ) {
+          return new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "breville-barista-express-for-a-499",
+              title: "Breville Barista Express for A$499",
+              summary: "Live catalog deal loaded from the public API.",
+              category: "Deals",
+              merchant: "The Good Guys",
+              currentPrice: "499.00",
+              affiliateUrl: "https://www.thegoodguys.com.au/deal",
+              publishedAt: "2026-04-23T01:00:00.000Z",
+              priceContext: {
+                snapshots: [],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }) as typeof fetch,
+    );
+
+    const detail = render(
+      await DealDetailPage({
+        params: Promise.resolve({
+          locale: "en",
+          slug: "breville-barista-express-for-a-499",
+        }),
+      }),
+    );
+
+    expect(
+      detail.getByRole("heading", { name: "Breville Barista Express for A$499" }),
+    ).toBeTruthy();
+    expect(detail.getByText("Live catalog deal loaded from the public API.")).toBeTruthy();
+    expect(detail.getAllByText("A$499.00")).toHaveLength(2);
+    expect(detail.getByText("The Good Guys")).toBeTruthy();
+    expect(detail.getByRole("heading", { name: "Deal highlights" })).toBeTruthy();
+    detail.unmount();
+  });
+
   it("throws notFound for unknown deals instead of rendering a soft 404 shell", async () => {
     await expect(
       DealDetailPage({

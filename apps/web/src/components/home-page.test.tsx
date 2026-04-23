@@ -2,14 +2,50 @@
 
 import React from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LocaleHomePage from "../app/[locale]/page";
 import { getHomeSectionsFromDefinitions } from "../lib/publicDeals";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
+
+function stubLiveDealsResponse() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                locale: "en",
+                slug: "breville-barista-express-for-a-499",
+                title: "Breville Barista Express for A$499",
+                summary: "Live catalog deal loaded from the public API.",
+                category: "Deals",
+                merchant: "The Good Guys",
+                currentPrice: "499.00",
+                affiliateUrl: "https://www.thegoodguys.com.au/deal",
+                publishedAt: "2026-04-23T01:00:00.000Z",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch for ${String(input)}`);
+    }) as typeof fetch,
+  );
+}
 
 describe("home page curated sections", () => {
   it("renders curated sections in English", async () => {
@@ -106,6 +142,27 @@ describe("home page curated sections", () => {
     expect(screen.getByRole("link", { name: "Open Favorites" }).getAttribute("href")).toBe(
       "/en/favorites?sessionToken=session_test_456",
     );
+  });
+
+  it("merges live API deals into latest deals and trending merchants", async () => {
+    stubLiveDealsResponse();
+
+    render(
+      await LocaleHomePage({
+        params: Promise.resolve({ locale: "en" }),
+      }),
+    );
+
+    const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
+    const latestDealLinks = within(latestDealsSection).getAllByRole("link");
+    expect(latestDealLinks[0]?.textContent).toBe("Breville Barista Express for A$499");
+    expect(latestDealLinks[0]?.getAttribute("href")).toBe(
+      "/en/deals/breville-barista-express-for-a-499",
+    );
+    expect(within(latestDealsSection).getByText("The Good Guys")).toBeTruthy();
+
+    const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
+    expect(within(trendingMerchantsSection).getByText("The Good Guys")).toBeTruthy();
   });
 
   it("throws when a curated section references a missing deal slug", () => {

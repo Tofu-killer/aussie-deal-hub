@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import RecentViewTracker from "../../../../components/RecentViewTracker";
 import { getRelatedDeals } from "../../../../lib/discovery";
 import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
-import { listPriceSnapshots } from "../../../../lib/serverApi";
+import { getPublicDealFromApi, listPriceSnapshots } from "../../../../lib/serverApi";
 import {
   appendSessionToken,
   buildDealPageMetadata,
@@ -14,6 +14,8 @@ import {
   getLocaleSwitchLinks,
   getPublicDeal,
   isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
 } from "../../../../lib/publicDeals";
 
 interface DealDetailPageProps {
@@ -116,7 +118,12 @@ export async function generateMetadata({
     notFound();
   }
 
-  const deal = getPublicDeal(slug);
+  let deal = getPublicDeal(slug);
+  if (!deal) {
+    const liveDeal = await getPublicDealFromApi(locale, slug);
+    deal = liveDeal ? normalizeLivePublicDeal(liveDeal, locale) : null;
+  }
+
   if (!deal) {
     notFound();
   }
@@ -131,7 +138,11 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
   }
 
   const activeLocale = locale;
-  const deal = getPublicDeal(slug);
+  let deal = getPublicDeal(slug);
+  const liveApiDeal = deal ? null : await getPublicDealFromApi(activeLocale, slug);
+  if (!deal && liveApiDeal) {
+    deal = normalizeLivePublicDeal(liveApiDeal, activeLocale);
+  }
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
   const sessionToken = toSingleSearchParam(resolvedSearchParams?.sessionToken);
@@ -145,20 +156,22 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
     notFound();
   }
 
-  let snapshots = [];
+  let snapshots = liveApiDeal?.priceContext?.snapshots ?? [];
   let priceContextError: string | null = null;
 
-  try {
-    snapshots = await listPriceSnapshots(activeLocale, deal.slug);
-  } catch {
-    priceContextError =
-      activeLocale === "en" ? "Price context unavailable." : "价格参考暂不可用。";
+  if (!liveApiDeal) {
+    try {
+      snapshots = await listPriceSnapshots(activeLocale, deal.slug);
+    } catch {
+      priceContextError =
+        activeLocale === "en" ? "Price context unavailable." : "价格参考暂不可用。";
+    }
   }
 
   const priceContextTitle = activeLocale === "en" ? "Price context" : "价格参考";
   const priceContextSummary =
     activeLocale === "en" ? "Selected price snapshots" : "历史价格快照";
-  const relatedDeals = getRelatedDeals(deal.slug, { limit: 3 });
+  const relatedDeals = getRelatedDeals(deal.slug, { limit: 3 }, mergePublicDeals(deal ? [deal] : []));
   const relatedDealsTitle = activeLocale === "en" ? "Related deals" : "相关优惠";
   const relatedDealsSummary =
     activeLocale === "en" ? "More deals you may want to check." : "你可能还想看看这些优惠。";

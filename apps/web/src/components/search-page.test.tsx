@@ -14,8 +14,44 @@ import { searchDeals } from "../lib/discovery";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
+
+function stubLiveDealsResponse() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                locale: "en",
+                slug: "breville-barista-express-for-a-499",
+                title: "Breville Barista Express for A$499",
+                summary: "Live catalog deal loaded from the public API.",
+                category: "Deals",
+                merchant: "The Good Guys",
+                currentPrice: "499.00",
+                affiliateUrl: "https://www.thegoodguys.com.au/deal",
+                publishedAt: "2026-04-23T01:00:00.000Z",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch for ${String(input)}`);
+    }) as typeof fetch,
+  );
+}
 
 describe("home hero search and search results page", () => {
   it("renders a GET hero search form on home and preserves session token", async () => {
@@ -67,7 +103,7 @@ describe("home hero search and search results page", () => {
       }),
     );
 
-    expect(searchDeals).toHaveBeenCalledWith("switch", "en");
+    expect(searchDeals).toHaveBeenCalledWith("switch", "en", undefined, expect.any(Array));
     expect(
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
@@ -112,5 +148,49 @@ describe("home hero search and search results page", () => {
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
       "/en?sessionToken=session_test_999",
     );
+  });
+
+  it("searches merged live API deals", async () => {
+    stubLiveDealsResponse();
+    vi.mocked(searchDeals).mockReturnValueOnce([
+      {
+        slug: "breville-barista-express-for-a-499",
+        categories: ["deals"],
+        currentPrice: "A$499",
+        originalPrice: "A$499",
+        discountLabel: "Live deal",
+        dealUrl: "https://www.thegoodguys.com.au/deal",
+        detail: expect.any(Object),
+        merchant: {
+          id: "the-good-guys",
+          name: "The Good Guys",
+        },
+        publishedAt: "2026-04-23T01:00:00.000Z",
+        locales: {
+          en: {
+            title: "Breville Barista Express for A$499",
+            summary: "Live catalog deal loaded from the public API.",
+          },
+          zh: {
+            title: "Breville Barista Express for A$499",
+            summary: "Live catalog deal loaded from the public API.",
+          },
+        },
+      },
+    ]);
+
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({ q: "breville" }),
+      }),
+    );
+
+    expect(searchDeals).toHaveBeenCalledWith("breville", "en", undefined, expect.any(Array));
+    expect(
+      screen.getByRole("link", {
+        name: "Breville Barista Express for A$499",
+      }).getAttribute("href"),
+    ).toBe("/en/deals/breville-barista-express-for-a-499");
   });
 });

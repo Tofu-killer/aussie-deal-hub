@@ -25,6 +25,7 @@ import { createHealthRouter } from "./routes/health.ts";
 import {
   createSeedPublishedDealStore,
   createPublicDealsRouter,
+  type PublishedDealListReader,
   type PublishedDealReader,
   type PublishedDealPublisher,
   type PublishedDealSlugLookup,
@@ -36,7 +37,10 @@ interface BuildAppOptions {
   adminLeadStore?: AdminLeadStore;
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
-  publishedDealStore?: PublishedDealReader & Partial<PublishedDealPublisher> & Partial<PublishedDealSlugLookup>;
+  publishedDealStore?: PublishedDealReader &
+    Partial<PublishedDealListReader> &
+    Partial<PublishedDealPublisher> &
+    Partial<PublishedDealSlugLookup>;
   priceSnapshotStore?: PriceSnapshotStore;
   sourceStore?: SourcesStore;
 }

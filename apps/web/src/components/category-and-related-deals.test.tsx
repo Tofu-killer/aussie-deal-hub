@@ -10,8 +10,44 @@ import * as discovery from "../lib/discovery";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+
+function stubLiveDealsResponse() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                locale: "en",
+                slug: "breville-barista-express-for-a-499",
+                title: "Breville Barista Express for A$499",
+                summary: "Live catalog deal loaded from the public API.",
+                category: "Deals",
+                merchant: "The Good Guys",
+                currentPrice: "499.00",
+                affiliateUrl: "https://www.thegoodguys.com.au/deal",
+                publishedAt: "2026-04-23T01:00:00.000Z",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch for ${String(input)}`);
+    }) as typeof fetch,
+  );
+}
 
 describe("category listing and related deals", () => {
   it("renders category listing with bilingual title and locale switch links", async () => {
@@ -108,5 +144,21 @@ describe("category listing and related deals", () => {
         })
         .getAttribute("href"),
     ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_789");
+  });
+
+  it("merges live API deals into category listings", async () => {
+    stubLiveDealsResponse();
+
+    render(
+      await CategoryPage({
+        params: Promise.resolve({ locale: "en", category: "deals" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", {
+        name: "Breville Barista Express for A$499",
+      }).getAttribute("href"),
+    ).toBe("/en/deals/breville-barista-express-for-a-499");
   });
 });

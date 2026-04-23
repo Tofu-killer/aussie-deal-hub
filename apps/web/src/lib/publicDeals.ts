@@ -103,6 +103,18 @@ export interface PublicListingFilterSearchParams {
   merchant?: string | string[];
 }
 
+export interface LivePublicDealInput {
+  affiliateUrl?: string;
+  category: string;
+  currentPrice?: string;
+  locale: SupportedLocale | string;
+  merchant?: string;
+  publishedAt?: string;
+  slug: string;
+  summary: string;
+  title: string;
+}
+
 type HomeSectionId = "featured" | "historical-lows" | "freebies" | "gift-card-offers";
 
 export interface HomeSectionDefinition {
@@ -452,8 +464,140 @@ export function getLocaleCopy(locale: SupportedLocale) {
   return LOCALE_COPY[locale];
 }
 
-export function getPublicDeal(slug: string) {
-  return PUBLIC_DEALS.find((deal) => deal.slug === slug) ?? null;
+function slugifyIdentifier(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
+
+function normalizeLiveCategory(category: string): PublicDealCategory {
+  const token = category.trim().toLowerCase();
+
+  if (token.includes("gift")) {
+    return "gift-card-offers";
+  }
+
+  if (token.includes("free")) {
+    return "freebies";
+  }
+
+  if (token.includes("historical") || token.includes("low")) {
+    return "historical-lows";
+  }
+
+  return "deals";
+}
+
+function formatLivePrice(value: string | undefined) {
+  if (!value) {
+    return "A$0";
+  }
+
+  return value.trim().startsWith("A$") ? value.trim() : `A$${value.trim()}`;
+}
+
+function getLiveDealDetail(
+  input: LivePublicDealInput,
+): PublicDealDetailMetadata {
+  const validFrom = input.publishedAt?.slice(0, 10) || "2026-04-23";
+  const merchant = input.merchant || "Unknown merchant";
+
+  return {
+    couponCode: null,
+    endingSoon: false,
+    expiresAt: validFrom,
+    freeShipping: false,
+    validFrom,
+    locales: {
+      en: {
+        validity: `Published ${validFrom}`,
+        whyWorthIt: "This live deal was published from the admin catalog.",
+        highlights: [
+          `Listed by ${merchant}.`,
+          "Loaded from the live public deals API.",
+        ],
+        howToGetIt: ["Open the merchant deal page.", "Check the final price before checkout."],
+        termsAndWarnings: [
+          "Live catalog details may change after publication.",
+          "Confirm stock, delivery, and final checkout terms with the merchant.",
+        ],
+      },
+      zh: {
+        validity: `发布于 ${validFrom}`,
+        whyWorthIt: "该实时优惠来自管理员发布目录。",
+        highlights: [
+          `商家：${merchant}。`,
+          "优惠来自实时 public deals API。",
+        ],
+        howToGetIt: ["打开商家优惠页面。", "结账前确认最终价格。"],
+        termsAndWarnings: [
+          "实时目录详情可能在发布后变化。",
+          "请在商家页面确认库存、配送和最终结账条款。",
+        ],
+      },
+    },
+  };
+}
+
+export function normalizeLivePublicDeal(
+  input: LivePublicDealInput,
+  activeLocale: SupportedLocale,
+): PublicDealRecord {
+  const category = normalizeLiveCategory(input.category);
+  const merchantName = input.merchant || "Unknown merchant";
+  const currentPrice = formatLivePrice(input.currentPrice);
+
+  return {
+    slug: input.slug,
+    categories: [category],
+    currentPrice,
+    originalPrice: currentPrice,
+    discountLabel: "Live deal",
+    dealUrl: input.affiliateUrl || "#",
+    detail: getLiveDealDetail(input),
+    merchant: {
+      id: slugifyIdentifier(merchantName) || "unknown-merchant",
+      name: merchantName,
+    },
+    publishedAt: input.publishedAt || "1970-01-01T00:00:00.000Z",
+    locales: {
+      en: {
+        title: input.locale === "zh" && activeLocale === "zh" ? input.title : input.title,
+        summary: input.locale === "zh" && activeLocale === "zh" ? input.summary : input.summary,
+      },
+      zh: {
+        title: input.title,
+        summary: input.summary,
+      },
+    },
+  };
+}
+
+export function mergePublicDeals(
+  liveDeals: PublicDealRecord[] = [],
+  seededDeals: PublicDealRecord[] = PUBLIC_DEALS,
+) {
+  const merged = new Map<string, PublicDealRecord>();
+
+  for (const deal of seededDeals) {
+    merged.set(deal.slug, deal);
+  }
+
+  for (const deal of liveDeals) {
+    if (!merged.has(deal.slug)) {
+      merged.set(deal.slug, deal);
+    }
+  }
+
+  return [...merged.values()];
+}
+
+export function getPublicDeal(slug: string, deals: PublicDealRecord[] = PUBLIC_DEALS) {
+  return deals.find((deal) => deal.slug === slug) ?? null;
 }
 
 export function getSeededPublicDeals(): PublicDealRecord[] {
@@ -464,16 +608,19 @@ function toTimestamp(publishedAt: string) {
   return Date.parse(publishedAt);
 }
 
-export function getLatestDeals(limit = 4): PublicDealRecord[] {
-  return [...PUBLIC_DEALS]
+export function getLatestDeals(limit = 4, deals: PublicDealRecord[] = PUBLIC_DEALS): PublicDealRecord[] {
+  return [...deals]
     .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
     .slice(0, limit);
 }
 
-export function getTrendingMerchants(limit = 4): TrendingMerchantRecord[] {
+export function getTrendingMerchants(
+  limit = 4,
+  deals: PublicDealRecord[] = PUBLIC_DEALS,
+): TrendingMerchantRecord[] {
   const merchants = new Map<string, TrendingMerchantRecord>();
 
-  for (const deal of PUBLIC_DEALS) {
+  for (const deal of deals) {
     const existing = merchants.get(deal.merchant.id);
     if (!existing) {
       merchants.set(deal.merchant.id, {
@@ -510,12 +657,13 @@ export function getTrendingMerchants(limit = 4): TrendingMerchantRecord[] {
 export function getHomeSectionsFromDefinitions(
   locale: SupportedLocale,
   sections: HomeSectionDefinition[],
+  deals: PublicDealRecord[] = PUBLIC_DEALS,
 ): PublicHomeSection[] {
   return sections.map((section) => ({
     id: section.id,
     title: section.locales[locale],
     deals: section.slugs.map((slug) => {
-      const deal = getPublicDeal(slug);
+      const deal = getPublicDeal(slug, deals);
       if (!deal) {
         throw new Error(`Missing public deal slug "${slug}" in home section "${section.id}"`);
       }
@@ -525,8 +673,11 @@ export function getHomeSectionsFromDefinitions(
   }));
 }
 
-export function getHomeSections(locale: SupportedLocale): PublicHomeSection[] {
-  return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS);
+export function getHomeSections(
+  locale: SupportedLocale,
+  deals: PublicDealRecord[] = PUBLIC_DEALS,
+): PublicHomeSection[] {
+  return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS, deals);
 }
 
 export function buildLocaleHref(locale: SupportedLocale, path: string) {

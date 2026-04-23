@@ -13,6 +13,25 @@ interface PublicPriceSnapshotRecord {
   price: string;
 }
 
+export interface PublicApiDealRecord {
+  affiliateUrl?: string;
+  category: string;
+  currentPrice?: string;
+  locale: string;
+  merchant?: string;
+  priceContext?: {
+    snapshots?: PublicPriceSnapshotRecord[];
+  };
+  publishedAt?: string;
+  slug: string;
+  summary: string;
+  title: string;
+}
+
+interface PublicDealsResponse {
+  items?: PublicApiDealRecord[];
+}
+
 interface PublicDealPriceContextResponse {
   priceContext?: {
     snapshots?: PublicPriceSnapshotRecord[];
@@ -98,6 +117,28 @@ export async function listPriceSnapshots(locale: string, slug: string) {
   );
 
   return response?.priceContext?.snapshots ?? [];
+}
+
+export async function listPublicDeals(locale: string) {
+  try {
+    const response = await fetchServerJson<PublicDealsResponse>(
+      `/v1/public/deals/${encodeURIComponent(locale)}`,
+    );
+
+    return response?.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getPublicDealFromApi(locale: string, slug: string) {
+  try {
+    return await fetchServerJson<PublicApiDealRecord>(
+      `/v1/public/deals/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}`,
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function getDigestPreferences(sessionToken: string | undefined) {

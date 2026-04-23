@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { LocaleSwitch } from "../../lib/ui";
+import { listPublicDeals } from "../../lib/serverApi";
 import {
   appendSessionToken,
   buildHomePageMetadata,
@@ -13,6 +14,8 @@ import {
   getHomeSections,
   getTrendingMerchants,
   isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
 } from "../../lib/publicDeals";
 
 interface LocaleHomePageProps {
@@ -100,9 +103,13 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
 
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
-  const sections = getHomeSections(activeLocale);
-  const latestDeals = getLatestDeals();
-  const trendingMerchants = getTrendingMerchants();
+  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
+    normalizeLivePublicDeal(deal, activeLocale),
+  );
+  const publicDeals = mergePublicDeals(liveDeals);
+  const sections = getHomeSections(activeLocale, publicDeals);
+  const latestDeals = getLatestDeals(4, publicDeals);
+  const trendingMerchants = getTrendingMerchants(4, publicDeals);
   const resolvedSearchParams = await searchParams;
   const sessionToken = Array.isArray(resolvedSearchParams?.sessionToken)
     ? resolvedSearchParams.sessionToken[0]

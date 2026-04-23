@@ -2,6 +2,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 
 import { searchDeals } from "../../../lib/discovery";
+import { listPublicDeals } from "../../../lib/serverApi";
 import {
   appendSessionToken,
   buildLocaleHref,
@@ -10,7 +11,10 @@ import {
   getLocaleCopy,
   hasActiveListingFilters,
   isSupportedLocale,
+  mergePublicDeals,
+  normalizeLivePublicDeal,
   type SupportedLocale,
+  type PublicDealRecord,
 } from "../../../lib/publicDeals";
 
 interface SearchPageProps {
@@ -36,10 +40,10 @@ function toSingleSearchParam(value?: string | string[]) {
   return value ?? "";
 }
 
-function getMerchantOptions() {
+function getMerchantOptions(deals: PublicDealRecord[]) {
   const merchants = new Map<string, string>();
 
-  for (const deal of getSeededPublicDeals()) {
+  for (const deal of deals) {
     if (!merchants.has(deal.merchant.id)) {
       merchants.set(deal.merchant.id, deal.merchant.name);
     }
@@ -97,11 +101,15 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   const hasFilters = hasActiveListingFilters(filters);
   const normalizedQuery = query.trim();
   const filterCopy = getFilterCopy(activeLocale);
-  const merchantOptions = getMerchantOptions();
+  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
+    normalizeLivePublicDeal(deal, activeLocale),
+  );
+  const publicDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
+  const merchantOptions = getMerchantOptions(publicDeals);
   const results = normalizedQuery
     ? hasFilters
-      ? searchDeals(normalizedQuery, activeLocale, filters)
-      : searchDeals(normalizedQuery, activeLocale)
+      ? searchDeals(normalizedQuery, activeLocale, filters, publicDeals)
+      : searchDeals(normalizedQuery, activeLocale, undefined, publicDeals)
     : [];
 
   const title = activeLocale === "en" ? "Search results" : "搜索结果";

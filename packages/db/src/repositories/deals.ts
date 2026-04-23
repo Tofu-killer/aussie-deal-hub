@@ -6,6 +6,10 @@ export interface PublishedDealRecord {
   title: string;
   summary: string;
   category: string;
+  merchant: string;
+  currentPrice: string;
+  affiliateUrl: string;
+  publishedAt: string;
 }
 
 export interface PublishDealLocaleInput {
@@ -51,6 +55,10 @@ function mapPublishedDealRecord(row: {
   summary: string;
   deal: {
     category: string;
+    merchant: string;
+    currentPrice: { toString(): string };
+    affiliateUrl: string;
+    updatedAt: Date;
     status: string;
   };
 }): PublishedDealRecord | null {
@@ -64,6 +72,10 @@ function mapPublishedDealRecord(row: {
     title: row.title,
     summary: row.summary,
     category: row.deal.category,
+    merchant: row.deal.merchant,
+    currentPrice: row.deal.currentPrice.toString(),
+    affiliateUrl: row.deal.affiliateUrl,
+    publishedAt: row.deal.updatedAt.toISOString(),
   };
 }
 
@@ -148,6 +160,10 @@ export function createPublishedDealRepository() {
           deal: {
             select: {
               category: true,
+              merchant: true,
+              currentPrice: true,
+              affiliateUrl: true,
+              updatedAt: true,
               status: true,
             },
           },
@@ -159,6 +175,70 @@ export function createPublishedDealRepository() {
       }
 
       return mapPublishedDealRecord(row);
+    },
+
+    async listPublishedDeals(locale: string): Promise<PublishedDealRecord[]> {
+      const deals = await prisma.deal.findMany({
+        where: {
+          status: "published",
+          locales: {
+            some: {
+              locale,
+            },
+          },
+        },
+        orderBy: [
+          {
+            updatedAt: "desc",
+          },
+          {
+            id: "asc",
+          },
+        ],
+        select: {
+          category: true,
+          merchant: true,
+          currentPrice: true,
+          affiliateUrl: true,
+          updatedAt: true,
+          status: true,
+          locales: {
+            where: {
+              locale,
+            },
+            orderBy: {
+              slug: "asc",
+            },
+            select: {
+              locale: true,
+              slug: true,
+              title: true,
+              summary: true,
+            },
+          },
+        },
+      });
+
+      return deals
+        .flatMap((deal) =>
+          deal.locales.flatMap((dealLocale) => {
+            const mappedDeal = mapPublishedDealRecord({
+              ...dealLocale,
+              deal,
+            });
+
+            return mappedDeal ? [mappedDeal] : [];
+          }),
+        )
+        .sort((left, right) => {
+          const publishedAtDiff = right.publishedAt.localeCompare(left.publishedAt);
+
+          if (publishedAtDiff !== 0) {
+            return publishedAtDiff;
+          }
+
+          return left.slug.localeCompare(right.slug);
+        });
     },
 
     async hasPublishedDealSlug(slug: string): Promise<boolean> {
