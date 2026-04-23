@@ -41,9 +41,11 @@ async function dispatchRequest(app: Express, request: AppRequest) {
     app.handle(req, response);
   });
 
+  const bodyText = response._getData();
+
   return {
     status: response.statusCode,
-    body: response._getJSONData(),
+    body: bodyText ? response._getJSONData() : undefined,
   };
 }
 
@@ -113,6 +115,29 @@ describeDb("favorites persistence", () => {
       expect(favorites.status).toBe(200);
       expect(favorites.body).toEqual({
         items: [{ dealId: validDealId }],
+      });
+
+      const removedFavorite = await dispatchRequest(app, {
+        method: "DELETE",
+        path: `/v1/favorites/${validDealId}`,
+        headers: {
+          "x-session-token": secondSessionToken,
+        },
+      });
+
+      expect(removedFavorite.status).toBe(204);
+
+      const favoritesAfterRemove = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/favorites",
+        headers: {
+          "x-session-token": secondSessionToken,
+        },
+      });
+
+      expect(favoritesAfterRemove.status).toBe(200);
+      expect(favoritesAfterRemove.body).toEqual({
+        items: [],
       });
 
       const defaults = await dispatchRequest(app, {

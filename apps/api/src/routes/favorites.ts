@@ -1,6 +1,10 @@
 import { Router } from "express";
 
-import { listFavoritesByEmail, upsertFavorite } from "@aussie-deal-hub/db/repositories/favorites";
+import {
+  deleteFavorite as deleteFavoriteRecord,
+  listFavoritesByEmail,
+  upsertFavorite,
+} from "@aussie-deal-hub/db/repositories/favorites";
 import type { SessionRecord } from "./auth.ts";
 
 export interface FavoriteRecord {
@@ -10,6 +14,7 @@ export interface FavoriteRecord {
 export interface FavoritesStore {
   listByEmail(email: string): Promise<FavoriteRecord[]>;
   saveFavorite(email: string, dealId: string): Promise<FavoriteRecord>;
+  deleteFavorite(email: string, dealId: string): Promise<void>;
 }
 
 interface CreateFavoriteInput {
@@ -46,6 +51,9 @@ export function createFavoritesRouter(
     listByEmail: listFavoritesByEmail,
     saveFavorite(email, dealId) {
       return upsertFavorite({ email, dealId });
+    },
+    deleteFavorite(email, dealId) {
+      return deleteFavoriteRecord({ email, dealId });
     },
   },
 ) {
@@ -97,6 +105,29 @@ export function createFavoritesRouter(
     await store.saveFavorite(session.email, input.dealId);
 
     response.status(201).json({ dealId: input.dealId });
+  });
+
+  router.delete("/:dealId", async (request, response) => {
+    const session = readAuthorizedSessionToken(
+      request.header("x-session-token") ?? undefined,
+      sessions,
+    );
+
+    if (!session) {
+      response.status(401).json({ message: "Unauthorized." });
+      return;
+    }
+
+    const dealId = request.params.dealId;
+
+    if (!isNonEmptyString(dealId)) {
+      response.status(400).json({ message: "Deal ID is required." });
+      return;
+    }
+
+    await store.deleteFavorite(session.email, dealId);
+
+    response.status(204).send();
   });
 
   return router;

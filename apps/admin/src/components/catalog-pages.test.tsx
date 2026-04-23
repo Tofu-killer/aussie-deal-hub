@@ -1,0 +1,279 @@
+import React from "react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import MerchantsPage from "../app/merchants/page";
+import TagsPage from "../app/tags/page";
+
+function createJsonResponse(body: unknown, ok = true) {
+  return {
+    ok,
+    json: async () => body,
+  } as Response;
+}
+
+async function renderCatalogPage(Page: typeof MerchantsPage | typeof TagsPage) {
+  if (Page.constructor.name === "AsyncFunction") {
+    render(await Promise.resolve(Page()));
+    return;
+  }
+
+  render(<Page />);
+}
+
+function getRowForText(text: string) {
+  const row = screen.getByText(text).closest("tr");
+
+  if (!row) {
+    throw new Error(`Row not found for ${text}.`);
+  }
+
+  return row;
+}
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  delete process.env.ADMIN_API_BASE_URL;
+});
+
+describe("catalog management pages", () => {
+  it("renders merchant management rows from the live admin merchants API", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        items: [
+          {
+            id: "amazon-au",
+            name: "Amazon AU",
+            activeDeals: 42,
+            primaryCategory: "Electronics",
+            status: "Active",
+            owner: "Marketplace desk",
+          },
+          {
+            id: "chemist-warehouse",
+            name: "Chemist Warehouse",
+            activeDeals: 17,
+            primaryCategory: "Health",
+            status: "Needs review",
+            owner: "Retail desk",
+          },
+          {
+            id: "the-iconic",
+            name: "The Iconic",
+            activeDeals: 9,
+            primaryCategory: "Fashion",
+            status: "Active",
+            owner: "Lifestyle desk",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(MerchantsPage);
+
+    expect(screen.getByRole("heading", { name: "Merchants" })).toBeTruthy();
+    expect(screen.getByText("Review merchant health before publishing deals.")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/merchants", {
+      cache: "no-store",
+    });
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getByText("Amazon AU")).toBeTruthy();
+    expect(within(table).getByText("Chemist Warehouse")).toBeTruthy();
+    expect(within(table).getByText("The Iconic")).toBeTruthy();
+  });
+
+  it("renders a merchant fallback when the live admin merchants API fails", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(createJsonResponse({ message: "boom" }, false)),
+    );
+
+    await renderCatalogPage(MerchantsPage);
+
+    expect(await screen.findByText("Failed to load merchants.")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("submits the create-merchant form and renders the created merchant", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "amazon-au",
+              name: "Amazon AU",
+              activeDeals: 42,
+              primaryCategory: "Electronics",
+              status: "Active",
+              owner: "Marketplace desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "jb-hi-fi",
+          name: "JB Hi-Fi",
+          activeDeals: 0,
+          primaryCategory: "Unassigned",
+          status: "Draft",
+          owner: "Admin catalog",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(MerchantsPage);
+
+    await user.type(screen.getByLabelText("Merchant name"), "JB Hi-Fi");
+    await user.click(screen.getByRole("button", { name: "Create merchant" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/merchants", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/merchants", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "JB Hi-Fi",
+      }),
+    });
+
+    expect(await screen.findByText("Merchant created.")).toBeTruthy();
+    const row = await waitFor(() => getRowForText("JB Hi-Fi"));
+    expect(within(row).getByText("0")).toBeTruthy();
+    expect(within(row).getByText("Unassigned")).toBeTruthy();
+    expect(within(row).getByText("Draft")).toBeTruthy();
+    expect(within(row).getByText("Admin catalog")).toBeTruthy();
+    expect((screen.getByLabelText("Merchant name") as HTMLInputElement).value).toBe("");
+  });
+
+  it("renders tag management rows from the live admin tags API", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        items: [
+          {
+            id: "gaming",
+            name: "Gaming",
+            slug: "gaming",
+            visibleDeals: 18,
+            localization: "EN + ZH ready",
+            owner: "Discovery desk",
+          },
+          {
+            id: "grocery",
+            name: "Grocery",
+            slug: "grocery",
+            visibleDeals: 25,
+            localization: "EN + ZH ready",
+            owner: "Everyday desk",
+          },
+          {
+            id: "travel",
+            name: "Travel",
+            slug: "travel",
+            visibleDeals: 7,
+            localization: "Needs ZH review",
+            owner: "Lifestyle desk",
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(TagsPage);
+
+    expect(screen.getByRole("heading", { name: "Tags" })).toBeTruthy();
+    expect(screen.getByText("Audit public tagging before merchandising changes.")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith("http://preview-api.test/v1/admin/tags", {
+      cache: "no-store",
+    });
+    const table = await screen.findByRole("table");
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getByText("Gaming")).toBeTruthy();
+    expect(within(table).getByText("Grocery")).toBeTruthy();
+    expect(within(table).getByText("Travel")).toBeTruthy();
+  });
+
+  it("renders a tag fallback when the live admin tags API fails", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(createJsonResponse({ message: "boom" }, false)),
+    );
+
+    await renderCatalogPage(TagsPage);
+
+    expect(await screen.findByText("Failed to load tags.")).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("submits the create-tag form and renders the created tag", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "gaming",
+              name: "Gaming",
+              slug: "gaming",
+              visibleDeals: 18,
+              localization: "EN + ZH ready",
+              owner: "Discovery desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "home-office",
+          name: "Home Office",
+          slug: "home-office",
+          visibleDeals: 0,
+          localization: "Needs localization",
+          owner: "Admin catalog",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(TagsPage);
+
+    await user.type(screen.getByLabelText("Tag name"), "Home Office");
+    await user.click(screen.getByRole("button", { name: "Create tag" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://preview-api.test/v1/admin/tags", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://preview-api.test/v1/admin/tags", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Home Office",
+      }),
+    });
+
+    expect(await screen.findByText("Tag created.")).toBeTruthy();
+    const row = await waitFor(() => getRowForText("Home Office"));
+    expect(within(row).getByText("home-office")).toBeTruthy();
+    expect(within(row).getByText("0")).toBeTruthy();
+    expect(within(row).getByText("Needs localization")).toBeTruthy();
+    expect(within(row).getByText("Admin catalog")).toBeTruthy();
+    expect((screen.getByLabelText("Tag name") as HTMLInputElement).value).toBe("");
+  });
+});

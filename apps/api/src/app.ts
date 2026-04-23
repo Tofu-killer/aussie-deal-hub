@@ -1,6 +1,14 @@
 import express from "express";
 
-import { createAdminLeadsRouter, type LeadRecord } from "./routes/adminLeads.ts";
+import { createAdminCatalogRouter } from "./routes/adminCatalog.ts";
+import {
+  createAdminLeadsRouter,
+  type LeadRecord,
+  type LeadReviewStore,
+} from "./routes/adminLeads.ts";
+import { createAdminPublishingRouter } from "./routes/adminPublishing.ts";
+import { createAdminPreviewRouter } from "./routes/adminPreview.ts";
+import { createAdminSourcesRouter, type SourcesStore } from "./routes/adminSources.ts";
 import { createAuthRouter, type SessionRecord } from "./routes/auth.ts";
 import {
   createDigestPreferencesRouter,
@@ -20,10 +28,12 @@ interface BuildAppOptions {
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
   priceSnapshotStore?: PriceSnapshotStore;
+  sourceStore?: SourcesStore;
 }
 
 export function buildApp(options: BuildAppOptions = {}) {
   const leads = new Map<string, LeadRecord>();
+  const leadReviews: LeadReviewStore = new Map();
   const codes = new Map<string, string>();
   const sessions = new Map<string, SessionRecord>();
   const publishedDeals = seedPublishedDeals();
@@ -35,7 +45,11 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/health", createHealthRouter());
   app.use("/v1/health", createHealthRouter());
   app.use("/v1/auth", createAuthRouter(codes, sessions));
-  app.use("/v1/admin", createAdminLeadsRouter(leads));
+  app.use("/v1/admin", createAdminLeadsRouter(leads, leadReviews));
+  app.use("/v1/admin", createAdminCatalogRouter());
+  app.use("/v1/admin/publishing", createAdminPublishingRouter(leads, leadReviews));
+  app.use("/v1/admin", createAdminPreviewRouter());
+  app.use("/v1/admin/sources", createAdminSourcesRouter(options.sourceStore));
   app.use(
     "/v1/digest-preferences",
     createDigestPreferencesRouter(

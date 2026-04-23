@@ -36,6 +36,15 @@ export async function upsertFavorite(input: UpsertFavoriteInput): Promise<Favori
   };
 }
 
+export async function deleteFavorite(input: UpsertFavoriteInput): Promise<void> {
+  await prisma.favorite.deleteMany({
+    where: {
+      normalizedEmail: normalizeEmail(input.email),
+      dealSlug: input.dealId,
+    },
+  });
+}
+
 export async function listFavoritesByEmail(email: string): Promise<FavoriteRecord[]> {
   const records = await prisma.favorite.findMany({
     where: {

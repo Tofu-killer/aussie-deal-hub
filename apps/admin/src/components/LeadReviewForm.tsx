@@ -11,6 +11,9 @@ export interface LeadReviewDraft {
   category: string;
   confidence: number;
   riskLabels: string[];
+  tags: string[];
+  featuredSlot: string;
+  publishAt: string;
   locales: {
     en: LeadReviewLocaleDraft;
     zh: LeadReviewLocaleDraft;
@@ -51,6 +54,31 @@ function readFormValue(
   return hasValue(control) ? control.value ?? fallback : fallback;
 }
 
+function formatDateTimeLocal(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toDateTimeLocalValue(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.slice(0, 16);
+  }
+  return formatDateTimeLocal(parsed);
+}
+
+function toUtcIsoString(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toISOString();
+}
+
 export function buildLeadReviewSubmission(
   leadId: string,
   initialReview: LeadReviewDraft,
@@ -65,12 +93,25 @@ export function buildLeadReviewSubmission(
     .split(",")
     .map((label) => label.trim())
     .filter(Boolean);
+  const tags = readFormValue(elements, "tags", initialReview.tags.join(", "))
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
 
   return {
     leadId,
     category: readFormValue(elements, "category", initialReview.category),
     confidence: Number(readFormValue(elements, "confidence", String(initialReview.confidence))) || 0,
     riskLabels,
+    tags,
+    featuredSlot: readFormValue(elements, "featuredSlot", initialReview.featuredSlot),
+    publishAt: toUtcIsoString(
+      readFormValue(
+        elements,
+        "publishAt",
+        toDateTimeLocalValue(initialReview.publishAt),
+      ),
+    ),
     locales: {
       en: {
         title: readFormValue(elements, "locales.en.title", initialReview.locales.en.title),
@@ -130,6 +171,33 @@ export function LeadReviewForm({
           defaultValue={initialReview.riskLabels.join(", ")}
           name="riskLabels"
           type="text"
+        />
+      </label>
+
+      <label>
+        Tags
+        <input
+          defaultValue={initialReview.tags.join(", ")}
+          name="tags"
+          type="text"
+        />
+      </label>
+
+      <label>
+        Featured slot
+        <input
+          defaultValue={initialReview.featuredSlot}
+          name="featuredSlot"
+          type="text"
+        />
+      </label>
+
+      <label>
+        Publish at
+        <input
+          defaultValue={toDateTimeLocalValue(initialReview.publishAt)}
+          name="publishAt"
+          type="datetime-local"
         />
       </label>
 

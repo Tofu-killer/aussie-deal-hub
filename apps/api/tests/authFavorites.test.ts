@@ -33,9 +33,11 @@ async function dispatchRequest(app: Express, request: AppRequest) {
     app.handle(req, response);
   });
 
+  const bodyText = response._getData();
+
   return {
     status: response.statusCode,
-    body: response._getJSONData(),
+    body: bodyText ? response._getJSONData() : undefined,
   };
 }
 
@@ -56,6 +58,15 @@ function createInMemoryFavoritesStore(): FavoritesStore {
       }
 
       return { dealId };
+    },
+    async deleteFavorite(email, dealId) {
+      const normalizedEmail = email.trim().toLowerCase();
+      const bucket = favorites.get(normalizedEmail) ?? [];
+
+      favorites.set(
+        normalizedEmail,
+        bucket.filter((favoriteDealId) => favoriteDealId !== dealId),
+      );
     },
   };
 }
@@ -202,6 +213,64 @@ describe("auth and favorites", () => {
     expect(favorites.status).toBe(200);
     expect(favorites.body).toEqual({
       items: [{ dealId: validDealId }],
+    });
+  });
+
+  it("removes a favorite for the active session and excludes it from later lists", async () => {
+    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
+
+    await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/request-code",
+      body: {
+        email: "user@example.com",
+      },
+    });
+
+    const verify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "123456",
+      },
+    });
+    const sessionToken = (verify.body as { sessionToken: string }).sessionToken;
+
+    const favorite = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/favorites",
+      body: {
+        dealId: validDealId,
+      },
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(favorite.status).toBe(201);
+
+    const deleted = await dispatchRequest(app, {
+      method: "DELETE",
+      path: `/v1/favorites/${validDealId}`,
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(deleted.status).toBe(204);
+
+    const favorites = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/favorites",
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(favorites.status).toBe(200);
+    expect(favorites.body).toEqual({
+      items: [],
     });
   });
 

@@ -3,6 +3,14 @@ export type SupportedLocale = "en" | "zh";
 interface LocaleCopy {
   currentPriceLabel: string;
   ctaLabel: string;
+  detailCouponCodeLabel: string;
+  detailHighlightsLabel: string;
+  detailHowToGetItLabel: string;
+  detailMerchantLabel: string;
+  detailNoCouponCodeLabel: string;
+  detailTermsLabel: string;
+  detailValidityLabel: string;
+  detailWhyWorthItLabel: string;
   favoritesCtaLabel: string;
   backToHomeLabel: string;
   favoritesTitle: string;
@@ -10,31 +18,159 @@ interface LocaleCopy {
   homeIntro: string;
   homeTitle: string;
   localeLabels: Record<SupportedLocale, string>;
+  latestDealsTitle: string;
   missingDealTitle: string;
   missingDealCtaLabel: string;
   originalPriceLabel: string;
+  trendingMerchantsTitle: string;
 }
 
-interface LocalizedDealContent {
+export interface LocalizedDealContent {
   summary: string;
   title: string;
 }
 
-interface PublicDealRecord {
+export interface LocalizedDealDetailContent {
+  highlights: string[];
+  howToGetIt: string[];
+  termsAndWarnings: string[];
+  validity: string;
+  whyWorthIt: string;
+}
+
+export interface PublicDealDetailMetadata {
+  couponCode: string | null;
+  endingSoon?: boolean;
+  expiresAt: string;
+  freeShipping?: boolean;
+  locales: Record<SupportedLocale, LocalizedDealDetailContent>;
+  validFrom: string;
+}
+
+export type PublicDealCategory =
+  | "deals"
+  | "historical-lows"
+  | "freebies"
+  | "gift-card-offers";
+
+export interface PublicDealRecord {
+  categories: PublicDealCategory[];
   currentPrice: string;
   dealUrl: string;
+  detail: PublicDealDetailMetadata;
   discountLabel: string;
   locales: Record<SupportedLocale, LocalizedDealContent>;
+  merchant: {
+    id: string;
+    name: string;
+  };
   originalPrice: string;
+  publishedAt: string;
   slug: string;
 }
 
+export interface TrendingMerchantRecord {
+  dealCount: number;
+  id: string;
+  latestPublishedAt: string;
+  name: string;
+}
+
+export type PublicDealDiscountBand = "under-20" | "20-plus" | "free";
+
+export interface PublicListingFilters {
+  discountBand?: PublicDealDiscountBand;
+  endingSoon?: boolean;
+  freeShipping?: boolean;
+  historicalLow?: boolean;
+  merchant?: string;
+}
+
+export interface PublicListingFilterSearchParams {
+  "discount-band"?: string | string[];
+  "ending-soon"?: string | string[];
+  "free-shipping"?: string | string[];
+  "historical-low"?: string | string[];
+  merchant?: string | string[];
+}
+
+type HomeSectionId = "featured" | "historical-lows" | "freebies" | "gift-card-offers";
+
+export interface HomeSectionDefinition {
+  id: HomeSectionId;
+  locales: Record<SupportedLocale, string>;
+  slugs: string[];
+}
+
+interface PublicHomeSection {
+  deals: PublicDealRecord[];
+  id: HomeSectionId;
+  title: string;
+}
+
+export const PUBLIC_DEAL_CATEGORY_LABELS: Record<
+  PublicDealCategory,
+  Record<SupportedLocale, string>
+> = {
+  deals: {
+    en: "Deals",
+    zh: "优惠",
+  },
+  "historical-lows": {
+    en: "Historical lows",
+    zh: "历史低价",
+  },
+  freebies: {
+    en: "Freebies",
+    zh: "免费领取",
+  },
+  "gift-card-offers": {
+    en: "Gift card offers",
+    zh: "礼品卡优惠",
+  },
+};
+
 export const DEFAULT_DEAL: PublicDealRecord = {
   slug: "nintendo-switch-oled-amazon-au",
+  categories: ["deals", "historical-lows"],
   currentPrice: "A$399",
   originalPrice: "A$469",
   discountLabel: "15% off",
   dealUrl: "https://www.amazon.com.au/deal",
+  detail: {
+    couponCode: "GAME20",
+    endingSoon: false,
+    validFrom: "2026-04-22",
+    expiresAt: "2026-04-30",
+    freeShipping: false,
+    locales: {
+      en: {
+        validity: "Valid until 2026-04-30",
+        whyWorthIt: "It undercuts the usual A$469 shelf price by A$70 before shipping.",
+        highlights: [
+          "A$399 is the seeded tracked low for this model.",
+          "Sold by Amazon AU with local checkout.",
+        ],
+        howToGetIt: ["Open the Amazon AU deal page.", "Apply GAME20 at checkout."],
+        termsAndWarnings: [
+          "Coupon availability can change without notice.",
+          "Check delivery costs before placing the order.",
+        ],
+      },
+      zh: {
+        validity: "有效期至 2026-04-30",
+        whyWorthIt: "相比常见 A$469 标价低 A$70，运费另计。",
+        highlights: ["A$399 是该机型的 seeded 监测低价。", "由 Amazon AU 销售并走本地结账。"],
+        howToGetIt: ["打开 Amazon AU 优惠页面。", "结账时输入 GAME20。"],
+        termsAndWarnings: ["优惠码可能随时失效。", "下单前请确认配送费用。"],
+      },
+    },
+  },
+  merchant: {
+    id: "amazon-au",
+    name: "Amazon AU",
+  },
+  publishedAt: "2026-04-22T09:00:00.000Z",
   locales: {
     en: {
       title: "Nintendo Switch OLED for A$399 at Amazon AU",
@@ -47,9 +183,212 @@ export const DEFAULT_DEAL: PublicDealRecord = {
   },
 };
 
+const PUBLIC_DEALS: PublicDealRecord[] = [
+  DEFAULT_DEAL,
+  {
+    slug: "airpods-pro-2-costco-au",
+    categories: ["historical-lows"],
+    currentPrice: "A$299",
+    originalPrice: "A$399",
+    discountLabel: "25% off",
+    dealUrl: "https://www.costco.com.au/deal",
+    detail: {
+      couponCode: "WAREHOUSE25",
+      endingSoon: true,
+      validFrom: "2026-04-21",
+      expiresAt: "2026-04-28",
+      freeShipping: true,
+      locales: {
+        en: {
+          validity: "Valid until 2026-04-28",
+          whyWorthIt: "The seeded price is A$100 below the reference A$399 ticket.",
+          highlights: [
+            "Warehouse promotion targets a tracked low for AirPods Pro.",
+            "Useful for buyers with Costco access.",
+          ],
+          howToGetIt: ["Open the Costco AU deal page.", "Apply WAREHOUSE25 if prompted."],
+          termsAndWarnings: [
+            "Costco membership may be required.",
+            "Stock and warehouse delivery windows can vary.",
+          ],
+        },
+        zh: {
+          validity: "有效期至 2026-04-28",
+          whyWorthIt: "seeded 价格比参考 A$399 低 A$100。",
+          highlights: ["仓储促销把 AirPods Pro 压到监测低价。", "适合已有 Costco 资格的买家。"],
+          howToGetIt: ["打开 Costco AU 优惠页面。", "如结账提示，输入 WAREHOUSE25。"],
+          termsAndWarnings: ["可能需要 Costco 会员资格。", "库存和仓配时效可能变化。"],
+        },
+      },
+    },
+    merchant: {
+      id: "costco-au",
+      name: "Costco AU",
+    },
+    publishedAt: "2026-04-21T09:00:00.000Z",
+    locales: {
+      en: {
+        title: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
+        summary: "Warehouse promo puts Apple earbuds at a tracked low.",
+      },
+      zh: {
+        title: "Costco 澳洲 AirPods Pro（第二代）A$299",
+        summary: "仓储促销把苹果耳机压到历史监测低位。",
+      },
+    },
+  },
+  {
+    slug: "epic-game-freebie-week",
+    categories: ["freebies"],
+    currentPrice: "A$0",
+    originalPrice: "A$59",
+    discountLabel: "Free",
+    dealUrl: "https://store.epicgames.com/deal",
+    detail: {
+      couponCode: null,
+      endingSoon: false,
+      validFrom: "2026-04-20",
+      expiresAt: "2026-04-27",
+      freeShipping: true,
+      locales: {
+        en: {
+          validity: "Valid until 2026-04-27",
+          whyWorthIt: "The free claim drops a normally paid PC title to A$0.",
+          highlights: [
+            "No payment is needed during the weekly freebie window.",
+            "The claim stays attached to the account after redemption.",
+          ],
+          howToGetIt: ["Open the Epic Games Store deal page.", "Sign in and claim the weekly freebie."],
+          termsAndWarnings: [
+            "The freebie rotates after the campaign window.",
+            "Platform account and launcher requirements may apply.",
+          ],
+        },
+        zh: {
+          validity: "有效期至 2026-04-27",
+          whyWorthIt: "本次领取把原付费 PC 游戏降到 A$0。",
+          highlights: ["周免窗口内无需付款。", "领取后会绑定到账户。"],
+          howToGetIt: ["打开 Epic Games Store 优惠页面。", "登录并领取本周限免。"],
+          termsAndWarnings: ["周免会在活动结束后轮换。", "可能需要平台账号和启动器。"],
+        },
+      },
+    },
+    merchant: {
+      id: "epic-games-store",
+      name: "Epic Games Store",
+    },
+    publishedAt: "2026-04-20T09:00:00.000Z",
+    locales: {
+      en: {
+        title: "Epic weekly freebie now A$0",
+        summary: "Claim this week's PC title before the rotation resets.",
+      },
+      zh: {
+        title: "Epic 本周限免游戏现价 A$0",
+        summary: "在轮换结束前领取本周 PC 免费游戏。",
+      },
+    },
+  },
+  {
+    slug: "coles-gift-card-bonus-credit",
+    categories: ["gift-card-offers"],
+    currentPrice: "A$90",
+    originalPrice: "A$100",
+    discountLabel: "10% bonus value",
+    dealUrl: "https://www.coles.com.au/deal",
+    detail: {
+      couponCode: "BONUS10",
+      endingSoon: true,
+      validFrom: "2026-04-19",
+      expiresAt: "2026-04-26",
+      freeShipping: false,
+      locales: {
+        en: {
+          validity: "Valid until 2026-04-26",
+          whyWorthIt: "The seeded offer gives A$100 card value for A$90 spend.",
+          highlights: [
+            "Best suited to planned spend at eligible brands.",
+            "Bonus value is clearer than a delayed cashback.",
+          ],
+          howToGetIt: ["Open the Coles deal page.", "Choose an eligible gift card and apply BONUS10."],
+          termsAndWarnings: [
+            "Eligible brands may be limited.",
+            "Gift cards can carry redemption and expiry conditions.",
+          ],
+        },
+        zh: {
+          validity: "有效期至 2026-04-26",
+          whyWorthIt: "seeded 活动用 A$90 换 A$100 礼品卡价值。",
+          highlights: ["更适合已有指定品牌消费计划的用户。", "额外面值比延迟返现更直观。"],
+          howToGetIt: ["打开 Coles 优惠页面。", "选择符合条件的礼品卡并使用 BONUS10。"],
+          termsAndWarnings: ["适用品牌可能有限。", "礼品卡可能有使用和过期条件。"],
+        },
+      },
+    },
+    merchant: {
+      id: "coles",
+      name: "Coles",
+    },
+    publishedAt: "2026-04-19T09:00:00.000Z",
+    locales: {
+      en: {
+        title: "A$100 gift card value for A$90 at Coles",
+        summary: "Gift card campaign adds bonus spend for selected brands.",
+      },
+      zh: {
+        title: "Coles 指定礼品卡 A$90 兑 A$100 面值",
+        summary: "礼品卡活动为指定品牌增加额外可用额度。",
+      },
+    },
+  },
+];
+
+const HOME_SECTIONS: HomeSectionDefinition[] = [
+  {
+    id: "featured",
+    locales: {
+      en: "Featured deals",
+      zh: "精选优惠",
+    },
+    slugs: ["nintendo-switch-oled-amazon-au"],
+  },
+  {
+    id: "historical-lows",
+    locales: {
+      en: "Historical lows",
+      zh: "历史低价",
+    },
+    slugs: ["airpods-pro-2-costco-au"],
+  },
+  {
+    id: "freebies",
+    locales: {
+      en: "Freebies",
+      zh: "免费领取",
+    },
+    slugs: ["epic-game-freebie-week"],
+  },
+  {
+    id: "gift-card-offers",
+    locales: {
+      en: "Gift card offers",
+      zh: "礼品卡优惠",
+    },
+    slugs: ["coles-gift-card-bonus-credit"],
+  },
+];
+
 const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
   en: {
     currentPriceLabel: "Current price",
+    detailCouponCodeLabel: "Coupon code",
+    detailHighlightsLabel: "Deal highlights",
+    detailHowToGetItLabel: "How to get it",
+    detailMerchantLabel: "Merchant",
+    detailNoCouponCodeLabel: "No code required",
+    detailTermsLabel: "Terms and warnings",
+    detailValidityLabel: "Validity",
+    detailWhyWorthItLabel: "Why this is worth it",
     homeTitle: "Today's picks",
     homeIntro: "Browse bilingual Australian deals with a clear price hierarchy and fast merchant CTA.",
     favoritesTitle: "My Favorites",
@@ -60,6 +399,8 @@ const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
     missingDealTitle: "Deal not found",
     missingDealCtaLabel: "Return home",
     originalPriceLabel: "Original price",
+    latestDealsTitle: "Latest deals",
+    trendingMerchantsTitle: "Trending merchants",
     localeLabels: {
       en: "English",
       zh: "中文",
@@ -67,6 +408,14 @@ const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
   },
   zh: {
     currentPriceLabel: "当前价格",
+    detailCouponCodeLabel: "优惠码",
+    detailHighlightsLabel: "优惠亮点",
+    detailHowToGetItLabel: "如何领取",
+    detailMerchantLabel: "商家",
+    detailNoCouponCodeLabel: "无需优惠码",
+    detailTermsLabel: "条款与提醒",
+    detailValidityLabel: "有效期",
+    detailWhyWorthItLabel: "为什么值得买",
     homeTitle: "今日精选",
     homeIntro: "用清晰的价格层级和直接跳转按钮浏览双语澳洲优惠。",
     favoritesTitle: "我的收藏",
@@ -77,6 +426,8 @@ const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
     missingDealTitle: "优惠不存在",
     missingDealCtaLabel: "返回首页",
     originalPriceLabel: "原价",
+    latestDealsTitle: "最新优惠",
+    trendingMerchantsTitle: "热门商家",
     localeLabels: {
       en: "English",
       zh: "中文",
@@ -93,26 +444,176 @@ export function getLocaleCopy(locale: SupportedLocale) {
 }
 
 export function getPublicDeal(slug: string) {
-  if (slug === DEFAULT_DEAL.slug) {
-    return DEFAULT_DEAL;
+  return PUBLIC_DEALS.find((deal) => deal.slug === slug) ?? null;
+}
+
+export function getSeededPublicDeals(): PublicDealRecord[] {
+  return [...PUBLIC_DEALS];
+}
+
+function toTimestamp(publishedAt: string) {
+  return Date.parse(publishedAt);
+}
+
+export function getLatestDeals(limit = 4): PublicDealRecord[] {
+  return [...PUBLIC_DEALS]
+    .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
+    .slice(0, limit);
+}
+
+export function getTrendingMerchants(limit = 4): TrendingMerchantRecord[] {
+  const merchants = new Map<string, TrendingMerchantRecord>();
+
+  for (const deal of PUBLIC_DEALS) {
+    const existing = merchants.get(deal.merchant.id);
+    if (!existing) {
+      merchants.set(deal.merchant.id, {
+        id: deal.merchant.id,
+        name: deal.merchant.name,
+        dealCount: 1,
+        latestPublishedAt: deal.publishedAt,
+      });
+      continue;
+    }
+
+    existing.dealCount += 1;
+    if (toTimestamp(deal.publishedAt) > toTimestamp(existing.latestPublishedAt)) {
+      existing.latestPublishedAt = deal.publishedAt;
+    }
   }
 
-  return null;
+  return [...merchants.values()]
+    .sort((left, right) => {
+      if (right.dealCount !== left.dealCount) {
+        return right.dealCount - left.dealCount;
+      }
+
+      const publishedAtDiff = toTimestamp(right.latestPublishedAt) - toTimestamp(left.latestPublishedAt);
+      if (publishedAtDiff !== 0) {
+        return publishedAtDiff;
+      }
+
+      return left.name.localeCompare(right.name);
+    })
+    .slice(0, limit);
+}
+
+export function getHomeSectionsFromDefinitions(
+  locale: SupportedLocale,
+  sections: HomeSectionDefinition[],
+): PublicHomeSection[] {
+  return sections.map((section) => ({
+    id: section.id,
+    title: section.locales[locale],
+    deals: section.slugs.map((slug) => {
+      const deal = getPublicDeal(slug);
+      if (!deal) {
+        throw new Error(`Missing public deal slug "${slug}" in home section "${section.id}"`);
+      }
+
+      return deal;
+    }),
+  }));
+}
+
+export function getHomeSections(locale: SupportedLocale): PublicHomeSection[] {
+  return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS);
 }
 
 export function buildLocaleHref(locale: SupportedLocale, path: string) {
   return `/${locale}${path}`;
 }
 
-export function appendSessionToken(href: string, sessionToken?: string) {
-  if (!sessionToken) {
+function toSingleSearchParam(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value[0]?.trim() || undefined;
+  }
+
+  return value?.trim() || undefined;
+}
+
+function isDiscountBand(value: string): value is PublicDealDiscountBand {
+  return value === "under-20" || value === "20-plus" || value === "free";
+}
+
+function parseMoneyAmount(value: string) {
+  const amount = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+export function getPublicDealDiscountBand(deal: PublicDealRecord): PublicDealDiscountBand {
+  const currentPrice = parseMoneyAmount(deal.currentPrice);
+  const originalPrice = parseMoneyAmount(deal.originalPrice);
+
+  if (currentPrice === 0) {
+    return "free";
+  }
+
+  if (originalPrice <= 0 || currentPrice >= originalPrice) {
+    return "under-20";
+  }
+
+  const discountPercent = ((originalPrice - currentPrice) / originalPrice) * 100;
+  return discountPercent >= 20 ? "20-plus" : "under-20";
+}
+
+export function getListingFiltersFromSearchParams(
+  searchParams?: PublicListingFilterSearchParams,
+): PublicListingFilters {
+  const merchant = toSingleSearchParam(searchParams?.merchant)?.toLowerCase();
+  const historicalLowParam = toSingleSearchParam(searchParams?.["historical-low"])?.toLowerCase();
+  const discountBandParam = toSingleSearchParam(searchParams?.["discount-band"])?.toLowerCase();
+  const freeShippingParam = toSingleSearchParam(searchParams?.["free-shipping"])?.toLowerCase();
+  const endingSoonParam = toSingleSearchParam(searchParams?.["ending-soon"])?.toLowerCase();
+
+  return {
+    merchant,
+    freeShipping: freeShippingParam === "true" ? true : undefined,
+    endingSoon: endingSoonParam === "true" ? true : undefined,
+    historicalLow: historicalLowParam === "true" ? true : undefined,
+    discountBand: discountBandParam && isDiscountBand(discountBandParam) ? discountBandParam : undefined,
+  };
+}
+
+export function hasActiveListingFilters(filters: PublicListingFilters) {
+  return Boolean(
+    filters.merchant
+      || filters.historicalLow
+      || filters.discountBand
+      || filters.freeShipping
+      || filters.endingSoon,
+  );
+}
+
+export function getListingFilterQueryParams(filters: PublicListingFilters) {
+  return {
+    merchant: filters.merchant,
+    "historical-low": filters.historicalLow ? "true" : undefined,
+    "discount-band": filters.discountBand,
+    "free-shipping": filters.freeShipping ? "true" : undefined,
+    "ending-soon": filters.endingSoon ? "true" : undefined,
+  };
+}
+
+export function appendQueryParams(href: string, params: Record<string, string | undefined>) {
+  const entries = Object.entries(params).filter(([, value]) => value);
+  if (entries.length === 0) {
     return href;
   }
 
   const url = new URL(href, "http://local.test");
-  url.searchParams.set("sessionToken", sessionToken);
+
+  for (const [key, value] of entries) {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  }
 
   return `${url.pathname}${url.search}`;
+}
+
+export function appendSessionToken(href: string, sessionToken?: string) {
+  return appendQueryParams(href, { sessionToken });
 }
 
 export function getLocaleSwitchLinks(

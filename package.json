@@ -6,7 +6,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "vitest --config vitest.workspace.ts --watch packages/config/src/env.test.ts",
-    "test": "vitest run --config vitest.workspace.ts"
+    "test": "vitest run --config vitest.workspace.ts",
+    "verify": "pnpm build && pnpm test"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",
