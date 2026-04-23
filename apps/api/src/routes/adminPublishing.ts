@@ -20,14 +20,29 @@ export interface PublishingQueueItem {
   status: PublishingStatus;
 }
 
-function getPublishingStatus(review: StoredLeadReviewDraft): PublishingStatus {
-  return review.publish ? "scheduled" : "ready";
-}
-
-function buildPublishingQueueItem(
+async function hasPublishedLocale(
   record: StoredLeadRecord & { review: StoredLeadReviewDraft },
   locale: PublishingLocale,
-): PublishingQueueItem {
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<boolean> {
+  const publishedLocale = locale === "en-AU" ? "en" : "zh";
+  const publishedSlug = await publishedDealStore?.getPublishedDealSlugForLead?.(
+    record.lead.id,
+    publishedLocale,
+  );
+
+  return Boolean(publishedSlug);
+}
+
+async function buildPublishingQueueItem(
+  record: StoredLeadRecord & { review: StoredLeadReviewDraft },
+  locale: PublishingLocale,
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<PublishingQueueItem | null> {
+  if (await hasPublishedLocale(record, locale, publishedDealStore)) {
+    return null;
+  }
+
   const { lead, review } = record;
   const title =
     locale === "en-AU"
@@ -41,33 +56,44 @@ function buildPublishingQueueItem(
     featuredSlot: review.featuredSlot,
     publishAt: review.publishAt,
     locale,
-    status: getPublishingStatus(review),
+    status: review.publish ? "scheduled" : "ready",
   };
 }
 
-export function buildPublishingQueueItems(
+export async function buildPublishingQueueItems(
   records: StoredLeadRecord[],
-): PublishingQueueItem[] {
-  return records
-    .flatMap((record) => {
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<PublishingQueueItem[]> {
+  const items = (await Promise.all(
+    records.flatMap((record) => {
       if (!record.review) {
         return [];
       }
 
       return [
-        buildPublishingQueueItem(record as StoredLeadRecord & { review: StoredLeadReviewDraft }, "en-AU"),
-        buildPublishingQueueItem(record as StoredLeadRecord & { review: StoredLeadReviewDraft }, "zh-CN"),
+        buildPublishingQueueItem(
+          record as StoredLeadRecord & { review: StoredLeadReviewDraft },
+          "en-AU",
+          publishedDealStore,
+        ),
+        buildPublishingQueueItem(
+          record as StoredLeadRecord & { review: StoredLeadReviewDraft },
+          "zh-CN",
+          publishedDealStore,
+        ),
       ];
-    })
-    .sort((left, right) => {
-      const publishAtDiff = Date.parse(left.publishAt) - Date.parse(right.publishAt);
+    }),
+  )).filter((item): item is PublishingQueueItem => item !== null);
 
-      if (!Number.isNaN(publishAtDiff) && publishAtDiff !== 0) {
-        return publishAtDiff;
-      }
+  return items.sort((left, right) => {
+    const publishAtDiff = Date.parse(left.publishAt) - Date.parse(right.publishAt);
 
-      return left.id.localeCompare(right.id);
-    });
+    if (!Number.isNaN(publishAtDiff) && publishAtDiff !== 0) {
+      return publishAtDiff;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
 }
 
 function slugifyTitle(title: string) {
@@ -175,7 +201,7 @@ export function createAdminPublishingRouter(
 
   router.get("/", async (_request, response) => {
     response.json({
-      items: buildPublishingQueueItems(await store.listLeadRecords()),
+      items: await buildPublishingQueueItems(await store.listLeadRecords(), publishedDealStore),
     });
   });
 

@@ -155,6 +155,7 @@ describe("admin publishing queue", () => {
 
   it("publishes a saved review draft into the public deal store", async () => {
     const publishedDeals = new Map<string, {
+      leadId: string;
       locale: string;
       slug: string;
       title: string;
@@ -174,6 +175,7 @@ describe("admin publishing queue", () => {
       }) {
         for (const locale of input.locales) {
           publishedDeals.set(`${locale.locale}:${locale.slug}`, {
+            leadId: input.leadId,
             locale: locale.locale,
             slug: locale.slug,
             title: locale.title,
@@ -196,6 +198,11 @@ describe("admin publishing queue", () => {
       },
       async hasPublishedDealSlug(slug: string) {
         return Array.from(publishedDeals.values()).some((deal) => deal.slug === slug);
+      },
+      async getPublishedDealSlugForLead(leadId: string, locale: string) {
+        return Array.from(publishedDeals.values()).find(
+          (deal) => deal.leadId === leadId && deal.locale === locale,
+        )?.slug ?? null;
       },
     };
     const app = buildApp({ publishedDealStore } as never);
@@ -287,26 +294,7 @@ describe("admin publishing queue", () => {
 
     expect(queueResponse.status).toBe(200);
     expect(queueResponse.body).toEqual({
-      items: [
-        {
-          id: `${leadId}:en-AU`,
-          leadId,
-          deal: "LEGO Bonsai Tree for A$59 at Big W",
-          featuredSlot: "weekend",
-          publishAt: "2026-04-24T11:00:00.000Z",
-          locale: "en-AU",
-          status: "scheduled",
-        },
-        {
-          id: `${leadId}:zh-CN`,
-          leadId,
-          deal: "Big W 乐高盆景树套装 A$59",
-          featuredSlot: "weekend",
-          publishAt: "2026-04-24T11:00:00.000Z",
-          locale: "zh-CN",
-          status: "scheduled",
-        },
-      ],
+      items: [],
     });
   });
 
