@@ -1,3 +1,5 @@
+import { runReadinessSmoke } from "../packages/config/src/readinessSmoke.ts";
+
 const targets = [
   {
     name: "api-health",
@@ -31,20 +33,8 @@ const targets = [
   },
 ];
 
-async function checkTarget(target) {
-  const response = await fetch(target.url, {
-    cache: "no-store",
-  });
-
-  if (response.status !== target.expectedStatus) {
-    throw new Error(`${target.name} expected ${target.expectedStatus}, got ${response.status}`);
-  }
-}
-
 async function main() {
-  for (const target of targets) {
-    await checkTarget(target);
-  }
+  await runReadinessSmoke(targets);
 }
 
 main().catch((error) => {
