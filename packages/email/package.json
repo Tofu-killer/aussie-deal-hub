@@ -3,9 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/buildDailyDigest.ts"
+    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/buildDailyDigest.ts src/verificationCodeSender.ts"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.10"
   },
   "exports": {
-    "./buildDailyDigest": "./src/buildDailyDigest.ts"
+    "./buildDailyDigest": "./src/buildDailyDigest.ts",
+    "./verificationCodeSender": "./src/verificationCodeSender.ts"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.0"
   }
 }

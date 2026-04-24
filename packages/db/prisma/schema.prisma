@@ -12,6 +12,8 @@ model Source {
   name       String
   sourceType String
   baseUrl    String   @unique
+  fetchMethod String  @default("html")
+  pollIntervalMinutes Int @default(60)
   trustScore Int      @default(50)
   language   String   @default("en")
   enabled    Boolean  @default(true)
@@ -122,6 +124,28 @@ model EmailDigestSubscription {
   categories      String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model MerchantCatalog {
+  id              String   @id
+  name            String
+  activeDeals     Int      @default(0)
+  primaryCategory String   @default("Unassigned")
+  status          String   @default("Draft")
+  owner           String   @default("Admin catalog")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TagCatalog {
+  id           String   @id
+  name         String
+  slug         String   @unique
+  visibleDeals Int      @default(0)
+  localization String   @default("Needs localization")
+  owner        String   @default("Admin catalog")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model PriceSnapshot {

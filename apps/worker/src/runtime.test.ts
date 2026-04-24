@@ -255,4 +255,73 @@ describe("worker runtime helpers", () => {
   it("resolves a worker state path inside the runtime directory by default", () => {
     expect(resolveWorkerStatePath()).toContain(".runtime/worker-state.json");
   });
+
+  it("passes source fetch metadata into ingestion during the worker cycle", async () => {
+    const sourceFetcher = {
+      fetch: vi.fn().mockResolvedValue({
+        body: JSON.stringify({
+          items: [
+            {
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+              url: "https://source.example/deals/switch",
+              snippet: "Fresh candidate",
+            },
+          ],
+        }),
+        contentType: "application/json",
+      }),
+    };
+    const recordSourcePoll = vi.fn().mockResolvedValue(undefined);
+
+    const summary = await runWorkerCycle({
+      leadStore: {
+        createLeadIfNew: vi.fn().mockResolvedValue({ created: true }),
+        listLeadRecords: vi.fn().mockResolvedValue([]),
+        saveLeadReviewDraft: vi.fn().mockResolvedValue(null),
+      },
+      publishedDealStore: {
+        getPublishedDealSlugForLead: vi.fn().mockResolvedValue(null),
+        hasPublishedDealSlug: vi.fn().mockResolvedValue(false),
+        publishDeal: vi.fn(),
+      },
+      sourceStore: {
+        listEnabledSources: vi.fn().mockResolvedValue([
+          {
+            id: "source_1",
+            name: "Amazon AU API",
+            sourceType: "community",
+            baseUrl: "https://source.example/api/deals",
+            fetchMethod: "json",
+            pollIntervalMinutes: 30,
+            trustScore: 80,
+            language: "en",
+            lastPolledAt: null,
+          },
+        ]),
+        recordSourcePoll,
+      },
+      sourceFetcher,
+      log: {
+        info: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+
+    expect(sourceFetcher.fetch).toHaveBeenCalledWith({
+      url: "https://source.example/api/deals",
+      fetchMethod: "json",
+    });
+    expect(recordSourcePoll).toHaveBeenCalledWith({
+      sourceId: "source_1",
+      createdLeadCount: 1,
+      message: "Fetched 1 candidates; created 1 leads.",
+      status: "ok",
+    });
+    expect(summary).toMatchObject({
+      ingestedLeadCount: 1,
+      polledSourceCount: 1,
+      reviewedCount: 0,
+      publishedCount: 0,
+    });
+  });
 });

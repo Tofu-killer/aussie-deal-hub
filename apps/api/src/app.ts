@@ -1,6 +1,11 @@
 import express, { type NextFunction, type Request, type Response } from "express";
+import {
+  createLoggingEmailTransport,
+  createSmtpEmailTransport,
+  createVerificationCodeSender,
+} from "@aussie-deal-hub/email/verificationCodeSender";
 
-import { createAdminCatalogRouter } from "./routes/adminCatalog.ts";
+import { createAdminCatalogRouter, type AdminCatalogStore } from "./routes/adminCatalog.ts";
 import {
   createLead,
   createAdminLeadsRouter,
@@ -14,11 +19,18 @@ import {
 } from "./routes/adminPublishing.ts";
 import { createAdminPreviewRouter } from "./routes/adminPreview.ts";
 import { createAdminRuntimeRouter } from "./routes/adminRuntime.ts";
-import { createAdminSourcesRouter, type SourcesStore } from "./routes/adminSources.ts";
+import {
+  createAdminSourcesRouter,
+  type SourcesStore,
+} from "./routes/adminSources.ts";
 import {
   createAuthRouter,
+  createInMemoryVerificationCodeStore,
+  createSixDigitCodeGenerator,
   createSignedSessionManager,
+  type AuthCodeSender,
   type SessionManager,
+  type VerificationCodeStore,
 } from "./routes/auth.ts";
 import {
   createDigestPreferencesRouter,
@@ -39,10 +51,15 @@ import {
 } from "./routes/publicDeals.ts";
 
 interface BuildAppOptions {
+  adminCatalogStore?: AdminCatalogStore;
   adminLeadStore?: AdminLeadStore;
+  authCodeGenerator?: () => string;
+  authCodeSender?: AuthCodeSender;
+  authCodeTtlMs?: number;
   digestPreferencesStore?: DigestPreferencesStore;
   favoritesStore?: FavoritesStore;
   healthCheck?: HealthChecker;
+  now?: () => number;
   readyCheck?: HealthChecker;
   sessionManager?: SessionManager;
   publishedDealStore?: PublishedDealReader &
@@ -51,15 +68,69 @@ interface BuildAppOptions {
     Partial<PublishedDealSlugLookup>;
   priceSnapshotStore?: PriceSnapshotStore;
   sourceStore?: SourcesStore;
+  verificationCodeStore?: VerificationCodeStore;
+}
+
+function parseBooleanFlag(value: string | undefined, defaultValue: boolean) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  return value === "1" || value === "true";
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function hasConfiguredSmtp(env: NodeJS.ProcessEnv) {
+  return Boolean(env.SMTP_HOST && env.SMTP_PORT);
+}
+
+function createDefaultAuthCodeSender(env: NodeJS.ProcessEnv): AuthCodeSender {
+  const emailFrom = env.EMAIL_FROM ?? "deals@example.com";
+
+  if (hasConfiguredSmtp(env)) {
+    return createVerificationCodeSender(
+      createSmtpEmailTransport({
+        host: env.SMTP_HOST!,
+        port: parsePositiveInteger(env.SMTP_PORT, 587),
+        secure: parseBooleanFlag(env.SMTP_SECURE, false),
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS,
+      }),
+      emailFrom,
+    );
+  }
+
+  if (env.NODE_ENV === "production") {
+    throw new Error("SMTP configuration is required in production.");
+  }
+
+  return createVerificationCodeSender(createLoggingEmailTransport(), emailFrom);
+}
+
+function createDefaultAuthCodeGenerator(env: NodeJS.ProcessEnv) {
+  if (env.NODE_ENV === "test") {
+    return () => "123456";
+  }
+
+  return createSixDigitCodeGenerator;
 }
 
 export function buildApp(options: BuildAppOptions = {}) {
   const leads = new Map<string, LeadRecord>();
   const leadReviews: LeadReviewStore = new Map();
-  const codes = new Map<string, string>();
+  const verificationCodeStore =
+    options.verificationCodeStore ?? createInMemoryVerificationCodeStore();
   const sessionManager =
     options.sessionManager ??
     createSignedSessionManager(process.env.SESSION_SECRET ?? "development-session-secret");
+  const authCodeSender = options.authCodeSender ?? createDefaultAuthCodeSender(process.env);
+  const authCodeGenerator = options.authCodeGenerator ?? createDefaultAuthCodeGenerator(process.env);
+  const authCodeTtlMs =
+    options.authCodeTtlMs ?? parsePositiveInteger(process.env.AUTH_CODE_TTL_MS, 10 * 60 * 1000);
   const publishedDeals = seedPublishedDeals();
   const publishedDealStore = options.publishedDealStore ?? createSeedPublishedDealStore(publishedDeals);
   const previewPublishedDealStore = options.publishedDealStore?.listPublishedDeals
@@ -107,9 +178,16 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/v1/health", createHealthRouter(options.healthCheck));
   app.use("/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
   app.use("/v1/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
-  app.use("/v1/auth", createAuthRouter(codes, sessionManager));
+  app.use(
+    "/v1/auth",
+    createAuthRouter(verificationCodeStore, sessionManager, authCodeSender, {
+      codeGenerator: authCodeGenerator,
+      codeTtlMs: authCodeTtlMs,
+      now: options.now,
+    }),
+  );
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
-  app.use("/v1/admin", createAdminCatalogRouter());
+  app.use("/v1/admin", createAdminCatalogRouter(options.adminCatalogStore));
   app.use("/v1/admin", createAdminRuntimeRouter());
   app.use(
     "/v1/admin/publishing",

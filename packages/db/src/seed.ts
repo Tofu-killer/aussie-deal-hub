@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { prisma } from "./client";
+import { seedAdminCatalog } from "./repositories/catalog.ts";
 import { seedSelectedPriceSnapshots } from "./repositories/priceSnapshots.ts";
 
 export async function seedCoreData() {
@@ -17,6 +18,8 @@ export async function seedCoreData() {
       name: "OzBargain",
       sourceType: "community",
       baseUrl: "https://www.ozbargain.com.au/deals",
+      fetchMethod: "html",
+      pollIntervalMinutes: 60,
       trustScore: 65,
       language: "en",
       enabled: true,
@@ -25,6 +28,8 @@ export async function seedCoreData() {
       name: "Choice Deals",
       sourceType: "publisher",
       baseUrl: "https://www.choice.com.au/",
+      fetchMethod: "html",
+      pollIntervalMinutes: 360,
       trustScore: 70,
       language: "en",
       enabled: false,
@@ -33,6 +38,8 @@ export async function seedCoreData() {
       name: "SMZDM",
       sourceType: "community",
       baseUrl: "https://www.smzdm.com",
+      fetchMethod: "html",
+      pollIntervalMinutes: 720,
       trustScore: 60,
       language: "zh",
       enabled: false,
@@ -63,6 +70,8 @@ export async function seedCoreData() {
         },
         data: {
           baseUrl: source.baseUrl,
+          fetchMethod: source.fetchMethod,
+          pollIntervalMinutes: source.pollIntervalMinutes,
           enabled: source.enabled,
           language: source.language,
           trustScore: source.trustScore,
@@ -81,6 +90,7 @@ export async function seedCoreData() {
 
 async function main() {
   await seedCoreData();
+  await seedAdminCatalog();
   await seedSelectedPriceSnapshots();
 }
 

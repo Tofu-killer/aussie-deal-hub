@@ -3,20 +3,20 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { prisma } from "@aussie-deal-hub/db/client";
-import { listSources, updateSourceEnabled } from "@aussie-deal-hub/db/repositories/sources";
+import { listSources, updateSource } from "@aussie-deal-hub/db/repositories/sources";
 import { buildApp } from "../src/app";
 import { dispatchRequest } from "./httpHarness";
 
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
 
 describe("admin sources API contract", () => {
-  it("returns 400 when required fields are missing in post payload", async () => {
+  it("returns 400 when scheduling fields are missing in post payload", async () => {
     const app = buildApp({
       sourceStore: {
         async list() {
           return [];
         },
-        async setEnabled() {
+        async update() {
           return null;
         },
       },
@@ -29,6 +29,7 @@ describe("admin sources API contract", () => {
         name: "Source without trust score",
         baseUrl: "https://missing-fields.example.com",
         language: "en",
+        trustScore: 52,
       },
     });
 
@@ -38,13 +39,13 @@ describe("admin sources API contract", () => {
     });
   });
 
-  it("returns 400 when enabled is missing in patch payload", async () => {
+  it("returns 400 when patch payload omits supported fields", async () => {
     const app = buildApp({
       sourceStore: {
         async list() {
           return [];
         },
-        async setEnabled() {
+        async update() {
           return null;
         },
       },
@@ -68,7 +69,7 @@ describe("admin sources API contract", () => {
         async list() {
           return [];
         },
-        async setEnabled() {
+        async update() {
           return null;
         },
       },
@@ -97,6 +98,8 @@ describeDb("admin sources persistence", () => {
       baseUrl: `https://created-source-${suffix}.example.com`,
       language: "en",
       trustScore: 64,
+      fetchMethod: "html",
+      pollIntervalMinutes: 90,
     };
 
     const app = buildApp();
@@ -114,6 +117,8 @@ describeDb("admin sources persistence", () => {
         ...payload,
         sourceType: "community",
         enabled: true,
+        fetchMethod: "html",
+        pollIntervalMinutes: 90,
         pollCount: 0,
         lastPolledAt: null,
         lastPollStatus: null,
@@ -130,6 +135,8 @@ describeDb("admin sources persistence", () => {
           trustScore: true,
           language: true,
           enabled: true,
+          fetchMethod: true,
+          pollIntervalMinutes: true,
           pollCount: true,
           lastPolledAt: true,
           lastPollStatus: true,
@@ -145,6 +152,8 @@ describeDb("admin sources persistence", () => {
         trustScore: payload.trustScore,
         language: payload.language,
         enabled: true,
+        fetchMethod: payload.fetchMethod,
+        pollIntervalMinutes: payload.pollIntervalMinutes,
         pollCount: 0,
         lastPolledAt: null,
         lastPollStatus: null,
@@ -170,6 +179,8 @@ describeDb("admin sources persistence", () => {
         trustScore: 72,
         language: "en",
         enabled: true,
+        fetchMethod: "html",
+        pollIntervalMinutes: 60,
       },
       {
         name: `Source Two ${suffix}`,
@@ -178,6 +189,8 @@ describeDb("admin sources persistence", () => {
         trustScore: 67,
         language: "en",
         enabled: true,
+        fetchMethod: "json",
+        pollIntervalMinutes: 180,
       },
       {
         name: `Source Three ${suffix}`,
@@ -186,6 +199,8 @@ describeDb("admin sources persistence", () => {
         trustScore: 54,
         language: "zh",
         enabled: false,
+        fetchMethod: "html",
+        pollIntervalMinutes: 720,
       },
     ];
 
@@ -201,6 +216,8 @@ describeDb("admin sources persistence", () => {
         trustScore: true,
         language: true,
         enabled: true,
+        fetchMethod: true,
+        pollIntervalMinutes: true,
         pollCount: true,
         lastPolledAt: true,
         lastPollStatus: true,
@@ -212,7 +229,7 @@ describeDb("admin sources persistence", () => {
     const app = buildApp({
       sourceStore: {
         list: listSources,
-        setEnabled: updateSourceEnabled,
+        update: updateSource,
       },
     });
 
@@ -231,21 +248,35 @@ describeDb("admin sources persistence", () => {
       const patchResponse = await dispatchRequest(app, {
         method: "PATCH",
         path: `/v1/admin/sources/${target.id}`,
-        body: { enabled: false },
+        body: {
+          enabled: false,
+          fetchMethod: "html",
+          pollIntervalMinutes: 30,
+        },
       });
 
       expect(patchResponse.status).toBe(200);
       expect(patchResponse.body).toMatchObject({
         ...target,
         enabled: false,
+        fetchMethod: "html",
+        pollIntervalMinutes: 30,
       });
 
       const persisted = await prisma.source.findUnique({
         where: { id: target.id },
-        select: { enabled: true },
+        select: {
+          enabled: true,
+          fetchMethod: true,
+          pollIntervalMinutes: true,
+        },
       });
 
-      expect(persisted).toEqual({ enabled: false });
+      expect(persisted).toEqual({
+        enabled: false,
+        fetchMethod: "html",
+        pollIntervalMinutes: 30,
+      });
     } finally {
       await prisma.source.deleteMany({
         where: {

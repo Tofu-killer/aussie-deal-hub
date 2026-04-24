@@ -29,7 +29,7 @@ type SourceStore = {
   recordSourcePoll: typeof recordSourcePoll;
 };
 type SourceFetcher = {
-  fetch(input: { url: string }): Promise<{ body: string; contentType: string | null }>;
+  fetch(input: { url: string; fetchMethod?: string }): Promise<{ body: string; contentType: string | null }>;
 };
 
 export interface WorkerCycleSummary {

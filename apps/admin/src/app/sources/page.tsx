@@ -2,11 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 
+const sourceFetchMethods = ["html", "json"] as const;
+
+type SourceFetchMethod = (typeof sourceFetchMethods)[number];
+
 interface SourceItem {
   id: string;
   name: string;
   sourceType: string;
   baseUrl: string;
+  fetchMethod: SourceFetchMethod;
+  pollIntervalMinutes: number;
   trustScore: number;
   language: string;
   enabled: boolean;
@@ -26,6 +32,12 @@ interface SourceLoadResult {
   error: string | null;
 }
 
+interface SourceUpdateInput {
+  enabled?: boolean;
+  fetchMethod?: SourceFetchMethod;
+  pollIntervalMinutes?: number;
+}
+
 interface SourceUpdateResult {
   source: SourceItem | null;
   error: string | null;
@@ -35,6 +47,8 @@ interface CreateSourceInput {
   name: string;
   baseUrl: string;
   language: string;
+  fetchMethod: SourceFetchMethod;
+  pollIntervalMinutes: number;
   trustScore: number;
 }
 
@@ -42,15 +56,37 @@ interface CreateSourceFormState {
   name: string;
   baseUrl: string;
   language: string;
+  fetchMethod: SourceFetchMethod | "";
+  pollIntervalMinutes: string;
   trustScore: string;
+}
+
+interface SourceSettingsFormState {
+  fetchMethod: SourceFetchMethod;
+  pollIntervalMinutes: string;
 }
 
 const emptyCreateSourceForm: CreateSourceFormState = {
   name: "",
   baseUrl: "",
   language: "",
+  fetchMethod: "",
+  pollIntervalMinutes: "",
   trustScore: "",
 };
+
+function buildSourceSettingsForm(source: SourceItem): SourceSettingsFormState {
+  return {
+    fetchMethod: source.fetchMethod,
+    pollIntervalMinutes: String(source.pollIntervalMinutes),
+  };
+}
+
+function buildSourceSettingsFormMap(sources: SourceItem[]) {
+  return Object.fromEntries(
+    sources.map((source) => [source.id, buildSourceSettingsForm(source)]),
+  ) as Record<string, SourceSettingsFormState>;
+}
 
 async function listSources(): Promise<SourceLoadResult> {
   try {
@@ -78,14 +114,17 @@ async function listSources(): Promise<SourceLoadResult> {
   }
 }
 
-async function updateSourceEnabled(sourceId: string, enabled: boolean): Promise<SourceUpdateResult> {
+async function updateSource(
+  sourceId: string,
+  input: SourceUpdateInput,
+): Promise<SourceUpdateResult> {
   try {
     const response = await fetch(`/v1/admin/sources/${sourceId}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ enabled }),
+      body: JSON.stringify(input),
     });
 
     if (!response.ok) {
@@ -142,6 +181,9 @@ export default function SourcesPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingSourceIds, setUpdatingSourceIds] = useState<string[]>([]);
+  const [sourceSettingsForms, setSourceSettingsForms] = useState<
+    Record<string, SourceSettingsFormState>
+  >({});
   const [createSourceForm, setCreateSourceForm] =
     useState<CreateSourceFormState>(emptyCreateSourceForm);
   const [isCreating, setIsCreating] = useState(false);
@@ -158,6 +200,7 @@ export default function SourcesPage() {
       }
 
       setSources(result.items);
+      setSourceSettingsForms(buildSourceSettingsFormMap(result.items));
       setError(result.error);
       setIsLoading(false);
     }
@@ -169,28 +212,73 @@ export default function SourcesPage() {
     };
   }, []);
 
+  function markSourceUpdating(sourceId: string) {
+    setUpdatingSourceIds((currentIds) =>
+      currentIds.includes(sourceId) ? currentIds : [...currentIds, sourceId],
+    );
+  }
+
+  function clearSourceUpdating(sourceId: string) {
+    setUpdatingSourceIds((currentIds) =>
+      currentIds.filter((currentId) => currentId !== sourceId),
+    );
+  }
+
+  function applyUpdatedSource(updatedSource: SourceItem) {
+    setSources((currentSources) =>
+      currentSources.map((currentSource) =>
+        currentSource.id === updatedSource.id ? updatedSource : currentSource,
+      ),
+    );
+    setSourceSettingsForms((currentForms) => ({
+      ...currentForms,
+      [updatedSource.id]: buildSourceSettingsForm(updatedSource),
+    }));
+  }
+
   async function handleToggle(source: SourceItem) {
     setFeedback(null);
-    setUpdatingSourceIds((currentIds) =>
-      currentIds.includes(source.id) ? currentIds : [...currentIds, source.id],
-    );
+    markSourceUpdating(source.id);
 
-    const result = await updateSourceEnabled(source.id, !source.enabled);
+    const result = await updateSource(source.id, {
+      enabled: !source.enabled,
+    });
 
-    setUpdatingSourceIds((currentIds) =>
-      currentIds.filter((currentId) => currentId !== source.id),
-    );
+    clearSourceUpdating(source.id);
 
     if (result.error || !result.source) {
       setFeedback("Failed to update source.");
       return;
     }
 
-    setSources((currentSources) =>
-      currentSources.map((currentSource) =>
-        currentSource.id === source.id ? result.source ?? currentSource : currentSource,
-      ),
-    );
+    applyUpdatedSource(result.source);
+    setFeedback("Source updated.");
+  }
+
+  async function handleSaveSettings(source: SourceItem) {
+    const sourceSettings = sourceSettingsForms[source.id];
+
+    if (!sourceSettings) {
+      setFeedback("Failed to update source.");
+      return;
+    }
+
+    setFeedback(null);
+    markSourceUpdating(source.id);
+
+    const result = await updateSource(source.id, {
+      fetchMethod: sourceSettings.fetchMethod,
+      pollIntervalMinutes: Number(sourceSettings.pollIntervalMinutes),
+    });
+
+    clearSourceUpdating(source.id);
+
+    if (result.error || !result.source) {
+      setFeedback("Failed to update source.");
+      return;
+    }
+
+    applyUpdatedSource(result.source);
     setFeedback("Source updated.");
   }
 
@@ -203,7 +291,9 @@ export default function SourcesPage() {
       name: createSourceForm.name.trim(),
       baseUrl: createSourceForm.baseUrl.trim(),
       language: createSourceForm.language.trim(),
+      fetchMethod: createSourceForm.fetchMethod as SourceFetchMethod,
       trustScore: Number(createSourceForm.trustScore),
+      pollIntervalMinutes: Number(createSourceForm.pollIntervalMinutes),
     });
 
     setIsCreating(false);
@@ -213,7 +303,11 @@ export default function SourcesPage() {
       return;
     }
 
-    setSources((currentSources) => [result.source, ...currentSources]);
+    setSources((currentSources) => [result.source!, ...currentSources]);
+    setSourceSettingsForms((currentForms) => ({
+      [result.source!.id]: buildSourceSettingsForm(result.source!),
+      ...currentForms,
+    }));
     setError(null);
     setCreateSourceForm(emptyCreateSourceForm);
     setFeedback("Source created.");
@@ -288,6 +382,28 @@ export default function SourcesPage() {
           />
         </div>
         <div>
+          <label htmlFor="source-fetch-method">Fetch method</label>
+          <select
+            id="source-fetch-method"
+            name="fetchMethod"
+            onChange={(event) => {
+              setCreateSourceForm((currentForm) => ({
+                ...currentForm,
+                fetchMethod: event.target.value as SourceFetchMethod | "",
+              }));
+            }}
+            required
+            value={createSourceForm.fetchMethod}
+          >
+            <option value="">Select fetch method</option>
+            {sourceFetchMethods.map((fetchMethod) => (
+              <option key={fetchMethod} value={fetchMethod}>
+                {fetchMethod}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label htmlFor="source-trust-score">Trust score</label>
           <input
             id="source-trust-score"
@@ -303,6 +419,24 @@ export default function SourcesPage() {
             step="1"
             type="number"
             value={createSourceForm.trustScore}
+          />
+        </div>
+        <div>
+          <label htmlFor="source-poll-interval">Poll interval (minutes)</label>
+          <input
+            id="source-poll-interval"
+            min="1"
+            name="pollIntervalMinutes"
+            onChange={(event) => {
+              setCreateSourceForm((currentForm) => ({
+                ...currentForm,
+                pollIntervalMinutes: event.target.value,
+              }));
+            }}
+            required
+            step="1"
+            type="number"
+            value={createSourceForm.pollIntervalMinutes}
           />
         </div>
         <button disabled={isCreating} type="submit">
@@ -323,6 +457,8 @@ export default function SourcesPage() {
               <th>Name</th>
               <th>Type</th>
               <th>Base URL</th>
+              <th>Fetch method</th>
+              <th>Poll interval</th>
               <th>Trust score</th>
               <th>Language</th>
               <th>Last poll</th>
@@ -331,29 +467,84 @@ export default function SourcesPage() {
             </tr>
           </thead>
           <tbody>
-            {sources.map((source) => (
-              <tr key={source.id}>
-                <td>{source.name}</td>
-                <td>{source.sourceType}</td>
-                <td>{source.baseUrl}</td>
-                <td>{source.trustScore}</td>
-                <td>{source.language}</td>
-                <td>{getPollSummary(source)}</td>
-                <td>{source.lastLeadCreatedAt ?? "No leads yet"}</td>
-                <td>
-                  {source.enabled ? "Enabled" : "Disabled"}{" "}
-                  <button
-                    disabled={updatingSourceIds.includes(source.id)}
-                    onClick={() => {
-                      void handleToggle(source);
-                    }}
-                    type="button"
-                  >
-                    {source.enabled ? "Disable" : "Enable"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {sources.map((source) => {
+              const sourceSettings = sourceSettingsForms[source.id] ?? buildSourceSettingsForm(source);
+              const isUpdating = updatingSourceIds.includes(source.id);
+
+              return (
+                <tr key={source.id}>
+                  <td>{source.name}</td>
+                  <td>{source.sourceType}</td>
+                  <td>{source.baseUrl}</td>
+                  <td>
+                    <select
+                      aria-label={`Fetch method for ${source.name}`}
+                      disabled={isUpdating}
+                      onChange={(event) => {
+                        setSourceSettingsForms((currentForms) => ({
+                          ...currentForms,
+                          [source.id]: {
+                            ...sourceSettings,
+                            fetchMethod: event.target.value as SourceFetchMethod,
+                          },
+                        }));
+                      }}
+                      value={sourceSettings.fetchMethod}
+                    >
+                      {sourceFetchMethods.map((fetchMethod) => (
+                        <option key={fetchMethod} value={fetchMethod}>
+                          {fetchMethod}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      aria-label={`Poll interval (minutes) for ${source.name}`}
+                      disabled={isUpdating}
+                      min="1"
+                      onChange={(event) => {
+                        setSourceSettingsForms((currentForms) => ({
+                          ...currentForms,
+                          [source.id]: {
+                            ...sourceSettings,
+                            pollIntervalMinutes: event.target.value,
+                          },
+                        }));
+                      }}
+                      step="1"
+                      type="number"
+                      value={sourceSettings.pollIntervalMinutes}
+                    />{" "}
+                    <button
+                      disabled={isUpdating}
+                      onClick={() => {
+                        void handleSaveSettings(source);
+                      }}
+                      type="button"
+                    >
+                      Save settings
+                    </button>
+                  </td>
+                  <td>{source.trustScore}</td>
+                  <td>{source.language}</td>
+                  <td>{getPollSummary(source)}</td>
+                  <td>{source.lastLeadCreatedAt ?? "No leads yet"}</td>
+                  <td>
+                    {source.enabled ? "Enabled" : "Disabled"}{" "}
+                    <button
+                      disabled={isUpdating}
+                      onClick={() => {
+                        void handleToggle(source);
+                      }}
+                      type="button"
+                    >
+                      {source.enabled ? "Disable" : "Enable"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

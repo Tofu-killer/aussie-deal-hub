@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 
 import { createRequest, createResponse } from "node-mocks-http";
 import type { Express } from "express";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { buildApp } from "../src/app";
 import type { FavoritesStore } from "../src/routes/favorites";
@@ -72,13 +72,101 @@ function createInMemoryFavoritesStore(): FavoritesStore {
   };
 }
 
+interface SentVerificationCode {
+  email: string;
+  code: string;
+  ttlMs: number;
+}
+
+function createCapturingAuthCodeSender() {
+  const sent: SentVerificationCode[] = [];
+
+  return {
+    sent,
+    sender: {
+      async sendVerificationCode(message: SentVerificationCode) {
+        sent.push(message);
+      },
+    },
+  };
+}
+
+function createAuthApp(options: Record<string, unknown> = {}) {
+  const capture = createCapturingAuthCodeSender();
+
+  return {
+    capture,
+    app: buildApp({
+      authCodeSender: capture.sender,
+      ...options,
+    } as never),
+  };
+}
+
+async function requestVerificationCode(
+  app: Express,
+  capture: ReturnType<typeof createCapturingAuthCodeSender>,
+  email: string,
+) {
+  const requestCode = await dispatchRequest(app, {
+    method: "POST",
+    path: "/v1/auth/request-code",
+    body: {
+      email,
+    },
+  });
+
+  expect(requestCode.status).toBe(200);
+
+  const sentCode = capture.sent.at(-1);
+
+  expect(sentCode).toMatchObject({
+    email,
+    code: expect.stringMatching(/^\d{6}$/),
+    ttlMs: 10 * 60 * 1000,
+  });
+
+  return sentCode!.code;
+}
+
+async function createAuthenticatedSession(
+  app: Express,
+  capture: ReturnType<typeof createCapturingAuthCodeSender>,
+  email: string,
+) {
+  const code = await requestVerificationCode(app, capture, email);
+  const verify = await dispatchRequest(app, {
+    method: "POST",
+    path: "/v1/auth/verify-code",
+    body: {
+      email,
+      code,
+    },
+  });
+
+  expect(verify.status).toBe(200);
+  expect(verify.body).toMatchObject({
+    sessionToken: expect.any(String),
+  });
+
+  return {
+    code,
+    sessionToken: (verify.body as { sessionToken: string }).sessionToken,
+  };
+}
+
 describe("auth and favorites", () => {
   const validDealId = "nintendo-switch-oled-amazon-au";
 
-  it("consumes a one-time code after successful verification", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
+  it("sends a generated verification code instead of accepting the legacy fixed code", async () => {
+    const capture = createCapturingAuthCodeSender();
+    const app = buildApp({
+      favoritesStore: createInMemoryFavoritesStore(),
+      authCodeGenerator: () => "654321",
+      authCodeSender: capture.sender,
+    } as never);
 
-    await dispatchRequest(app, {
+    const requestCode = await dispatchRequest(app, {
       method: "POST",
       path: "/v1/auth/request-code",
       body: {
@@ -86,12 +174,137 @@ describe("auth and favorites", () => {
       },
     });
 
-    const firstVerify = await dispatchRequest(app, {
+    expect(requestCode.status).toBe(200);
+    expect(capture.sent).toEqual([
+      {
+        email: "user@example.com",
+        code: "654321",
+        ttlMs: 10 * 60 * 1000,
+      },
+    ]);
+
+    const legacyVerify = await dispatchRequest(app, {
       method: "POST",
       path: "/v1/auth/verify-code",
       body: {
         email: "user@example.com",
         code: "123456",
+      },
+    });
+
+    expect(legacyVerify.status).toBe(401);
+    expect(legacyVerify.body).toMatchObject({
+      message: "Invalid code.",
+    });
+
+    const verify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "654321",
+      },
+    });
+
+    expect(verify.status).toBe(200);
+    expect(verify.body).toMatchObject({
+      sessionToken: expect.any(String),
+    });
+  });
+
+  it("rejects expired verification codes after the configured ttl", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
+
+    try {
+      const capture = createCapturingAuthCodeSender();
+      const app = buildApp({
+        favoritesStore: createInMemoryFavoritesStore(),
+        authCodeGenerator: () => "654321",
+        authCodeSender: capture.sender,
+        authCodeTtlMs: 1_000,
+      } as never);
+
+      await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/auth/request-code",
+        body: {
+          email: "user@example.com",
+        },
+      });
+
+      vi.advanceTimersByTime(1_001);
+
+      const verify = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/auth/verify-code",
+        body: {
+          email: "user@example.com",
+          code: "654321",
+        },
+      });
+
+      expect(capture.sent).toHaveLength(1);
+      expect(verify.status).toBe(401);
+      expect(verify.body).toMatchObject({
+        message: "Code expired.",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails request-code clearly when email delivery is unavailable", async () => {
+    const app = buildApp({
+      favoritesStore: createInMemoryFavoritesStore(),
+      authCodeGenerator: () => "654321",
+      authCodeSender: {
+        async sendVerificationCode() {
+          throw new Error("smtp unavailable");
+        },
+      },
+    } as never);
+
+    const requestCode = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/request-code",
+      body: {
+        email: "user@example.com",
+      },
+    });
+
+    expect(requestCode.status).toBe(503);
+    expect(requestCode.body).toMatchObject({
+      message: "Unable to deliver verification code.",
+    });
+
+    const verify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "654321",
+      },
+    });
+
+    expect(verify.status).toBe(401);
+    expect(verify.body).toMatchObject({
+      message: "Invalid code.",
+    });
+  });
+
+  it("consumes a one-time code after successful verification", async () => {
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
+    });
+    const code = await requestVerificationCode(app, capture, "user@example.com");
+
+    const firstVerify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code,
       },
     });
 
@@ -105,7 +318,7 @@ describe("auth and favorites", () => {
       path: "/v1/auth/verify-code",
       body: {
         email: "user@example.com",
-        code: "123456",
+        code,
       },
     });
 
@@ -116,17 +329,11 @@ describe("auth and favorites", () => {
   });
 
   it("rejects invalid codes and unauthorized favorite writes", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    const requestCode = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
 
-    expect(requestCode.status).toBe(200);
+    await requestVerificationCode(app, capture, "user@example.com");
 
     const verify = await dispatchRequest(app, {
       method: "POST",
@@ -157,35 +364,10 @@ describe("auth and favorites", () => {
   });
 
   it("verifies an email code and persists a favorite for the session", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    const requestCode = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
-
-    expect(requestCode.status).toBe(200);
-    expect(requestCode.body).toMatchObject({
-      ok: true,
-    });
-
-    const verify = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
-
-    expect(verify.status).toBe(200);
-    expect(verify.body).toMatchObject({
-      sessionToken: expect.any(String),
-    });
-    expect((verify.body as { sessionToken: string }).sessionToken).not.toBe("session_1");
+    const { sessionToken } = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const favorite = await dispatchRequest(app, {
       method: "POST",
@@ -194,7 +376,7 @@ describe("auth and favorites", () => {
         dealId: validDealId,
       },
       headers: {
-        "x-session-token": (verify.body as { sessionToken: string }).sessionToken,
+        "x-session-token": sessionToken,
       },
     });
 
@@ -207,7 +389,7 @@ describe("auth and favorites", () => {
       method: "GET",
       path: "/v1/favorites",
       headers: {
-        "x-session-token": (verify.body as { sessionToken: string }).sessionToken,
+        "x-session-token": sessionToken,
       },
     });
 
@@ -218,25 +400,10 @@ describe("auth and favorites", () => {
   });
 
   it("removes a favorite for the active session and excludes it from later lists", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
-
-    const verify = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
-    const sessionToken = (verify.body as { sessionToken: string }).sessionToken;
+    const { sessionToken } = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const favorite = await dispatchRequest(app, {
       method: "POST",
@@ -276,26 +443,10 @@ describe("auth and favorites", () => {
   });
 
   it("returns default digest preferences and persists updates for the session email", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
-
-    const verify = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
-
-    const sessionToken = (verify.body as { sessionToken: string }).sessionToken;
+    const { sessionToken } = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const defaults = await dispatchRequest(app, {
       method: "GET",
@@ -334,24 +485,10 @@ describe("auth and favorites", () => {
   });
 
   it("keeps favorites when the same email signs in again", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
-
-    const firstSession = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
+    const firstSession = await createAuthenticatedSession(app, capture, "user@example.com");
 
     await dispatchRequest(app, {
       method: "POST",
@@ -360,32 +497,17 @@ describe("auth and favorites", () => {
         dealId: validDealId,
       },
       headers: {
-        "x-session-token": (firstSession.body as { sessionToken: string }).sessionToken,
+        "x-session-token": firstSession.sessionToken,
       },
     });
 
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
-    });
-
-    const secondSession = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
+    const secondSession = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const favorites = await dispatchRequest(app, {
       method: "GET",
       path: "/v1/favorites",
       headers: {
-        "x-session-token": (secondSession.body as { sessionToken: string }).sessionToken,
+        "x-session-token": secondSession.sessionToken,
       },
     });
 
@@ -398,30 +520,17 @@ describe("auth and favorites", () => {
   it("keeps a signed session valid after rebuilding the app with the same secret", async () => {
     const favoritesStore = createInMemoryFavoritesStore();
     const sessionManager = createSignedSessionManager("test-session-secret");
+    const capture = createCapturingAuthCodeSender();
     const app = buildApp({
       favoritesStore,
+      authCodeSender: capture.sender,
       sessionManager,
     });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
-    });
-
-    const verify = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
+    const verify = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const rebuiltApp = buildApp({
       favoritesStore,
+      authCodeSender: capture.sender,
       sessionManager: createSignedSessionManager("test-session-secret"),
     });
 
@@ -432,7 +541,7 @@ describe("auth and favorites", () => {
         dealId: validDealId,
       },
       headers: {
-        "x-session-token": (verify.body as { sessionToken: string }).sessionToken,
+        "x-session-token": verify.sessionToken,
       },
     });
 
@@ -440,44 +549,12 @@ describe("auth and favorites", () => {
   });
 
   it("rejects invalid deal IDs before persisting favorites", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
 
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
-    const secondVerify = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "second@example.com",
-      },
-    });
-
-    expect(secondVerify.status).toBe(200);
-
-    const verifiedSession = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "second@example.com",
-        code: "123456",
-      },
-    });
-
-    expect(verifiedSession.status).toBe(200);
+    await createAuthenticatedSession(app, capture, "user@example.com");
+    const verifiedSession = await createAuthenticatedSession(app, capture, "second@example.com");
 
     const favorite = await dispatchRequest(app, {
       method: "POST",
@@ -486,7 +563,7 @@ describe("auth and favorites", () => {
         dealId: "",
       },
       headers: {
-        "x-session-token": (verifiedSession.body as { sessionToken: string }).sessionToken,
+        "x-session-token": verifiedSession.sessionToken,
       },
     });
 
@@ -497,24 +574,10 @@ describe("auth and favorites", () => {
   });
 
   it("rejects favorite writes for unknown published deals", async () => {
-    const app = buildApp({ favoritesStore: createInMemoryFavoritesStore() });
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
     });
-
-    const verifiedSession = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
+    const verifiedSession = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const favorite = await dispatchRequest(app, {
       method: "POST",
@@ -523,7 +586,7 @@ describe("auth and favorites", () => {
         dealId: "unknown-deal",
       },
       headers: {
-        "x-session-token": (verifiedSession.body as { sessionToken: string }).sessionToken,
+        "x-session-token": verifiedSession.sessionToken,
       },
     });
 
@@ -535,7 +598,9 @@ describe("auth and favorites", () => {
 
   it("accepts favorite writes for persisted published deal slugs", async () => {
     const persistedDealSlug = "breville-barista-express-for-a-499";
+    const capture = createCapturingAuthCodeSender();
     const app = buildApp({
+      authCodeSender: capture.sender,
       favoritesStore: createInMemoryFavoritesStore(),
       publishedDealStore: {
         async getPublishedDeal() {
@@ -546,23 +611,7 @@ describe("auth and favorites", () => {
         },
       },
     } as never);
-
-    await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/request-code",
-      body: {
-        email: "user@example.com",
-      },
-    });
-
-    const verifiedSession = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/auth/verify-code",
-      body: {
-        email: "user@example.com",
-        code: "123456",
-      },
-    });
+    const verifiedSession = await createAuthenticatedSession(app, capture, "user@example.com");
 
     const favorite = await dispatchRequest(app, {
       method: "POST",
@@ -571,7 +620,7 @@ describe("auth and favorites", () => {
         dealId: persistedDealSlug,
       },
       headers: {
-        "x-session-token": (verifiedSession.body as { sessionToken: string }).sessionToken,
+        "x-session-token": verifiedSession.sessionToken,
       },
     });
 

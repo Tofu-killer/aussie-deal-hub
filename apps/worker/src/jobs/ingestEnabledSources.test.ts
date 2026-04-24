@@ -26,8 +26,11 @@ describe("ingestEnabledSources", () => {
           name: "Amazon AU",
           sourceType: "community",
           baseUrl: "https://source.example/home",
+          fetchMethod: "html",
+          pollIntervalMinutes: 60,
           trustScore: 80,
           language: "en",
+          lastPolledAt: null,
         },
       ],
       {
@@ -41,6 +44,7 @@ describe("ingestEnabledSources", () => {
 
     expect(fetcher.fetch).toHaveBeenCalledWith({
       url: "https://source.example/home",
+      fetchMethod: "html",
     });
     expect(createLeadIfNew).toHaveBeenCalledTimes(2);
     expect(recordSourcePoll).toHaveBeenCalledWith({
@@ -72,8 +76,11 @@ describe("ingestEnabledSources", () => {
           name: "Amazon AU",
           sourceType: "community",
           baseUrl: "https://source.example/home",
+          fetchMethod: "json",
+          pollIntervalMinutes: 30,
           trustScore: 80,
           language: "en",
+          lastPolledAt: null,
         },
       ],
       {
@@ -102,6 +109,50 @@ describe("ingestEnabledSources", () => {
           status: "error",
         },
       ],
+    });
+  });
+
+  it("skips sources that are not due yet", async () => {
+    const createLeadIfNew = vi.fn();
+    const recordSourcePoll = vi.fn().mockResolvedValue(undefined);
+    const fetch = vi.fn();
+
+    const summary = await ingestEnabledSources(
+      [
+        {
+          id: "source_1",
+          name: "Amazon AU",
+          sourceType: "community",
+          baseUrl: "https://source.example/home",
+          fetchMethod: "html",
+          pollIntervalMinutes: 60,
+          trustScore: 80,
+          language: "en",
+          lastPolledAt: "2026-04-25T00:30:00.000Z",
+        },
+      ],
+      {
+        createLeadIfNew,
+      },
+      {
+        recordSourcePoll,
+      },
+      {
+        fetch,
+      },
+      {
+        now: new Date("2026-04-25T01:00:00.000Z"),
+      },
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(createLeadIfNew).not.toHaveBeenCalled();
+    expect(recordSourcePoll).not.toHaveBeenCalled();
+    expect(summary).toEqual({
+      createdLeadCount: 0,
+      createdLeadIds: [],
+      polledSourceCount: 0,
+      sourceResults: [],
     });
   });
 });

@@ -1,11 +1,42 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../client.ts";
 
+const sourceRecordSelect = {
+  id: true,
+  name: true,
+  sourceType: true,
+  baseUrl: true,
+  fetchMethod: true,
+  pollIntervalMinutes: true,
+  trustScore: true,
+  language: true,
+  enabled: true,
+  pollCount: true,
+  lastPolledAt: true,
+  lastPollStatus: true,
+  lastPollMessage: true,
+  lastLeadCreatedAt: true,
+} satisfies Prisma.SourceSelect;
+
+type SourceRow = Prisma.SourceGetPayload<{
+  select: typeof sourceRecordSelect;
+}>;
+
+function toSourceRecord(row: SourceRow): SourceRecord {
+  return {
+    ...row,
+    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
+    lastLeadCreatedAt: row.lastLeadCreatedAt?.toISOString() ?? null,
+  };
+}
+
 export interface SourceRecord {
   id: string;
   name: string;
   sourceType: string;
   baseUrl: string;
+  fetchMethod: string;
+  pollIntervalMinutes: number;
   trustScore: number;
   language: string;
   enabled: boolean;
@@ -21,32 +52,21 @@ export async function listSources(): Promise<SourceRecord[]> {
     orderBy: {
       name: "asc",
     },
-    select: {
-      id: true,
-      name: true,
-      sourceType: true,
-      baseUrl: true,
-      trustScore: true,
-      language: true,
-      enabled: true,
-      pollCount: true,
-      lastPolledAt: true,
-      lastPollStatus: true,
-      lastPollMessage: true,
-      lastLeadCreatedAt: true,
-    },
+    select: sourceRecordSelect,
   });
 
-  return rows.map((row) => ({
-    ...row,
-    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
-    lastLeadCreatedAt: row.lastLeadCreatedAt?.toISOString() ?? null,
-  }));
+  return rows.map(toSourceRecord);
 }
 
-export async function updateSourceEnabled(
+export interface UpdateSourceInput {
+  enabled?: boolean;
+  fetchMethod?: string;
+  pollIntervalMinutes?: number;
+}
+
+export async function updateSource(
   sourceId: string,
-  enabled: boolean,
+  input: UpdateSourceInput,
 ): Promise<SourceRecord | null> {
   try {
     const row = await prisma.source.update({
@@ -54,29 +74,14 @@ export async function updateSourceEnabled(
         id: sourceId,
       },
       data: {
-        enabled,
+        enabled: input.enabled,
+        fetchMethod: input.fetchMethod,
+        pollIntervalMinutes: input.pollIntervalMinutes,
       },
-      select: {
-        id: true,
-        name: true,
-        sourceType: true,
-        baseUrl: true,
-        trustScore: true,
-        language: true,
-        enabled: true,
-        pollCount: true,
-        lastPolledAt: true,
-        lastPollStatus: true,
-        lastPollMessage: true,
-        lastLeadCreatedAt: true,
-      },
+      select: sourceRecordSelect,
     });
 
-    return {
-      ...row,
-      lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
-      lastLeadCreatedAt: row.lastLeadCreatedAt?.toISOString() ?? null,
-    };
+    return toSourceRecord(row);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return null;
@@ -98,12 +103,15 @@ export interface IngestibleSourceRecord {
   name: string;
   sourceType: string;
   baseUrl: string;
+  fetchMethod: string;
+  pollIntervalMinutes: number;
   trustScore: number;
   language: string;
+  lastPolledAt: string | null;
 }
 
 export async function listEnabledSourcesForIngestion(): Promise<IngestibleSourceRecord[]> {
-  return prisma.source.findMany({
+  const rows = await prisma.source.findMany({
     where: {
       enabled: true,
       sourceType: {
@@ -118,10 +126,18 @@ export async function listEnabledSourcesForIngestion(): Promise<IngestibleSource
       name: true,
       sourceType: true,
       baseUrl: true,
+      fetchMethod: true,
+      pollIntervalMinutes: true,
       trustScore: true,
       language: true,
+      lastPolledAt: true,
     },
   });
+
+  return rows.map((row) => ({
+    ...row,
+    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
+  }));
 }
 
 export async function recordSourcePoll(input: SourcePollUpdateInput): Promise<void> {

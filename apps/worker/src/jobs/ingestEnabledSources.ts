@@ -6,8 +6,11 @@ export interface IngestibleSourceRecord {
   name: string;
   sourceType: string;
   baseUrl: string;
+  fetchMethod: string;
+  pollIntervalMinutes: number;
   trustScore: number;
   language: string;
+  lastPolledAt: string | null;
 }
 
 export interface IngestLeadStore {
@@ -32,7 +35,10 @@ export interface SourcePollRecorder {
 }
 
 export interface SourceFetcher {
-  fetch(input: { url: string }): Promise<{ body: string; contentType: string | null }>;
+  fetch(input: {
+    url: string;
+    fetchMethod?: string;
+  }): Promise<{ body: string; contentType: string | null }>;
 }
 
 export interface IngestEnabledSourcesSummary {
@@ -46,24 +52,49 @@ export interface IngestEnabledSourcesSummary {
   }>;
 }
 
+export interface IngestEnabledSourcesOptions {
+  now?: Date;
+}
+
 const DEFAULT_INGEST_LIMIT_PER_SOURCE = 5;
+
+function isSourceDueForPolling(source: IngestibleSourceRecord, now: Date) {
+  if (!source.lastPolledAt) {
+    return true;
+  }
+
+  const lastPolledAt = new Date(source.lastPolledAt);
+
+  if (Number.isNaN(lastPolledAt.getTime())) {
+    return true;
+  }
+
+  return now.getTime() - lastPolledAt.getTime() >= source.pollIntervalMinutes * 60_000;
+}
 
 export async function ingestEnabledSources(
   sources: IngestibleSourceRecord[],
   leadStore: IngestLeadStore,
   pollRecorder: SourcePollRecorder,
   sourceFetcher: SourceFetcher,
+  options: IngestEnabledSourcesOptions = {},
 ): Promise<IngestEnabledSourcesSummary> {
+  const dueSources = sources.filter((source) =>
+    isSourceDueForPolling(source, options.now ?? new Date()),
+  );
   const summary: IngestEnabledSourcesSummary = {
     createdLeadCount: 0,
     createdLeadIds: [],
-    polledSourceCount: sources.length,
+    polledSourceCount: dueSources.length,
     sourceResults: [],
   };
 
-  for (const source of sources) {
+  for (const source of dueSources) {
     try {
-      const fetched = await sourceFetcher.fetch({ url: source.baseUrl });
+      const fetched = await sourceFetcher.fetch({
+        url: source.baseUrl,
+        fetchMethod: source.fetchMethod,
+      });
       const candidates = extractLeadCandidates({
         body: fetched.body,
         contentType: fetched.contentType,

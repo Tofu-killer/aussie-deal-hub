@@ -4,19 +4,23 @@ import { prisma } from "@aussie-deal-hub/db/client";
 import { createDependencyHealthChecker } from "./routes/health.ts";
 import net from "node:net";
 import {
+  createAdminCatalogRepository,
+} from "@aussie-deal-hub/db/repositories/catalog";
+import {
   getDigestSubscription,
   upsertDigestSubscription,
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
 import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
 import { createAdminLeadRepository } from "@aussie-deal-hub/db/repositories/leads";
 import { listPriceSnapshotsForDeal } from "@aussie-deal-hub/db/repositories/priceSnapshots";
-import { listSources, updateSourceEnabled } from "@aussie-deal-hub/db/repositories/sources";
+import { listSources, updateSource } from "@aussie-deal-hub/db/repositories/sources";
 
 const {
   API_HOST: host,
   API_PORT: port,
   REDIS_URL: redisUrl,
 } = parseApiEnv(process.env);
+const adminCatalogStore = createAdminCatalogRepository();
 const adminLeadStore = createAdminLeadRepository();
 const publishedDealStore = createPublishedDealRepository();
 
@@ -86,7 +90,9 @@ async function checkReadiness() {
             normalizedEmail: true,
           },
         }),
+        prisma.merchantCatalog.findFirst({ select: { id: true } }),
         prisma.priceSnapshot.findFirst({ select: { id: true } }),
+        prisma.tagCatalog.findFirst({ select: { id: true } }),
       ]);
     },
     redis: checkRedisHealth,
@@ -94,6 +100,7 @@ async function checkReadiness() {
 }
 
 buildApp({
+  adminCatalogStore,
   adminLeadStore,
   digestPreferencesStore: {
     getByEmail: getDigestSubscription,
@@ -108,7 +115,7 @@ buildApp({
   readyCheck: checkReadiness,
   sourceStore: {
     list: listSources,
-    setEnabled: updateSourceEnabled,
+    update: updateSource,
   },
 }).listen(port, host, () => {
   console.log(`API listening on http://${host}:${port}`);

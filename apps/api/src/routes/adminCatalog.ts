@@ -106,24 +106,76 @@ function createUniqueId(name: string, existingIds: string[]) {
   return nextId;
 }
 
-export function createAdminCatalogRouter() {
-  const router = Router();
+export interface AdminCatalogStore {
+  listMerchants(): Promise<MerchantCatalogRow[]>;
+  createMerchant(input: { name: string }): Promise<MerchantCatalogRow>;
+  listTags(): Promise<TagCatalogRow[]>;
+  createTag(input: { name: string }): Promise<TagCatalogRow>;
+}
+
+function createInMemoryAdminCatalogStore(): AdminCatalogStore {
   const merchantRows = MERCHANT_CATALOG_ROWS.map((row) => ({ ...row }));
   const tagRows = TAG_CATALOG_ROWS.map((row) => ({ ...row }));
 
-  router.get("/merchants", (_request, response) => {
+  return {
+    async listMerchants() {
+      return merchantRows;
+    },
+    async createMerchant(input) {
+      const merchant: MerchantCatalogRow = {
+        id: createUniqueId(
+          input.name,
+          merchantRows.map((row) => row.id),
+        ),
+        name: input.name,
+        activeDeals: 0,
+        primaryCategory: "Unassigned",
+        status: "Draft",
+        owner: "Admin catalog",
+      };
+
+      merchantRows.unshift(merchant);
+      return merchant;
+    },
+    async listTags() {
+      return tagRows;
+    },
+    async createTag(input) {
+      const id = createUniqueId(
+        input.name,
+        tagRows.map((row) => row.id),
+      );
+      const tag: TagCatalogRow = {
+        id,
+        name: input.name,
+        slug: id,
+        visibleDeals: 0,
+        localization: "Needs localization",
+        owner: "Admin catalog",
+      };
+
+      tagRows.unshift(tag);
+      return tag;
+    },
+  };
+}
+
+export function createAdminCatalogRouter(store: AdminCatalogStore = createInMemoryAdminCatalogStore()) {
+  const router = Router();
+
+  router.get("/merchants", async (_request, response) => {
     response.json({
-      items: merchantRows,
+      items: await store.listMerchants(),
     });
   });
 
-  router.get("/tags", (_request, response) => {
+  router.get("/tags", async (_request, response) => {
     response.json({
-      items: tagRows,
+      items: await store.listTags(),
     });
   });
 
-  router.post("/merchants", (request, response) => {
+  router.post("/merchants", async (request, response) => {
     const name = isRecord(request.body) ? readString(request.body.name).trim() : "";
 
     if (!name) {
@@ -131,23 +183,11 @@ export function createAdminCatalogRouter() {
       return;
     }
 
-    const merchant: MerchantCatalogRow = {
-      id: createUniqueId(
-        name,
-        merchantRows.map((row) => row.id),
-      ),
-      name,
-      activeDeals: 0,
-      primaryCategory: "Unassigned",
-      status: "Draft",
-      owner: "Admin catalog",
-    };
-
-    merchantRows.unshift(merchant);
+    const merchant = await store.createMerchant({ name });
     response.status(201).json(merchant);
   });
 
-  router.post("/tags", (request, response) => {
+  router.post("/tags", async (request, response) => {
     const name = isRecord(request.body) ? readString(request.body.name).trim() : "";
 
     if (!name) {
@@ -155,20 +195,7 @@ export function createAdminCatalogRouter() {
       return;
     }
 
-    const id = createUniqueId(
-      name,
-      tagRows.map((row) => row.id),
-    );
-    const tag: TagCatalogRow = {
-      id,
-      name,
-      slug: id,
-      visibleDeals: 0,
-      localization: "Needs localization",
-      owner: "Admin catalog",
-    };
-
-    tagRows.unshift(tag);
+    const tag = await store.createTag({ name });
     response.status(201).json(tag);
   });
 
