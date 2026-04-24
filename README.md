@@ -115,6 +115,30 @@ Start the admin app on port `3002`:
 PORT=3002 pnpm --filter @aussie-deal-hub/admin start
 ```
 
+## Existing Host Deployment
+
+For hosts that already run other services and where you need isolated ports instead of taking over `80/443`, use a split deployment:
+
+- infrastructure containers:
+  - Postgres on `15432`
+  - Redis on `16379`
+- host-native app processes:
+  - web on `13000`
+  - api on `13001`
+  - admin on `13002`
+
+That mode works well when:
+
+- Docker is available for stateful dependencies
+- the host already has other public services
+- you want to avoid conflicting with existing ports or reverse proxies
+
+The current repo supports that setup because:
+
+- `apps/api` now starts through `tsx`, so it does not depend on Node 22-only `--experimental-strip-types`
+- `admin` browser requests are proxied at runtime through `/v1/[...path]`
+- `health` and `ready` endpoints exist for all three app services
+
 If you also want the DB-backed persistence tests gated by `RUN_DB_TESTS`, run:
 
 ```bash

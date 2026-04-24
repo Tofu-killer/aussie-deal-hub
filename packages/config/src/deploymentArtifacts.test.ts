@@ -16,6 +16,7 @@ describe("deployment artifacts", () => {
     expect(compose).toContain("pnpm --filter @aussie-deal-hub/db db:push");
     expect(compose).toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(compose).toContain("service_completed_successfully");
+    expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
   });
 
   it("keeps dedicated runtime targets in the Dockerfile for api, web, and admin", () => {
