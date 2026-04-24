@@ -324,4 +324,82 @@ describe("worker runtime helpers", () => {
       publishedCount: 0,
     });
   });
+
+  it("sends daily digests when digest delivery dependencies are configured", async () => {
+    const sendDigest = vi.fn().mockResolvedValue(undefined);
+    const markSent = vi.fn().mockResolvedValue(undefined);
+
+    const summary = await runWorkerCycle({
+      leadStore: {
+        createLeadIfNew: vi.fn().mockResolvedValue({ created: false }),
+        listLeadRecords: vi.fn().mockResolvedValue([]),
+        saveLeadReviewDraft: vi.fn().mockResolvedValue(null),
+      },
+      publishedDealStore: {
+        getPublishedDealSlugForLead: vi.fn().mockResolvedValue(null),
+        hasPublishedDealSlug: vi.fn().mockResolvedValue(false),
+        publishDeal: vi.fn(),
+      },
+      sourceStore: {
+        listEnabledSources: vi.fn().mockResolvedValue([]),
+        recordSourcePoll: vi.fn().mockResolvedValue(undefined),
+      },
+      sourceFetcher: {
+        fetch: vi.fn(),
+      },
+      digestDelivery: {
+        subscriptionStore: {
+          listEligibleSubscriptions: vi.fn().mockResolvedValue([
+            {
+              email: "shopper@example.com",
+              locale: "en",
+              frequency: "daily",
+              categories: ["deals"],
+              lastSentAt: null,
+            },
+          ]),
+          markSent,
+        },
+        favoriteStore: {
+          listByEmail: vi.fn().mockResolvedValue([{ dealId: "switch-en" }]),
+        },
+        dealStore: {
+          listDigestDeals: vi.fn().mockResolvedValue([
+            {
+              id: "deal_switch",
+              merchant: "Amazon AU",
+              status: "published",
+              locales: {
+                en: {
+                  slug: "switch-en",
+                  title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                  merchant: "Amazon AU",
+                },
+                zh: {
+                  slug: "switch-zh",
+                  title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                  merchant: "亚马逊澳洲",
+                },
+              },
+            },
+          ]),
+        },
+        sender: {
+          sendDigest,
+        },
+      },
+      log: {
+        info: vi.fn(),
+        error: vi.fn(),
+      },
+    });
+
+    expect(sendDigest).toHaveBeenCalledTimes(1);
+    expect(markSent).toHaveBeenCalledTimes(1);
+    expect(summary).toMatchObject({
+      digestSentCount: 1,
+      skippedDigestCount: 0,
+      digestSentEmails: ["shopper@example.com"],
+    });
+  });
 });

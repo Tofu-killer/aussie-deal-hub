@@ -3,6 +3,7 @@ import { buildDailyDigest } from "@aussie-deal-hub/email/buildDailyDigest";
 export type DigestLocale = "en" | "zh";
 
 export interface DigestLocaleContent {
+  slug?: string;
   title: string;
   merchant?: string;
 }

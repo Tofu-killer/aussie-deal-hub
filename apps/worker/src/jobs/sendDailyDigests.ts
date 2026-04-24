@@ -1,0 +1,118 @@
+import { buildDigestJob, type DigestDealRecord, type DigestLocale, type DigestJobPayload } from "./buildDigest";
+
+export interface EligibleDigestSubscription {
+  email: string;
+  locale: DigestLocale;
+  frequency: string;
+  categories: string[];
+  lastSentAt: string | null;
+}
+
+export interface DigestSubscriptionStore {
+  listEligibleSubscriptions(now: Date): Promise<EligibleDigestSubscription[]>;
+  markSent(email: string, sentAt: Date): Promise<void>;
+}
+
+export interface DigestFavoriteStore {
+  listByEmail(email: string): Promise<Array<{ dealId: string }>>;
+}
+
+export interface DigestDealStore {
+  listDigestDeals(): Promise<DigestDealRecord[]>;
+}
+
+export interface DigestSender {
+  sendDigest(input: {
+    email: string;
+    locale: DigestLocale;
+    subject: string;
+    html: string;
+    deals: DigestJobPayload["deals"];
+  }): Promise<void>;
+}
+
+export interface SendDailyDigestsOptions {
+  now?: Date;
+}
+
+export interface SendDailyDigestsSummary {
+  sentCount: number;
+  skippedCount: number;
+  sentEmails: string[];
+}
+
+function wasSentToday(lastSentAt: string | null, now: Date) {
+  if (!lastSentAt) {
+    return false;
+  }
+
+  const sentAt = new Date(lastSentAt);
+
+  if (Number.isNaN(sentAt.getTime())) {
+    return false;
+  }
+
+  return (
+    sentAt.getUTCFullYear() === now.getUTCFullYear() &&
+    sentAt.getUTCMonth() === now.getUTCMonth() &&
+    sentAt.getUTCDate() === now.getUTCDate()
+  );
+}
+
+export async function sendDailyDigests(
+  subscriptionStore: DigestSubscriptionStore,
+  favoriteStore: DigestFavoriteStore,
+  dealStore: DigestDealStore,
+  digestSender: DigestSender,
+  options: SendDailyDigestsOptions = {},
+): Promise<SendDailyDigestsSummary> {
+  const now = options.now ?? new Date();
+  const subscriptions = await subscriptionStore.listEligibleSubscriptions(now);
+  const digestDeals = await dealStore.listDigestDeals();
+  const summary: SendDailyDigestsSummary = {
+    sentCount: 0,
+    skippedCount: 0,
+    sentEmails: [],
+  };
+
+  for (const subscription of subscriptions) {
+    if (wasSentToday(subscription.lastSentAt, now)) {
+      summary.skippedCount += 1;
+      continue;
+    }
+
+    const favorites = await favoriteStore.listByEmail(subscription.email);
+    const favoriteDealIds = new Set(favorites.map((favorite) => favorite.dealId));
+    const matchingDeals = digestDeals.filter((deal) => {
+      const englishSlug = deal.locales.en.slug ?? "";
+      const chineseSlug = deal.locales.zh.slug ?? "";
+
+      return favoriteDealIds.has(englishSlug) || favoriteDealIds.has(chineseSlug);
+    });
+
+    if (matchingDeals.length === 0) {
+      summary.skippedCount += 1;
+      continue;
+    }
+
+    const localizedDigest = buildDigestJob(
+      matchingDeals.map((deal) => ({
+        ...deal,
+        slug: subscription.locale === "zh" ? deal.locales.zh.slug : deal.locales.en.slug,
+      })),
+    )[subscription.locale];
+
+    await digestSender.sendDigest({
+      email: subscription.email,
+      locale: subscription.locale,
+      subject: localizedDigest.subject,
+      html: localizedDigest.html,
+      deals: localizedDigest.deals,
+    });
+    await subscriptionStore.markSent(subscription.email, now);
+    summary.sentCount += 1;
+    summary.sentEmails.push(subscription.email);
+  }
+
+  return summary;
+}

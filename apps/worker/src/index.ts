@@ -1,7 +1,17 @@
 import { prisma } from "@aussie-deal-hub/db/client";
 import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
+import {
+  listEligibleDailyDigestSubscriptions,
+  markDigestSent,
+} from "@aussie-deal-hub/db/repositories/digestSubscriptions";
+import { listFavoritesByEmail } from "@aussie-deal-hub/db/repositories/favorites";
 import { createAdminLeadRepository } from "@aussie-deal-hub/db/repositories/leads";
 import { listEnabledSourcesForIngestion, recordSourcePoll } from "@aussie-deal-hub/db/repositories/sources";
+import {
+  createLoggingEmailTransport,
+  createSmtpEmailTransport,
+  type EmailTransport,
+} from "@aussie-deal-hub/email/verificationCodeSender";
 
 import { runWorkerCycle } from "./runtime";
 import { writeWorkerState } from "./state";
@@ -32,11 +42,12 @@ const pollIntervalMs = readPositiveIntegerEnv("WORKER_POLL_INTERVAL_MS", 30000);
 const reviewEnabled = isWorkerPassEnabled("WORKER_REVIEW_ENABLED", true);
 const publishEnabled = isWorkerPassEnabled("WORKER_PUBLISH_ENABLED", true);
 const ingestEnabled = isWorkerPassEnabled("WORKER_INGEST_ENABLED", true);
+const digestEnabled = isWorkerPassEnabled("WORKER_DIGEST_ENABLED", true);
 const leadStore = createAdminLeadRepository();
 const publishedDealStore = createPublishedDealRepository();
 const serviceStartedAt = new Date().toISOString();
 
-async function fetchSourceContent({ url }: { url: string }) {
+async function fetchSourceContent({ url }: { url: string; fetchMethod?: string }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -62,6 +73,53 @@ async function fetchSourceContent({ url }: { url: string }) {
   }
 }
 
+function hasConfiguredSmtp() {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT);
+}
+
+function createDigestEmailTransport(): EmailTransport {
+  if (hasConfiguredSmtp()) {
+    return createSmtpEmailTransport({
+      host: process.env.SMTP_HOST!,
+      port: readPositiveIntegerEnv("SMTP_PORT", 587),
+      secure: process.env.SMTP_SECURE === "1" || process.env.SMTP_SECURE === "true",
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    });
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SMTP configuration is required for digest delivery in production.");
+  }
+
+  return createLoggingEmailTransport();
+}
+
+function createDigestSender() {
+  const transport = createDigestEmailTransport();
+  const from = process.env.EMAIL_FROM ?? "deals@example.com";
+
+  return {
+    async sendDigest(input: {
+      email: string;
+      subject: string;
+      html: string;
+      deals: Array<{
+        title: string;
+      }>;
+      locale: "en" | "zh";
+    }) {
+      await transport.send({
+        from,
+        to: input.email,
+        subject: input.subject,
+        html: input.html,
+        text: input.deals.map((deal) => `- ${deal.title}`).join("\n"),
+      });
+    },
+  };
+}
+
 let cycleInFlight = false;
 
 async function executeWorkerPass() {
@@ -76,7 +134,7 @@ async function executeWorkerPass() {
   try {
     await prisma.$connect();
 
-    if (!ingestEnabled && !reviewEnabled && !publishEnabled) {
+    if (!ingestEnabled && !reviewEnabled && !publishEnabled && !digestEnabled) {
       await writeWorkerState({
         serviceStartedAt,
         status: "idle",
@@ -87,7 +145,7 @@ async function executeWorkerPass() {
         lastSummary: null,
       });
       console.info(
-        `[worker ${new Date().toISOString()}] worker pass skipped because ingest, review, and publish are all disabled`,
+        `[worker ${new Date().toISOString()}] worker pass skipped because ingest, review, publish, and digest are all disabled`,
       );
       return;
     }
@@ -137,6 +195,21 @@ async function executeWorkerPass() {
       sourceFetcher: {
         fetch: fetchSourceContent,
       },
+      digestDelivery: digestEnabled
+        ? {
+            subscriptionStore: {
+              listEligibleSubscriptions: listEligibleDailyDigestSubscriptions,
+              markSent: markDigestSent,
+            },
+            favoriteStore: {
+              listByEmail: listFavoritesByEmail,
+            },
+            dealStore: {
+              listDigestDeals: publishedDealStore.listPublishedDealsForDigest,
+            },
+            sender: createDigestSender(),
+          }
+        : undefined,
       log: console,
     });
     await writeWorkerState({
@@ -165,7 +238,7 @@ async function executeWorkerPass() {
 }
 
 console.info(
-  `[worker ${new Date().toISOString()}] starting with interval=${pollIntervalMs}ms ingest=${ingestEnabled} review=${reviewEnabled} publish=${publishEnabled}`,
+  `[worker ${new Date().toISOString()}] starting with interval=${pollIntervalMs}ms ingest=${ingestEnabled} review=${reviewEnabled} publish=${publishEnabled} digest=${digestEnabled}`,
 );
 await writeWorkerState({
   serviceStartedAt,

@@ -7,6 +7,13 @@ import { listEnabledSourcesForIngestion, recordSourcePoll } from "@aussie-deal-h
 import { ingestEnabledSources } from "./jobs/ingestEnabledSources";
 import { publishDueReviews, type WorkerLeadRecord } from "./jobs/publishDueReviews";
 import { reviewPendingLeads, type ReviewedLeadRecord } from "./jobs/reviewPendingLeads";
+import {
+  sendDailyDigests,
+  type DigestDealStore,
+  type DigestFavoriteStore,
+  type DigestSender,
+  type DigestSubscriptionStore,
+} from "./jobs/sendDailyDigests";
 
 type AdminLeadRepository = ReturnType<typeof createAdminLeadRepository>;
 type PublishedDealRepository = ReturnType<typeof createPublishedDealRepository>;
@@ -33,6 +40,8 @@ type SourceFetcher = {
 };
 
 export interface WorkerCycleSummary {
+  digestSentCount: number;
+  digestSentEmails: string[];
   failedSourceCount: number;
   ingestedLeadCount: number;
   ingestedLeadIds: string[];
@@ -43,10 +52,19 @@ export interface WorkerCycleSummary {
   queuedReviewCount: number;
   reviewedCount: number;
   reviewedLeadIds: string[];
+  skippedDigestCount: number;
   skippedPublishCount: number;
 }
 
+interface DigestDeliveryDependencies {
+  dealStore: DigestDealStore;
+  favoriteStore: DigestFavoriteStore;
+  sender: DigestSender;
+  subscriptionStore: DigestSubscriptionStore;
+}
+
 export interface WorkerRuntimeDependencies {
+  digestDelivery?: DigestDeliveryDependencies;
   leadStore: WorkerLeadStore;
   publishedDealStore: Pick<
     PublishedDealRepository,
@@ -122,6 +140,7 @@ export async function runWorkerCycle({
   sourceStore,
   sourceFetcher,
   log,
+  digestDelivery,
 }: WorkerRuntimeDependencies): Promise<WorkerCycleSummary> {
   const sourceIngestionSummary = await ingestEnabledSources(
     await sourceStore.listEnabledSources(),
@@ -153,8 +172,22 @@ export async function runWorkerCycle({
   const publishSummary = await publishDueReviews(workerLeadRecords, publishedDealStore, {
     now: new Date(),
   });
+  const digestSummary = digestDelivery
+    ? await sendDailyDigests(
+        digestDelivery.subscriptionStore,
+        digestDelivery.favoriteStore,
+        digestDelivery.dealStore,
+        digestDelivery.sender,
+      )
+    : {
+        sentCount: 0,
+        skippedCount: 0,
+        sentEmails: [],
+      };
 
   const summary: WorkerCycleSummary = {
+    digestSentCount: digestSummary.sentCount,
+    digestSentEmails: digestSummary.sentEmails,
     ingestedLeadCount: sourceIngestionSummary.createdLeadCount,
     ingestedLeadIds: sourceIngestionSummary.createdLeadIds,
     polledSourceCount: sourceIngestionSummary.polledSourceCount,
@@ -165,6 +198,7 @@ export async function runWorkerCycle({
     queuedPublishCount: workerLeadRecords.filter((record) => record.review?.publish).length,
     publishedCount: publishSummary.published.length,
     publishedLeadIds: publishSummary.published.map((item) => item.leadId),
+    skippedDigestCount: digestSummary.skippedCount,
     skippedPublishCount: publishSummary.skipped.length,
   };
 
@@ -187,6 +221,12 @@ export async function runWorkerCycle({
   if (summary.publishedLeadIds.length > 0) {
     log.info(
       `${createTimestampedLogPrefix()} published leads: ${summary.publishedLeadIds.join(", ")}`,
+    );
+  }
+
+  if (summary.digestSentEmails.length > 0) {
+    log.info(
+      `${createTimestampedLogPrefix()} digests sent: ${summary.digestSentEmails.join(", ")}`,
     );
   }
 

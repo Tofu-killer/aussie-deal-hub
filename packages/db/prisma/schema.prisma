@@ -122,6 +122,7 @@ model EmailDigestSubscription {
   locale          String   @default("en")
   frequency       String   @default("daily")
   categories      String[] @default([])
+  lastSentAt      DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

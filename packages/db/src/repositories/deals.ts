@@ -37,6 +37,24 @@ export interface PublishDealResult {
   }>;
 }
 
+export interface PublishedDigestDealRecord {
+  id: string;
+  merchant: string;
+  status: string;
+  locales: {
+    en: {
+      slug: string;
+      title: string;
+      merchant?: string;
+    };
+    zh: {
+      slug: string;
+      title: string;
+      merchant?: string;
+    };
+  };
+}
+
 function mapDealLocaleContent(locale: PublishDealLocaleInput) {
   return {
     slug: locale.slug,
@@ -239,6 +257,67 @@ export function createPublishedDealRepository() {
 
           return left.slug.localeCompare(right.slug);
         });
+    },
+
+    async listPublishedDealsForDigest(): Promise<PublishedDigestDealRecord[]> {
+      const deals = await prisma.deal.findMany({
+        where: {
+          status: "published",
+          locales: {
+            some: {
+              locale: "en",
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+        select: {
+          id: true,
+          merchant: true,
+          status: true,
+          locales: {
+            where: {
+              locale: {
+                in: ["en", "zh"],
+              },
+            },
+            select: {
+              locale: true,
+              slug: true,
+              title: true,
+            },
+          },
+        },
+      });
+
+      return deals.flatMap((deal) => {
+        const englishLocale = deal.locales.find((locale) => locale.locale === "en");
+        const chineseLocale = deal.locales.find((locale) => locale.locale === "zh");
+
+        if (!englishLocale || !chineseLocale) {
+          return [];
+        }
+
+        return [
+          {
+            id: deal.id,
+            merchant: deal.merchant,
+            status: deal.status,
+            locales: {
+              en: {
+                slug: englishLocale.slug,
+                title: englishLocale.title,
+                merchant: deal.merchant,
+              },
+              zh: {
+                slug: chineseLocale.slug,
+                title: chineseLocale.title,
+              },
+            },
+          },
+        ];
+      });
     },
 
     async hasPublishedDealSlug(slug: string): Promise<boolean> {
