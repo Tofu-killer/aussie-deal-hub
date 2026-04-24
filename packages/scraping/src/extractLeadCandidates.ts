@@ -79,6 +79,10 @@ function parseJsonCandidates(input: ExtractLeadCandidatesInput): RawLeadInput[] 
         ? record.url
         : typeof record.link === "string"
           ? record.link
+          : typeof record.affiliateUrl === "string"
+            ? record.affiliateUrl
+            : typeof record.originalUrl === "string"
+              ? record.originalUrl
           : "";
     const snippet =
       typeof record.snippet === "string"

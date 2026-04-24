@@ -58,4 +58,32 @@ describe("extractLeadCandidates", () => {
       },
     ]);
   });
+
+  it("accepts affiliateUrl fields from published deal feeds", () => {
+    const candidates = extractLeadCandidates({
+      body: JSON.stringify({
+        items: [
+          {
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            affiliateUrl: "https://merchant.example/switch",
+            summary: "Published deal feed item.",
+          },
+        ],
+      }),
+      contentType: "application/json",
+      sourceName: "Published Deals Feed",
+      sourceType: "publisher",
+      sourceUrl: "https://feed.example/public-deals.json",
+    });
+
+    expect(candidates).toEqual([
+      {
+        title: "Nintendo Switch OLED for A$399 at Amazon AU",
+        url: "https://merchant.example/switch",
+        snippet: "Published deal feed item.",
+        sourceName: "Published Deals Feed",
+        sourceType: "official",
+      },
+    ]);
+  });
 });
