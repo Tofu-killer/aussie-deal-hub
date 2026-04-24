@@ -254,6 +254,52 @@ export function createAdminLeadRepository() {
       return mapLeadRecord(row as LeadRecordRow);
     },
 
+    async createLeadIfNew(input: {
+      sourceId: string;
+      originalTitle: string;
+      originalUrl: string;
+      canonicalUrl: string;
+      snippet: string;
+      merchant?: string;
+      localizedHints?: string[];
+    }): Promise<{ created: boolean; lead: LeadRecord }> {
+      await ensureSourceExists(input.sourceId);
+
+      const existing = await prisma.lead.findFirst({
+        where: {
+          canonicalUrl: input.canonicalUrl,
+        },
+        select: leadRecordSelect,
+      });
+
+      if (existing) {
+        return {
+          created: false,
+          lead: mapLeadRecord(existing as LeadRecordRow),
+        };
+      }
+
+      const row = await prisma.lead.create({
+        data: {
+          id: createLeadId(),
+          sourceId: input.sourceId,
+          originalTitle: input.originalTitle,
+          originalUrl: input.originalUrl,
+          canonicalUrl: input.canonicalUrl,
+          snippet: input.snippet,
+          merchant: input.merchant,
+          riskLabels: [],
+          localizedHints: input.localizedHints ?? [],
+        },
+        select: leadRecordSelect,
+      });
+
+      return {
+        created: true,
+        lead: mapLeadRecord(row as LeadRecordRow),
+      };
+    },
+
     async saveLeadReviewDraft(
       input: LeadReviewDraftSubmission,
     ): Promise<StoredLeadReviewDraft | null> {

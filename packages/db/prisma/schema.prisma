@@ -15,6 +15,11 @@ model Source {
   trustScore Int      @default(50)
   language   String   @default("en")
   enabled    Boolean  @default(true)
+  pollCount  Int      @default(0)
+  lastPolledAt DateTime?
+  lastPollStatus String?
+  lastPollMessage String?
+  lastLeadCreatedAt DateTime?
   leads      Lead[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

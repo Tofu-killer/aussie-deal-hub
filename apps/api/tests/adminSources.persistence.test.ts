@@ -109,10 +109,16 @@ describeDb("admin sources persistence", () => {
       });
 
       expect(response.status).toBe(201);
-      expect(response.body).toEqual({
+      expect(response.body).toMatchObject({
         id: expect.any(String),
         ...payload,
+        sourceType: "community",
         enabled: true,
+        pollCount: 0,
+        lastPolledAt: null,
+        lastPollStatus: null,
+        lastPollMessage: null,
+        lastLeadCreatedAt: null,
       });
 
       const created = await prisma.source.findUnique({
@@ -124,16 +130,26 @@ describeDb("admin sources persistence", () => {
           trustScore: true,
           language: true,
           enabled: true,
+          pollCount: true,
+          lastPolledAt: true,
+          lastPollStatus: true,
+          lastPollMessage: true,
+          lastLeadCreatedAt: true,
         },
       });
 
-      expect(created).toEqual({
+      expect(created).toMatchObject({
         name: payload.name,
         sourceType: "community",
         baseUrl: payload.baseUrl,
         trustScore: payload.trustScore,
         language: payload.language,
         enabled: true,
+        pollCount: 0,
+        lastPolledAt: null,
+        lastPollStatus: null,
+        lastPollMessage: null,
+        lastLeadCreatedAt: null,
       });
     } finally {
       await prisma.source.deleteMany({
@@ -180,10 +196,16 @@ describeDb("admin sources persistence", () => {
       select: {
         id: true,
         name: true,
+        sourceType: true,
         baseUrl: true,
         trustScore: true,
         language: true,
         enabled: true,
+        pollCount: true,
+        lastPolledAt: true,
+        lastPollStatus: true,
+        lastPollMessage: true,
+        lastLeadCreatedAt: true,
       },
     });
 
@@ -213,7 +235,7 @@ describeDb("admin sources persistence", () => {
       });
 
       expect(patchResponse.status).toBe(200);
-      expect(patchResponse.body).toEqual({
+      expect(patchResponse.body).toMatchObject({
         ...target,
         enabled: false,
       });

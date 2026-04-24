@@ -48,18 +48,30 @@ describe("sources page", () => {
             {
               id: "source_1",
               name: "Amazon AU",
+              sourceType: "community",
               baseUrl: "https://www.amazon.com.au",
               trustScore: 91,
               language: "en-AU",
               enabled: true,
+              pollCount: 3,
+              lastPolledAt: "2026-04-24T00:00:00.000Z",
+              lastPollStatus: "ok",
+              lastPollMessage: "Fetched 2 candidates; created 1 leads.",
+              lastLeadCreatedAt: "2026-04-24T00:00:00.000Z",
             },
             {
               id: "source_2",
               name: "OzBargain",
+              sourceType: "publisher",
               baseUrl: "https://www.ozbargain.com.au",
               trustScore: 88,
               language: "en-AU",
               enabled: false,
+              pollCount: 1,
+              lastPolledAt: "2026-04-24T01:00:00.000Z",
+              lastPollStatus: "error",
+              lastPollMessage: "Source fetch failed: 500",
+              lastLeadCreatedAt: null,
             },
           ],
         }),
@@ -74,10 +86,14 @@ describe("sources page", () => {
     const enabledRow = getRowForSource("Amazon AU");
     expect(within(enabledRow).getByText("Enabled")).toBeTruthy();
     expect(within(enabledRow).getByRole("button", { name: "Disable" })).toBeTruthy();
+    expect(within(enabledRow).getByText("community")).toBeTruthy();
+    expect(within(enabledRow).getByText("ok: Fetched 2 candidates; created 1 leads.")).toBeTruthy();
 
     const disabledRow = getRowForSource("OzBargain");
     expect(within(disabledRow).getByText("Disabled")).toBeTruthy();
     expect(within(disabledRow).getByRole("button", { name: "Enable" })).toBeTruthy();
+    expect(within(disabledRow).getByText("publisher")).toBeTruthy();
+    expect(within(disabledRow).getByText("error: Source fetch failed: 500")).toBeTruthy();
   });
 
   it("patches enabled state and shows success feedback", async () => {
@@ -91,10 +107,16 @@ describe("sources page", () => {
             {
               id: "source_1",
               name: "Amazon AU",
+              sourceType: "community",
               baseUrl: "https://www.amazon.com.au",
               trustScore: 91,
               language: "en-AU",
               enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
             },
           ],
         }),
@@ -103,10 +125,16 @@ describe("sources page", () => {
         createJsonResponse({
           id: "source_1",
           name: "Amazon AU",
+          sourceType: "community",
           baseUrl: "https://www.amazon.com.au",
           trustScore: 91,
           language: "en-AU",
           enabled: false,
+          pollCount: 0,
+          lastPolledAt: null,
+          lastPollStatus: null,
+          lastPollMessage: null,
+          lastLeadCreatedAt: null,
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
@@ -150,16 +178,22 @@ describe("sources page", () => {
         .mockResolvedValueOnce(
           createJsonResponse({
             items: [
-              {
-                id: "source_1",
-                name: "Amazon AU",
-                baseUrl: "https://www.amazon.com.au",
-                trustScore: 91,
-                language: "en-AU",
-                enabled: true,
-              },
-            ],
-          }),
+            {
+              id: "source_1",
+              name: "Amazon AU",
+              sourceType: "community",
+              baseUrl: "https://www.amazon.com.au",
+              trustScore: 91,
+              language: "en-AU",
+              enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+          ],
+        }),
         )
         .mockResolvedValueOnce(createJsonResponse({ message: "boom" }, false)),
     );
@@ -189,10 +223,16 @@ describe("sources page", () => {
         createJsonResponse({
           id: "source_3",
           name: "PriceHipster AU",
+          sourceType: "community",
           baseUrl: "https://www.pricehipster.com",
           trustScore: 77,
           language: "en-AU",
           enabled: true,
+          pollCount: 0,
+          lastPolledAt: null,
+          lastPollStatus: null,
+          lastPollMessage: null,
+          lastLeadCreatedAt: null,
         }),
       );
     vi.stubGlobal("fetch", fetchMock);

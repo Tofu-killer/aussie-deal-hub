@@ -6,10 +6,16 @@ import { listSources, updateSourceEnabled } from "@aussie-deal-hub/db/repositori
 export interface SourceRecord {
   id: string;
   name: string;
+  sourceType: string;
   baseUrl: string;
   trustScore: number;
   language: string;
   enabled: boolean;
+  pollCount: number;
+  lastPolledAt: string | null;
+  lastPollStatus: string | null;
+  lastPollMessage: string | null;
+  lastLeadCreatedAt: string | null;
 }
 
 export interface SourcesStore {
@@ -50,7 +56,7 @@ function isCreateSourceInput(value: unknown): value is CreateSourceInput {
 }
 
 async function createSource(input: CreateSourceInput): Promise<SourceRecord> {
-  return prisma.source.create({
+  const row = await prisma.source.create({
     data: {
       name: input.name.trim(),
       baseUrl: input.baseUrl.trim(),
@@ -62,12 +68,24 @@ async function createSource(input: CreateSourceInput): Promise<SourceRecord> {
     select: {
       id: true,
       name: true,
+      sourceType: true,
       baseUrl: true,
       trustScore: true,
       language: true,
       enabled: true,
+      pollCount: true,
+      lastPolledAt: true,
+      lastPollStatus: true,
+      lastPollMessage: true,
+      lastLeadCreatedAt: true,
     },
   });
+
+  return {
+    ...row,
+    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
+    lastLeadCreatedAt: row.lastLeadCreatedAt?.toISOString() ?? null,
+  };
 }
 
 function isUpdateSourceEnabledInput(value: unknown): value is UpdateSourceEnabledInput {

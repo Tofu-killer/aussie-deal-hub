@@ -51,6 +51,7 @@ Set runtime variables in your process manager or deployment platform before star
 | `ADMIN_BASIC_AUTH_PASSWORD` | admin | optional | Password for admin HTTP Basic Auth. |
 | `ADMIN_BASIC_AUTH_REALM` | admin | optional | Override the HTTP Basic Auth browser prompt realm. |
 | `WORKER_POLL_INTERVAL_MS` | worker | optional | Poll interval for the background review/publish loop. |
+| `WORKER_INGEST_ENABLED` | worker | optional | Set to `0` to disable automatic source polling and lead ingestion. |
 | `WORKER_REVIEW_ENABLED` | worker | optional | Set to `0` to disable automatic draft generation for pending leads. |
 | `WORKER_PUBLISH_ENABLED` | worker | optional | Set to `0` to disable automatic publishing of due reviewed leads. |
 | `WORKER_STATE_PATH` | api, worker | optional | Shared state file used for worker heartbeat and admin runtime visibility. |

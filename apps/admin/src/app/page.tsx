@@ -258,11 +258,17 @@ function summarizeWorkerRuntime(result: LoadSummaryResult): SummaryCardState {
   const reviewedCount = typeof lastSummary.reviewedCount === "number" ? lastSummary.reviewedCount : 0;
   const publishedCount =
     typeof lastSummary.publishedCount === "number" ? lastSummary.publishedCount : 0;
+  const ingestedCount =
+    typeof lastSummary.ingestedLeadCount === "number" ? lastSummary.ingestedLeadCount : 0;
+  const polledSourceCount =
+    typeof lastSummary.polledSourceCount === "number" ? lastSummary.polledSourceCount : 0;
 
   return {
     title: "Worker",
     lines: [
       "Healthy",
+      `${ingestedCount} ingested last pass`,
+      `${polledSourceCount} sources polled`,
       `${reviewedCount} reviewed last pass`,
       `${publishedCount} published last pass`,
       ageMs === null ? "Heartbeat age unavailable" : `${Math.floor(ageMs / 1000)}s since heartbeat`,

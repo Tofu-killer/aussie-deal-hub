@@ -5,10 +5,16 @@ import React, { useEffect, useState } from "react";
 interface SourceItem {
   id: string;
   name: string;
+  sourceType: string;
   baseUrl: string;
   trustScore: number;
   language: string;
   enabled: boolean;
+  pollCount: number;
+  lastPolledAt: string | null;
+  lastPollStatus: string | null;
+  lastPollMessage: string | null;
+  lastLeadCreatedAt: string | null;
 }
 
 interface SourcesResponse {
@@ -213,6 +219,17 @@ export default function SourcesPage() {
     setFeedback("Source created.");
   }
 
+  function getPollSummary(source: SourceItem) {
+    if (!source.lastPolledAt) {
+      return "Never polled";
+    }
+
+    const status = source.lastPollStatus ?? "unknown";
+    const message = source.lastPollMessage ?? "No details.";
+
+    return `${status}: ${message}`;
+  }
+
   return (
     <main>
       <h1>Sources</h1>
@@ -304,9 +321,12 @@ export default function SourcesPage() {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Type</th>
               <th>Base URL</th>
               <th>Trust score</th>
               <th>Language</th>
+              <th>Last poll</th>
+              <th>Last lead</th>
               <th>Enabled</th>
             </tr>
           </thead>
@@ -314,9 +334,12 @@ export default function SourcesPage() {
             {sources.map((source) => (
               <tr key={source.id}>
                 <td>{source.name}</td>
+                <td>{source.sourceType}</td>
                 <td>{source.baseUrl}</td>
                 <td>{source.trustScore}</td>
                 <td>{source.language}</td>
+                <td>{getPollSummary(source)}</td>
+                <td>{source.lastLeadCreatedAt ?? "No leads yet"}</td>
                 <td>
                   {source.enabled ? "Enabled" : "Disabled"}{" "}
                   <button

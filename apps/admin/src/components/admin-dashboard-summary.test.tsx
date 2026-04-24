@@ -194,6 +194,8 @@ describe("admin dashboard summary", () => {
           status: "ok",
           ageMs: 8000,
           lastSummary: {
+            ingestedLeadCount: 3,
+            polledSourceCount: 4,
             reviewedCount: 2,
             publishedCount: 1,
           },
@@ -227,6 +229,8 @@ describe("admin dashboard summary", () => {
       cache: "no-store",
     });
     expect(screen.getByText("Healthy")).toBeTruthy();
+    expect(screen.getByText("3 ingested last pass")).toBeTruthy();
+    expect(screen.getByText("4 sources polled")).toBeTruthy();
     expect(screen.getByText("2 reviewed last pass")).toBeTruthy();
     expect(screen.getByText("1 published last pass")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Live summary" })).toBeTruthy();
@@ -282,6 +286,8 @@ describe("admin dashboard summary", () => {
           status: "stale",
           ageMs: 300000,
           lastSummary: {
+            ingestedLeadCount: 0,
+            polledSourceCount: 0,
             reviewedCount: 0,
             publishedCount: 0,
           },

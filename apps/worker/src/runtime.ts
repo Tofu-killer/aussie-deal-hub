@@ -2,15 +2,41 @@ import {
   createAdminLeadRepository,
 } from "@aussie-deal-hub/db/repositories/leads";
 import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
+import { listEnabledSourcesForIngestion, recordSourcePoll } from "@aussie-deal-hub/db/repositories/sources";
 
+import { ingestEnabledSources } from "./jobs/ingestEnabledSources";
 import { publishDueReviews, type WorkerLeadRecord } from "./jobs/publishDueReviews";
 import { reviewPendingLeads, type ReviewedLeadRecord } from "./jobs/reviewPendingLeads";
 
 type AdminLeadRepository = ReturnType<typeof createAdminLeadRepository>;
 type PublishedDealRepository = ReturnType<typeof createPublishedDealRepository>;
 type StoredLeadRecord = Awaited<ReturnType<AdminLeadRepository["listLeadRecords"]>>[number];
+type WorkerLeadStore = {
+  createLeadIfNew(input: {
+    sourceId: string;
+    originalTitle: string;
+    originalUrl: string;
+    canonicalUrl: string;
+    snippet: string;
+    merchant?: string;
+    localizedHints?: string[];
+  }): Promise<{ created: boolean }>;
+  listLeadRecords(): Promise<StoredLeadRecord[]>;
+  saveLeadReviewDraft: AdminLeadRepository["saveLeadReviewDraft"];
+};
+type SourceStore = {
+  listEnabledSources: typeof listEnabledSourcesForIngestion;
+  recordSourcePoll: typeof recordSourcePoll;
+};
+type SourceFetcher = {
+  fetch(input: { url: string }): Promise<{ body: string; contentType: string | null }>;
+};
 
 export interface WorkerCycleSummary {
+  failedSourceCount: number;
+  ingestedLeadCount: number;
+  ingestedLeadIds: string[];
+  polledSourceCount: number;
   publishedCount: number;
   publishedLeadIds: string[];
   queuedPublishCount: number;
@@ -21,11 +47,13 @@ export interface WorkerCycleSummary {
 }
 
 export interface WorkerRuntimeDependencies {
-  leadStore: Pick<AdminLeadRepository, "listLeadRecords" | "saveLeadReviewDraft">;
+  leadStore: WorkerLeadStore;
   publishedDealStore: Pick<
     PublishedDealRepository,
     "getPublishedDealSlugForLead" | "hasPublishedDealSlug" | "publishDeal"
   >;
+  sourceStore: SourceStore;
+  sourceFetcher: SourceFetcher;
   log: Pick<Console, "error" | "info">;
 }
 
@@ -91,8 +119,20 @@ export function buildWorkerLeadRecords(records: StoredLeadRecord[]): WorkerLeadR
 export async function runWorkerCycle({
   leadStore,
   publishedDealStore,
+  sourceStore,
+  sourceFetcher,
   log,
 }: WorkerRuntimeDependencies): Promise<WorkerCycleSummary> {
+  const sourceIngestionSummary = await ingestEnabledSources(
+    await sourceStore.listEnabledSources(),
+    {
+      createLeadIfNew: leadStore.createLeadIfNew,
+    },
+    {
+      recordSourcePoll: sourceStore.recordSourcePoll,
+    },
+    sourceFetcher,
+  );
   const records = await leadStore.listLeadRecords();
   const pendingLeads = records
     .filter((record) => record.review === null)
@@ -115,6 +155,10 @@ export async function runWorkerCycle({
   });
 
   const summary: WorkerCycleSummary = {
+    ingestedLeadCount: sourceIngestionSummary.createdLeadCount,
+    ingestedLeadIds: sourceIngestionSummary.createdLeadIds,
+    polledSourceCount: sourceIngestionSummary.polledSourceCount,
+    failedSourceCount: sourceIngestionSummary.sourceResults.filter((result) => result.status === "error").length,
     reviewedCount: reviewedLeads.length,
     reviewedLeadIds: reviewedLeads.map((lead) => lead.id),
     queuedReviewCount: pendingLeads.length,
@@ -125,8 +169,14 @@ export async function runWorkerCycle({
   };
 
   log.info(
-    `${createTimestampedLogPrefix()} review=${summary.reviewedCount}/${summary.queuedReviewCount} publish=${summary.publishedCount}/${summary.queuedPublishCount} skipped=${summary.skippedPublishCount}`,
+    `${createTimestampedLogPrefix()} sources=${summary.ingestedLeadCount}/${summary.polledSourceCount} review=${summary.reviewedCount}/${summary.queuedReviewCount} publish=${summary.publishedCount}/${summary.queuedPublishCount} skipped=${summary.skippedPublishCount}`,
   );
+
+  if (summary.ingestedLeadIds.length > 0) {
+    log.info(
+      `${createTimestampedLogPrefix()} ingested leads: ${summary.ingestedLeadIds.join(", ")}`,
+    );
+  }
 
   if (summary.reviewedLeadIds.length > 0) {
     log.info(

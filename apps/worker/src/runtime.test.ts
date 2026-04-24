@@ -193,6 +193,7 @@ describe("worker runtime helpers", () => {
         },
       ]);
     const saveLeadReviewDraft = vi.fn().mockResolvedValue(null);
+    const createLeadIfNew = vi.fn().mockResolvedValue({ created: false });
     const publishDeal = vi.fn().mockImplementation(async (input) => ({
       leadId: input.leadId,
       status: "published",
@@ -208,6 +209,7 @@ describe("worker runtime helpers", () => {
 
     const summary = await runWorkerCycle({
       leadStore: {
+        createLeadIfNew,
         listLeadRecords,
         saveLeadReviewDraft,
       },
@@ -216,9 +218,17 @@ describe("worker runtime helpers", () => {
         hasPublishedDealSlug: vi.fn().mockResolvedValue(false),
         publishDeal,
       },
+      sourceStore: {
+        listEnabledSources: vi.fn().mockResolvedValue([]),
+        recordSourcePoll: vi.fn().mockResolvedValue(undefined),
+      },
+      sourceFetcher: {
+        fetch: vi.fn(),
+      },
       log,
     });
 
+    expect(createLeadIfNew).not.toHaveBeenCalled();
     expect(saveLeadReviewDraft).toHaveBeenCalledTimes(1);
     expect(publishDeal).toHaveBeenCalledTimes(1);
     expect(publishDeal.mock.calls[0]?.[0]).toMatchObject({
@@ -226,6 +236,8 @@ describe("worker runtime helpers", () => {
       merchant: "Costco AU",
     });
     expect(summary).toMatchObject({
+      ingestedLeadCount: 0,
+      polledSourceCount: 0,
       reviewedCount: 1,
       publishedCount: 1,
       queuedPublishCount: 1,
