@@ -24,6 +24,12 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("FROM workspace AS api");
     expect(dockerfile).toContain("FROM workspace AS web");
     expect(dockerfile).toContain("FROM workspace AS admin");
+    expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/db prisma:generate");
+    expect(dockerfile).toContain("apps/api/src/index.ts");
+    expect(dockerfile).toContain("cd apps/admin && ../../node_modules/.bin/next build");
+    expect(dockerfile).toContain("cd /app/apps/web && ../../node_modules/.bin/next build");
+    expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
+    expect(dockerfile).toContain("validate --schema packages/db/prisma/schema.prisma");
   });
 
   it("verifies container artifacts in CI before merge", () => {
