@@ -3,6 +3,15 @@ import { prisma } from "./client";
 import { seedSelectedPriceSnapshots } from "./repositories/priceSnapshots.ts";
 
 export async function seedCoreData() {
+  await prisma.source.updateMany({
+    where: {
+      sourceType: "admin",
+    },
+    data: {
+      enabled: false,
+    },
+  });
+
   const sources = [
     {
       name: "OzBargain",
