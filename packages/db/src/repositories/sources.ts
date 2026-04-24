@@ -106,6 +106,9 @@ export async function listEnabledSourcesForIngestion(): Promise<IngestibleSource
   return prisma.source.findMany({
     where: {
       enabled: true,
+      sourceType: {
+        not: "admin",
+      },
     },
     orderBy: {
       name: "asc",

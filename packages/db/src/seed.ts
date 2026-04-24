@@ -7,7 +7,7 @@ export async function seedCoreData() {
     {
       name: "OzBargain",
       sourceType: "community",
-      baseUrl: "https://www.ozbargain.com.au",
+      baseUrl: "https://www.ozbargain.com.au/deals",
       trustScore: 65,
       language: "en",
       enabled: true,
@@ -15,10 +15,10 @@ export async function seedCoreData() {
     {
       name: "Choice Deals",
       sourceType: "publisher",
-      baseUrl: "https://www.choice.com.au/shopping/deals",
+      baseUrl: "https://www.choice.com.au/",
       trustScore: 70,
       language: "en",
-      enabled: true,
+      enabled: false,
     },
     {
       name: "SMZDM",
@@ -26,23 +26,46 @@ export async function seedCoreData() {
       baseUrl: "https://www.smzdm.com",
       trustScore: 60,
       language: "zh",
-      enabled: true,
+      enabled: false,
     },
   ];
 
   for (const source of sources) {
-    await prisma.source.upsert({
+    const existing = await prisma.source.findFirst({
       where: {
-        baseUrl: source.baseUrl,
+        OR: [
+          {
+            name: source.name,
+          },
+          {
+            baseUrl: source.baseUrl,
+          },
+        ],
       },
-      update: {
-        enabled: source.enabled,
-        language: source.language,
-        trustScore: source.trustScore,
-        name: source.name,
-        sourceType: source.sourceType,
+      select: {
+        id: true,
       },
-      create: source,
+    });
+
+    if (existing) {
+      await prisma.source.update({
+        where: {
+          id: existing.id,
+        },
+        data: {
+          baseUrl: source.baseUrl,
+          enabled: source.enabled,
+          language: source.language,
+          trustScore: source.trustScore,
+          name: source.name,
+          sourceType: source.sourceType,
+        },
+      });
+      continue;
+    }
+
+    await prisma.source.create({
+      data: source,
     });
   }
 }

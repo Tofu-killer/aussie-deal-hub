@@ -151,7 +151,7 @@ async function ensureSourceExists(sourceId: string) {
       baseUrl: createPlaceholderSourceUrl(sourceId),
       trustScore: 50,
       language: "en",
-      enabled: true,
+      enabled: false,
     },
   });
 }
