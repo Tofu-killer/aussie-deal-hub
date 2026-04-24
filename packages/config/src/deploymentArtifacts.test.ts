@@ -33,6 +33,9 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("docker build . --target web");
     expect(workflow).toContain("docker build . --target admin");
     expect(workflow).toContain("docker compose config");
+    expect(workflow).toContain("docker compose up -d --build");
+    expect(workflow).toContain("pnpm smoke:readiness");
+    expect(workflow).toContain("docker compose down -v");
   });
 
   it("exposes a readiness smoke script at the repo root", () => {

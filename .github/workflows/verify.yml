@@ -43,3 +43,13 @@ jobs:
 
       - name: Build Admin image target
         run: docker build . --target admin
+
+      - name: Start container stack
+        run: docker compose up -d --build
+
+      - name: Run readiness smoke
+        run: pnpm smoke:readiness
+
+      - name: Stop container stack
+        if: always()
+        run: docker compose down -v
