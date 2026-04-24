@@ -31,3 +31,15 @@ jobs:
 
       - name: Verify workspace
         run: pnpm verify
+
+      - name: Validate compose file
+        run: docker compose config
+
+      - name: Build API image target
+        run: docker build . --target api
+
+      - name: Build Web image target
+        run: docker build . --target web
+
+      - name: Build Admin image target
+        run: docker build . --target admin

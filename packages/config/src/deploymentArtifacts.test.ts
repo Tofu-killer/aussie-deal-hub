@@ -25,4 +25,13 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("FROM workspace AS web");
     expect(dockerfile).toContain("FROM workspace AS admin");
   });
+
+  it("verifies container artifacts in CI before merge", () => {
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+
+    expect(workflow).toContain("docker build . --target api");
+    expect(workflow).toContain("docker build . --target web");
+    expect(workflow).toContain("docker build . --target admin");
+    expect(workflow).toContain("docker compose config");
+  });
 });
