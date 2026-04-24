@@ -25,6 +25,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    command:
+      [
+        "sh",
+        "-lc",
+        "pnpm --filter @aussie-deal-hub/db db:push && pnpm --filter @aussie-deal-hub/db seed",
+      ]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
+    depends_on:
+      postgres:
+        condition: service_healthy
   api:
     build:
       context: .
@@ -43,6 +59,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
