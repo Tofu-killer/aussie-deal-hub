@@ -48,9 +48,35 @@ Set runtime variables in your process manager or deployment platform before star
 | `ADMIN_API_BASE_URL` | admin | yes | Base URL that admin uses to call the API. |
 | `RUN_DB_TESTS` | test only | optional | Set to `1` to include DB-backed persistence tests. |
 
+## Containerized stack
+
+To boot the full local stack with Postgres, Redis, API, web, and admin:
+
+```bash
+docker compose up -d --build
+```
+
+Compose now includes:
+
+- `db-init` to apply the Prisma schema and seed baseline data
+- `api` with `/v1/health` and `/v1/ready`
+- `web` with `/health` and `/ready`
+- `admin` with `/health` and `/ready`
+
+The liveness/readiness split is:
+
+- liveness:
+  - `api`: `/v1/health`
+  - `web`: `/health`
+  - `admin`: `/health`
+- readiness:
+  - `api`: `/v1/ready`
+  - `web`: `/ready`
+  - `admin`: `/ready`
+
 ## Database bootstrap
 
-For a local Postgres and Redis pair that matches the example values:
+If you want to run only Postgres and Redis locally instead of the full app stack:
 
 ```bash
 docker compose up -d
