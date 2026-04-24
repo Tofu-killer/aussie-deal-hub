@@ -43,7 +43,8 @@ describe("admin dashboard summary", () => {
       .fn()
       .mockResolvedValueOnce(createJsonResponse({ message: "lead queue unavailable" }, false))
       .mockResolvedValueOnce(createJsonResponse({ items: [] }))
-      .mockResolvedValueOnce(createJsonResponse({ items: [] }));
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ message: "worker unavailable" }, false));
     vi.stubGlobal("fetch", fetchMock);
 
     const markup = await renderAdminHomePageToStaticMarkup();
@@ -57,11 +58,15 @@ describe("admin dashboard summary", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, "http://preview-api.test/v1/admin/publishing", {
       cache: "no-store",
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "http://preview-api.test/v1/admin/runtime/worker", {
+      cache: "no-store",
+    });
     expect(markup).toContain("Failed to load lead queue.");
     expect(markup).toContain("0 sources tracked");
     expect(markup).toContain("0 enabled");
     expect(markup).toContain("0 disabled");
     expect(markup).toContain("0 publishing jobs");
+    expect(markup).toContain("Failed to load worker runtime.");
     expect(markup).not.toContain("Loading leads.");
     expect(markup).not.toContain("Loading sources.");
     expect(markup).not.toContain("Loading publishing jobs.");
@@ -182,6 +187,17 @@ describe("admin dashboard summary", () => {
             },
           ],
         }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          ok: true,
+          status: "ok",
+          ageMs: 8000,
+          lastSummary: {
+            reviewedCount: 2,
+            publishedCount: 1,
+          },
+        }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -207,6 +223,12 @@ describe("admin dashboard summary", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(3, "http://preview-api.test/v1/admin/publishing", {
       cache: "no-store",
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "http://preview-api.test/v1/admin/runtime/worker", {
+      cache: "no-store",
+    });
+    expect(screen.getByText("Healthy")).toBeTruthy();
+    expect(screen.getByText("2 reviewed last pass")).toBeTruthy();
+    expect(screen.getByText("1 published last pass")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Live summary" })).toBeTruthy();
 
     expect(screen.getByRole("link", { name: "Open lead queue" }).getAttribute("href")).toBe(
@@ -253,12 +275,24 @@ describe("admin dashboard summary", () => {
         }),
       )
       .mockResolvedValueOnce(createJsonResponse({ items: [] }))
-      .mockResolvedValueOnce(createJsonResponse({ items: [] }));
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          ok: false,
+          status: "stale",
+          ageMs: 300000,
+          lastSummary: {
+            reviewedCount: 0,
+            publishedCount: 0,
+          },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await renderAdminHomePage();
 
     expect(await screen.findByText("1 lead in queue")).toBeTruthy();
     expect(screen.getByText("1 published")).toBeTruthy();
+    expect(screen.getByText("Worker heartbeat is stale.")).toBeTruthy();
   });
 });

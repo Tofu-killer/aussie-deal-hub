@@ -53,6 +53,8 @@ Set runtime variables in your process manager or deployment platform before star
 | `WORKER_POLL_INTERVAL_MS` | worker | optional | Poll interval for the background review/publish loop. |
 | `WORKER_REVIEW_ENABLED` | worker | optional | Set to `0` to disable automatic draft generation for pending leads. |
 | `WORKER_PUBLISH_ENABLED` | worker | optional | Set to `0` to disable automatic publishing of due reviewed leads. |
+| `WORKER_STATE_PATH` | api, worker | optional | Shared state file used for worker heartbeat and admin runtime visibility. |
+| `WORKER_STALE_AFTER_MS` | api, worker | optional | Maximum heartbeat age before the worker is reported stale. |
 | `RUN_DB_TESTS` | test only | optional | Set to `1` to include DB-backed persistence tests. |
 
 ## Containerized stack

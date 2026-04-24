@@ -10,6 +10,7 @@ interface DashboardSummaryState {
   leads: SummaryCardState;
   sources: SummaryCardState;
   publishing: SummaryCardState;
+  worker: SummaryCardState;
 }
 
 interface LoadSummaryResult {
@@ -232,6 +233,44 @@ function summarizePublishingQueue(result: LoadSummaryResult): SummaryCardState {
   };
 }
 
+function summarizeWorkerRuntime(result: LoadSummaryResult): SummaryCardState {
+  if (result.error) {
+    return createErrorCard("Worker", result.error);
+  }
+
+  if (!isRecord(result.body)) {
+    return createErrorCard("Worker", "Failed to load worker runtime.");
+  }
+
+  const status = readString(result.body.status) || "unknown";
+  const lastSummary = isRecord(result.body.lastSummary) ? result.body.lastSummary : {};
+  const ageMs = typeof result.body.ageMs === "number" ? result.body.ageMs : null;
+  const lastErrorMessage = readString(result.body.lastErrorMessage);
+
+  if (status === "error") {
+    return createErrorCard("Worker", lastErrorMessage || "Worker runtime error.");
+  }
+
+  if (status === "stale") {
+    return createErrorCard("Worker", "Worker heartbeat is stale.");
+  }
+
+  const reviewedCount = typeof lastSummary.reviewedCount === "number" ? lastSummary.reviewedCount : 0;
+  const publishedCount =
+    typeof lastSummary.publishedCount === "number" ? lastSummary.publishedCount : 0;
+
+  return {
+    title: "Worker",
+    lines: [
+      "Healthy",
+      `${reviewedCount} reviewed last pass`,
+      `${publishedCount} published last pass`,
+      ageMs === null ? "Heartbeat age unavailable" : `${Math.floor(ageMs / 1000)}s since heartbeat`,
+    ],
+    error: null,
+  };
+}
+
 async function loadSummary(path: string, error: string): Promise<LoadSummaryResult> {
   try {
     const response = await fetch(`${getAdminApiBaseUrl()}${path}`, {
@@ -258,16 +297,18 @@ async function loadSummary(path: string, error: string): Promise<LoadSummaryResu
 }
 
 async function loadDashboardSummary(): Promise<DashboardSummaryState> {
-  const [leads, sources, publishing] = await Promise.all([
+  const [leads, sources, publishing, worker] = await Promise.all([
     loadSummary("/v1/admin/leads", "Failed to load lead queue."),
     loadSummary("/v1/admin/sources", "Failed to load sources."),
     loadSummary("/v1/admin/publishing", "Failed to load publishing queue."),
+    loadSummary("/v1/admin/runtime/worker", "Failed to load worker runtime."),
   ]);
 
   return {
     leads: summarizeLeadQueue(leads),
     sources: summarizeSources(sources),
     publishing: summarizePublishingQueue(publishing),
+    worker: summarizeWorkerRuntime(worker),
   };
 }
 

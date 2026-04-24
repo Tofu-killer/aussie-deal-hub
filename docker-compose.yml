@@ -55,6 +55,8 @@ services:
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: change-me-to-at-least-16-characters
       EMAIL_FROM: deals@example.com
+      WORKER_STATE_PATH: /app/.runtime/worker-state.json
+      WORKER_STALE_AFTER_MS: 120000
     ports:
       - "3001:3001"
     depends_on:
@@ -65,6 +67,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - worker-state:/app/.runtime
     healthcheck:
       test:
         [
@@ -135,12 +139,26 @@ services:
       WORKER_POLL_INTERVAL_MS: 30000
       WORKER_REVIEW_ENABLED: 1
       WORKER_PUBLISH_ENABLED: 1
+      WORKER_STATE_PATH: /app/.runtime/worker-state.json
+      WORKER_STALE_AFTER_MS: 120000
     depends_on:
       postgres:
         condition: service_healthy
       db-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    volumes:
+      - worker-state:/app/.runtime
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const fs=require('node:fs'); const p=process.env.WORKER_STATE_PATH; const maxAge=Number(process.env.WORKER_STALE_AFTER_MS||120000); const stat=fs.statSync(p); process.exit(Date.now()-stat.mtimeMs <= maxAge ? 0 : 1)\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres-data:
+  worker-state:

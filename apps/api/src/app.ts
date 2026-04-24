@@ -13,6 +13,7 @@ import {
   createAdminPublishingRouter,
 } from "./routes/adminPublishing.ts";
 import { createAdminPreviewRouter } from "./routes/adminPreview.ts";
+import { createAdminRuntimeRouter } from "./routes/adminRuntime.ts";
 import { createAdminSourcesRouter, type SourcesStore } from "./routes/adminSources.ts";
 import {
   createAuthRouter,
@@ -109,6 +110,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/v1/auth", createAuthRouter(codes, sessionManager));
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter());
+  app.use("/v1/admin", createAdminRuntimeRouter());
   app.use(
     "/v1/admin/publishing",
     createAdminPublishingRouter(adminLeadStore, publishedDealStore),

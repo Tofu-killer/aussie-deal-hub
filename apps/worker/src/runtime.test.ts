@@ -6,6 +6,7 @@ import {
   getDefaultFeaturedSlot,
   runWorkerCycle,
 } from "./runtime";
+import { resolveWorkerStatePath } from "./state";
 
 describe("worker runtime helpers", () => {
   it("maps reviewed leads into saved draft submissions with stable defaults", () => {
@@ -237,5 +238,9 @@ describe("worker runtime helpers", () => {
     expect(getDefaultFeaturedSlot("Historical Lows")).toBe("historical-lows");
     expect(getDefaultFeaturedSlot("Freebies")).toBe("freebies");
     expect(getDefaultFeaturedSlot("Gift Card Offers")).toBe("gift-card-offers");
+  });
+
+  it("resolves a worker state path inside the runtime directory by default", () => {
+    expect(resolveWorkerStatePath()).toContain(".runtime/worker-state.json");
   });
 });

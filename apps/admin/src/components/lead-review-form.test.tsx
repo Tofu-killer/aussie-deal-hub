@@ -215,12 +215,23 @@ describe("LeadReviewForm", () => {
       .fn()
       .mockResolvedValueOnce(createJsonResponse({ items: [] }))
       .mockResolvedValueOnce(createJsonResponse({ items: [] }))
-      .mockResolvedValueOnce(createJsonResponse({ items: [] }));
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          ok: true,
+          status: "ok",
+          ageMs: 0,
+          lastSummary: {
+            reviewedCount: 0,
+            publishedCount: 0,
+          },
+        }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const markup = await renderAdminHomePageToStaticMarkup();
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(markup).toContain("Admin review dashboard");
     expect(markup).toContain("/leads");
   });
