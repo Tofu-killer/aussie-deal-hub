@@ -101,6 +101,9 @@ importers:
       '@aussie-deal-hub/email':
         specifier: workspace:*
         version: link:../../packages/email
+      '@aussie-deal-hub/scraping':
+        specifier: workspace:*
+        version: link:../../packages/scraping
 
   packages/ai: {}
 
