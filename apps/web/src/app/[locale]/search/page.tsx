@@ -1,6 +1,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 
+import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import { searchDeals } from "../../../lib/discovery";
 import { listPublicDeals } from "../../../lib/serverApi";
 import {
@@ -119,11 +120,31 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
     activeLocale === "en"
       ? `No deals found for "${normalizedQuery}".`
       : `没有找到与“${normalizedQuery}”相关的优惠。`;
+  const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
+  const resultSummary =
+    activeLocale === "en"
+      ? "Primary clicks open the retailer page. Use the secondary action for on-site context."
+      : "主点击直接打开商家商品页，次级动作保留站内详情解读。";
 
   return (
-    <main>
-      <h1>{title}</h1>
-      <form method="get" action={buildLocaleHref(activeLocale, "/search")}>
+    <main className="web-page">
+      <section className="web-page__hero">
+        <div>
+          <p className="web-kicker">{activeLocale === "en" ? "Discovery" : "搜索发现"}</p>
+          <h1>{title}</h1>
+          <p className="web-page__summary">
+            {normalizedQuery
+              ? activeLocale === "en"
+                ? `Showing live and seeded matches for "${normalizedQuery}".`
+                : `展示与“${normalizedQuery}”匹配的实时和种子优惠。`
+              : emptyPrompt}
+          </p>
+        </div>
+        <p className="web-page__note">{resultSummary}</p>
+      </section>
+      <div className="web-page__content">
+        <aside className="web-page__sidebar">
+          <form className="web-filter-panel" method="get" action={buildLocaleHref(activeLocale, "/search")}>
         <p>
           <label htmlFor="search-query">{filterCopy.queryLabel}</label>
         </p>
@@ -188,31 +209,36 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
         {sessionToken ? <input name="sessionToken" type="hidden" value={sessionToken} /> : null}
         <button type="submit">{filterCopy.submitLabel}</button>
       </form>
-      {normalizedQuery ? <p>{normalizedQuery}</p> : null}
-      {normalizedQuery ? (
-        results.length > 0 ? (
-          <ul>
-            {results.map((deal) => (
-              <li key={deal.slug}>
-                <a
-                  href={appendSessionToken(
-                    buildLocaleHref(activeLocale, `/deals/${deal.slug}`),
-                    sessionToken,
-                  )}
-                >
-                  {deal.locales[activeLocale].title}
-                </a>
-                <p>{deal.locales[activeLocale].summary}</p>
-              </li>
-            ))}
-          </ul>
+        </aside>
+        <section className="web-results-panel" aria-labelledby="search-results-heading">
+          <div className="web-panel__header">
+            <h2 id="search-results-heading">{title}</h2>
+            {normalizedQuery ? <p className="web-query-chip">{normalizedQuery}</p> : null}
+          </div>
+          {normalizedQuery ? (
+            results.length > 0 ? (
+              <ul className="web-card-list web-card-list--split">
+                {results.map((deal) => (
+                  <li key={deal.slug}>
+                    <DealDiscoveryCard
+                      deal={deal}
+                      locale={activeLocale}
+                      primaryActionLabel={copy.ctaLabel}
+                      secondaryActionLabel={detailActionLabel}
+                      sessionToken={sessionToken}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>{noResultText}</p>
+            )
         ) : (
-          <p>{noResultText}</p>
-        )
-      ) : (
-        <p>{emptyPrompt}</p>
-      )}
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+            <p>{emptyPrompt}</p>
+          )}
+        </section>
+      </div>
+      <a className="web-primary-link" href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
         {copy.backToHomeLabel}
       </a>
     </main>

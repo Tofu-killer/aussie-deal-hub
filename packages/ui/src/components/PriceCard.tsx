@@ -20,6 +20,12 @@ export function PriceCard({
   originalPriceLabel = "",
 }: PriceCardProps) {
   const currentPriceLabelId = React.useId();
+  const externalTargetProps = ctaHref.startsWith("http")
+    ? {
+        rel: "noreferrer",
+        target: "_blank",
+      }
+    : {};
 
   return (
     <section aria-labelledby={currentPriceLabelId} className="price-card">
@@ -34,7 +40,7 @@ export function PriceCard({
         </p>
       ) : null}
       {discountLabel ? <p className="price-card__discount">{discountLabel}</p> : null}
-      <a className="price-card__cta" href={ctaHref}>
+      <a className="price-card__cta" href={ctaHref} {...externalTargetProps}>
         {ctaLabel}
       </a>
     </section>

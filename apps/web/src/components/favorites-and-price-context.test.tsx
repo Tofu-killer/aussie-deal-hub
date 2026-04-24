@@ -108,8 +108,10 @@ describe("favorites and price context pages", () => {
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123");
-    expect(screen.getByText("Current price")).toBeTruthy();
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123",
+    );
     expect(screen.getByText("A$399")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
       "/en?sessionToken=session_test_123",
@@ -278,12 +280,12 @@ describe("favorites and price context pages", () => {
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123");
+    ).toBe("https://www.amazon.com.au/deal");
     expect(
       screen.getByRole("link", {
         name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_123");
+    ).toBe("https://www.costco.com.au/deal");
   });
 
   it("renders live-only favorites from the batched public deals list", async () => {
@@ -344,7 +346,7 @@ describe("favorites and price context pages", () => {
       screen.getByRole("link", {
         name: "Weekend bundle for A$179 at JB Hi-Fi",
       }).getAttribute("href"),
-    ).toBe("/en/deals/live-only-weekend-bundle?sessionToken=session_test_123");
+    ).toBe("https://example.test/live-only-weekend-bundle");
     expect(screen.getByText("Live catalog weekend bundle with pickup available.")).toBeTruthy();
     expect(screen.getByText("A$179")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(

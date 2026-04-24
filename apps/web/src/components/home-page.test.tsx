@@ -68,11 +68,21 @@ describe("home page curated sections", () => {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }),
     ).toBeTruthy();
+    expect(
+      within(featuredSection)
+        .getByRole("link", {
+          name: "Nintendo Switch OLED for A$399 at Amazon AU",
+        })
+        .getAttribute("href"),
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(within(featuredSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au",
+    );
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
-    const latestDealLinks = within(latestDealsSection).getAllByRole("link");
-    expect(latestDealLinks).toHaveLength(4);
-    expect(latestDealLinks[0]?.textContent).toBe("Nintendo Switch OLED for A$399 at Amazon AU");
+    const latestDealTitles = within(latestDealsSection).getAllByRole("heading", { level: 3 });
+    expect(latestDealTitles).toHaveLength(4);
+    expect(latestDealTitles[0]?.textContent).toBe("Nintendo Switch OLED for A$399 at Amazon AU");
     expect(within(latestDealsSection).getByText("Amazon AU")).toBeTruthy();
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
@@ -122,7 +132,10 @@ describe("home page curated sections", () => {
           name: "Nintendo Switch OLED for A$399 at Amazon AU",
         })
         .getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456");
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(within(featuredSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456",
+    );
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
     expect(
@@ -131,7 +144,10 @@ describe("home page curated sections", () => {
           name: "Nintendo Switch OLED for A$399 at Amazon AU",
         })
         .getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456");
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(within(latestDealsSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456",
+    );
 
     expect(screen.getByRole("link", { name: "English" }).getAttribute("href")).toBe(
       "/en?sessionToken=session_test_456",
@@ -154,9 +170,14 @@ describe("home page curated sections", () => {
     );
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
-    const latestDealLinks = within(latestDealsSection).getAllByRole("link");
-    expect(latestDealLinks[0]?.textContent).toBe("Breville Barista Express for A$499");
-    expect(latestDealLinks[0]?.getAttribute("href")).toBe(
+    expect(
+      within(latestDealsSection)
+        .getByRole("link", { name: "Breville Barista Express for A$499" })
+        .getAttribute("href"),
+    ).toBe(
+      "https://www.thegoodguys.com.au/deal",
+    );
+    expect(within(latestDealsSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
       "/en/deals/breville-barista-express-for-a-499",
     );
     expect(within(latestDealsSection).getByText("The Good Guys")).toBeTruthy();

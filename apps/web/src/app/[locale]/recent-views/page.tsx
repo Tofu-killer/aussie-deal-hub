@@ -2,6 +2,7 @@ import React from "react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
+import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import { getRecentViewSlugsFromCookie, RECENT_VIEWS_COOKIE_NAME } from "../../../lib/recentViews";
 import {
   appendSessionToken,
@@ -114,6 +115,8 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   const clearRecentViewsLabel = activeLocale === "en" ? "Clear recent views" : "清空最近浏览";
   const backToHomeLabel = activeLocale === "en" ? "Back to home" : "返回首页";
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", sessionToken);
+  const ctaLabel = activeLocale === "en" ? "Open merchant page" : "打开商品页";
+  const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
   async function handleClearRecentViews() {
     "use server";
@@ -135,15 +138,13 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
           <ul>
             {recentDeals.map((deal) => (
               <li key={deal.slug}>
-                <a
-                  href={appendSessionToken(
-                    buildLocaleHref(activeLocale, `/deals/${deal.slug}`),
-                    sessionToken,
-                  )}
-                >
-                  {deal.locales[activeLocale].title}
-                </a>
-                <p>{deal.locales[activeLocale].summary}</p>
+                <DealDiscoveryCard
+                  deal={deal}
+                  locale={activeLocale}
+                  primaryActionLabel={ctaLabel}
+                  secondaryActionLabel={detailActionLabel}
+                  sessionToken={sessionToken}
+                />
               </li>
             ))}
           </ul>

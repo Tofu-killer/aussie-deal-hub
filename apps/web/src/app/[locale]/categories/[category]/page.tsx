@@ -2,6 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import DealDiscoveryCard from "../../../../components/DealDiscoveryCard";
 import { getCategoryDealGroups } from "../../../../lib/discovery";
 import { listPublicDeals } from "../../../../lib/serverApi";
 import {
@@ -136,6 +137,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     activeLocale === "en" ? "No deals in this category yet." : "该分类暂无优惠。";
   const categoryDealsTitle =
     activeLocale === "en" ? "Available deals" : "当前优惠";
+  const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
   const switchLinks = (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
     href: appendQueryParams(
@@ -149,10 +151,27 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   }));
 
   return (
-    <main>
-      <LocaleSwitch currentLocale={activeLocale} locales={switchLinks} />
-      <h1>{getPublicCategoryTitle(activeLocale, category)}</h1>
-      <form method="get" action={buildLocaleHref(activeLocale, `/categories/${category}`)}>
+    <main className="web-page">
+      <section className="web-page__hero">
+        <div>
+          <LocaleSwitch currentLocale={activeLocale} locales={switchLinks} />
+          <p className="web-kicker">{activeLocale === "en" ? "Category view" : "分类浏览"}</p>
+          <h1>{getPublicCategoryTitle(activeLocale, category)}</h1>
+          <p className="web-page__summary">
+            {activeLocale === "en"
+              ? "Filtered category lanes tuned for fast merchant jumps and in-site verification."
+              : "按分类聚合优惠，主点击可直接前往商家页面，同时保留站内核对入口。"}
+          </p>
+        </div>
+        <p className="web-page__note">
+          {activeLocale === "en"
+            ? "Use filters to compress the feed down to the most actionable price moves."
+            : "使用筛选器压缩列表，只保留真正值得点开的价格变化。"}
+        </p>
+      </section>
+      <div className="web-page__content">
+        <aside className="web-page__sidebar">
+          <form className="web-filter-panel" method="get" action={buildLocaleHref(activeLocale, `/categories/${category}`)}>
         <p>
           <label htmlFor="category-merchant">{filterCopy.merchantLabel}</label>
         </p>
@@ -213,28 +232,37 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         {sessionToken ? <input name="sessionToken" type="hidden" value={sessionToken} /> : null}
         <button type="submit">{filterCopy.submitLabel}</button>
       </form>
-      {categoryDeals.length > 0 ? (
-        <section aria-labelledby="category-deals-title">
-          <h2 id="category-deals-title">{categoryDealsTitle}</h2>
-          <ul>
-            {categoryDeals.map((deal) => (
-              <li key={deal.slug}>
-                <a
-                  href={appendSessionToken(
-                    buildLocaleHref(activeLocale, `/deals/${deal.slug}`),
-                    sessionToken,
-                  )}
-                >
-                  {deal.locales[activeLocale].title}
-                </a>
-                <p>{deal.locales[activeLocale].summary}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : (
-        <p>{emptyStateLabel}</p>
-      )}
+        </aside>
+        {categoryDeals.length > 0 ? (
+          <section aria-labelledby="category-deals-title" className="web-results-panel">
+            <div className="web-panel__header">
+              <h2 id="category-deals-title">{categoryDealsTitle}</h2>
+              <p>
+                {activeLocale === "en"
+                  ? "Primary actions open the merchant page. Secondary actions stay in-app."
+                  : "主动作直达商家页，次级动作保留站内详情。"}
+              </p>
+            </div>
+            <ul className="web-card-list web-card-list--split">
+              {categoryDeals.map((deal) => (
+                <li key={deal.slug}>
+                  <DealDiscoveryCard
+                    deal={deal}
+                    locale={activeLocale}
+                    primaryActionLabel={getLocaleCopy(activeLocale).ctaLabel}
+                    secondaryActionLabel={detailActionLabel}
+                    sessionToken={sessionToken}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <section className="web-results-panel">
+            <p>{emptyStateLabel}</p>
+          </section>
+        )}
+      </div>
     </main>
   );
 }

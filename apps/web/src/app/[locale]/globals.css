@@ -182,6 +182,7 @@ main h1 {
 .locale-switch__list,
 .web-link-list,
 .web-deal-list,
+.web-card-list,
 .web-merchant-list {
   list-style: none;
   margin: 0;
@@ -298,7 +299,8 @@ main a {
 }
 
 .web-link-list,
-.web-deal-list {
+.web-deal-list,
+.web-card-list {
   display: grid;
   gap: 0.85rem;
 }
@@ -340,6 +342,262 @@ main a {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.web-page,
+.web-detail-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.web-page__hero {
+  align-items: flex-end;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.95fr);
+}
+
+.web-page__hero,
+.web-filter-panel,
+.web-results-panel,
+.web-detail-overview,
+.web-detail-aside,
+.web-status-panel,
+.web-note-card {
+  backdrop-filter: blur(12px);
+  background: var(--web-panel);
+  border: 1px solid var(--web-border);
+  border-radius: 1.35rem;
+  box-shadow: var(--web-shadow);
+}
+
+.web-page__hero,
+.web-filter-panel,
+.web-results-panel,
+.web-detail-overview,
+.web-status-panel {
+  padding: 1.35rem;
+}
+
+.web-page__summary,
+.web-page__note,
+.web-detail-summary {
+  color: var(--web-muted);
+  margin-top: 0.75rem;
+}
+
+.web-page__note {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(13, 122, 116, 0.12);
+  border-radius: 1rem;
+  margin: 0;
+  padding: 1rem 1.1rem;
+}
+
+.web-page__content {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr);
+}
+
+.web-page__sidebar {
+  display: grid;
+  gap: 1rem;
+}
+
+.web-filter-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.web-query-chip {
+  background: rgba(13, 122, 116, 0.1);
+  border-radius: 999px;
+  color: var(--web-highlight);
+  display: inline-flex;
+  font-weight: 700;
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+}
+
+.web-card-list--split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deal-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 244, 235, 0.9)),
+    rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(34, 54, 70, 0.1);
+  border-radius: 1.05rem;
+  display: grid;
+  gap: 0.8rem;
+  height: 100%;
+  padding: 1rem;
+}
+
+.deal-card__meta,
+.deal-card__actions,
+.deal-card__footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.deal-card__merchant {
+  background: rgba(13, 122, 116, 0.1);
+  border-radius: 999px;
+  color: var(--web-highlight);
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+}
+
+.deal-card__price {
+  color: var(--web-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.deal-card__title {
+  font-size: 1.22rem;
+  line-height: 1.15;
+}
+
+.deal-card__title a {
+  color: var(--web-ink);
+  text-decoration: none;
+}
+
+.deal-card__summary {
+  color: var(--web-muted);
+  margin: 0;
+}
+
+.deal-card__primary-cta {
+  align-items: center;
+  background: linear-gradient(135deg, var(--web-accent), var(--web-accent-strong));
+  border-radius: 999px;
+  color: #fff7f2;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.68rem 1rem;
+  text-decoration: none;
+}
+
+.deal-card__secondary-link {
+  color: var(--web-highlight);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.deal-card__footer form {
+  display: inline-flex;
+  gap: 0.6rem;
+}
+
+.web-detail-hero {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.45fr) minmax(19rem, 0.95fr);
+}
+
+.web-detail-overview {
+  display: grid;
+  gap: 1rem;
+}
+
+.web-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.web-chip {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(34, 54, 70, 0.12);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.4rem 0.8rem;
+}
+
+.web-chip--accent {
+  background: rgba(207, 92, 54, 0.12);
+  border-color: rgba(207, 92, 54, 0.18);
+  color: var(--web-accent-strong);
+}
+
+.web-detail-aside {
+  display: grid;
+  gap: 1rem;
+}
+
+.web-status-panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.web-note-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.web-note-card {
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1rem;
+}
+
+.web-note-card h2 {
+  font-size: 1.05rem;
+}
+
+.web-note-card p {
+  margin-top: 0.4rem;
+}
+
+.web-detail-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.web-detail-grid .web-panel {
+  height: 100%;
+}
+
+.web-detail-grid ol,
+.web-detail-grid ul,
+.web-snapshot-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.web-snapshot-list {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  list-style: none;
+  padding-left: 0;
+}
+
+.web-snapshot-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(34, 54, 70, 0.08);
+  border-radius: 1rem;
+  padding: 0.95rem;
+}
+
+.web-snapshot-card p {
+  margin: 0.2rem 0 0;
 }
 
 .web-primary-link {
@@ -459,7 +717,13 @@ p {
 @media (max-width: 900px) {
   .web-masthead,
   .web-home__hero,
+  .web-page__hero,
+  .web-page__content,
   .web-home__grid,
+  .web-card-list--split,
+  .web-detail-hero,
+  .web-note-grid,
+  .web-detail-grid,
   .web-search-card__controls,
   .web-deal-list li,
   .web-panel__header {

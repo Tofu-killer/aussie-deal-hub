@@ -151,7 +151,7 @@ describe("public deal surfaces", () => {
       within(featuredSection)
         .getByRole("link", { name: "Nintendo Switch OLED for A$399 at Amazon AU" })
         .getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
+    ).toBe("https://www.amazon.com.au/deal");
     expect(
       englishHome.getByRole("link", { name: "中文" }).getAttribute("href"),
     ).toBe("/zh");
@@ -172,7 +172,7 @@ describe("public deal surfaces", () => {
     expect(
       chineseDetail.getByRole("heading", { name: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399" }),
     ).toBeTruthy();
-    expect(chineseDetail.getByText("A$399")).toBeTruthy();
+    expect(chineseDetail.getAllByText("A$399").length).toBeGreaterThanOrEqual(1);
     expect(
       chineseDetail.getByRole("link", { name: "English" }).getAttribute("href"),
     ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
@@ -203,7 +203,7 @@ describe("public deal surfaces", () => {
     );
 
     expect(detail.getByRole("heading", { name: "Merchant" })).toBeTruthy();
-    expect(detail.getByText("Amazon AU")).toBeTruthy();
+    expect(within(detail.getByRole("region", { name: "Merchant" })).getByText("Amazon AU")).toBeTruthy();
     expect(detail.getByRole("heading", { name: "Coupon code" })).toBeTruthy();
     expect(detail.getByText("GAME20")).toBeTruthy();
     expect(detail.getByRole("heading", { name: "Validity" })).toBeTruthy();
@@ -415,7 +415,10 @@ describe("public deal surfaces", () => {
       detail
         .getByRole("link", { name: "AirPods Pro (2nd Gen) for A$299 at Costco AU" })
         .getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session-123");
+    ).toBe("https://www.costco.com.au/deal");
+    expect(detail.getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
+      "/en/deals/airpods-pro-2-costco-au?sessionToken=session-123",
+    );
     detail.unmount();
   });
 
@@ -451,7 +454,7 @@ describe("public deal surfaces", () => {
     );
 
     expect(detail.getByRole("heading", { name: "商家" })).toBeTruthy();
-    expect(detail.getByText("Amazon AU")).toBeTruthy();
+    expect(within(detail.getByRole("region", { name: "商家" })).getByText("Amazon AU")).toBeTruthy();
     expect(detail.getByRole("heading", { name: "优惠码" })).toBeTruthy();
     expect(detail.getByText("GAME20")).toBeTruthy();
     expect(detail.getByRole("heading", { name: "有效期" })).toBeTruthy();
@@ -540,8 +543,8 @@ describe("public deal surfaces", () => {
       detail.getByRole("heading", { name: "Breville Barista Express for A$499" }),
     ).toBeTruthy();
     expect(detail.getByText("Live catalog deal loaded from the public API.")).toBeTruthy();
-    expect(detail.getAllByText("A$499.00")).toHaveLength(2);
-    expect(detail.getByText("The Good Guys")).toBeTruthy();
+    expect(detail.getAllByText("A$499.00").length).toBeGreaterThanOrEqual(2);
+    expect(within(detail.getByRole("region", { name: "Merchant" })).getByText("The Good Guys")).toBeTruthy();
     expect(detail.getByRole("heading", { name: "Deal highlights" })).toBeTruthy();
     detail.unmount();
   });

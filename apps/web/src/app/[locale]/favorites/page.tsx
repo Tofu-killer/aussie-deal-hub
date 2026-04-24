@@ -1,6 +1,7 @@
 import React from "react";
 import { notFound, redirect } from "next/navigation";
 
+import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import {
   appendSessionToken,
   buildLocaleHref,
@@ -183,6 +184,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
       : "这条收藏优惠已不再公开展示。";
   const orphanFavoriteDealIdLabel = activeLocale === "en" ? "Deal ID" : "优惠 ID";
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "favorites", sessionToken);
+  const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
   async function handleRemoveFavorite(formData: FormData) {
     "use server";
@@ -224,17 +226,17 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
               <li key={item.dealId}>
                 {item.type === "deal" ? (
                   <>
-                    <a
-                      href={appendSessionToken(
-                        buildLocaleHref(activeLocale, `/deals/${item.deal.slug}`),
-                        sessionToken,
-                      )}
-                    >
-                      {item.deal.locales[activeLocale].title}
-                    </a>
-                    <p>{item.deal.locales[activeLocale].summary}</p>
-                    <p>{copy.currentPriceLabel}</p>
-                    <p>{item.deal.currentPrice}</p>
+                    <DealDiscoveryCard
+                      deal={item.deal}
+                      locale={activeLocale}
+                      primaryActionLabel={copy.ctaLabel}
+                      secondaryActionLabel={detailActionLabel}
+                      sessionToken={sessionToken}
+                    />
+                    <form action={handleRemoveFavorite}>
+                      <input name="dealId" type="hidden" value={item.dealId} />
+                      <button type="submit">{removeFavoriteLabel}</button>
+                    </form>
                   </>
                 ) : (
                   <>
@@ -245,10 +247,12 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
                     </p>
                   </>
                 )}
-                <form action={handleRemoveFavorite}>
-                  <input name="dealId" type="hidden" value={item.dealId} />
-                  <button type="submit">{removeFavoriteLabel}</button>
-                </form>
+                {item.type === "orphan" ? (
+                  <form action={handleRemoveFavorite}>
+                    <input name="dealId" type="hidden" value={item.dealId} />
+                    <button type="submit">{removeFavoriteLabel}</button>
+                  </form>
+                ) : null}
               </li>
             ))}
           </ul>

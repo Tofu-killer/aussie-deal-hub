@@ -70,7 +70,10 @@ describe("category listing and related deals", () => {
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123");
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123",
+    );
   });
 
   it("renders empty state copy in Chinese when category has no deals", async () => {
@@ -143,7 +146,10 @@ describe("category listing and related deals", () => {
           name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
         })
         .getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_789");
+    ).toBe("https://www.costco.com.au/deal");
+    expect(within(relatedSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
+      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_789",
+    );
   });
 
   it("merges live API deals into category listings", async () => {
@@ -159,6 +165,6 @@ describe("category listing and related deals", () => {
       screen.getByRole("link", {
         name: "Breville Barista Express for A$499",
       }).getAttribute("href"),
-    ).toBe("/en/deals/breville-barista-express-for-a-499");
+    ).toBe("https://www.thegoodguys.com.au/deal");
   });
 });

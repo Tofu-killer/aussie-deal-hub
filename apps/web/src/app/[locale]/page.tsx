@@ -2,6 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import DealDiscoveryCard from "../../components/DealDiscoveryCard";
 import { LocaleSwitch } from "../../lib/ui";
 import { listPublicDeals } from "../../lib/serverApi";
 import {
@@ -115,6 +116,16 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
     ? resolvedSearchParams.sessionToken[0]
     : resolvedSearchParams?.sessionToken;
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", sessionToken);
+  const cardActionCopy =
+    activeLocale === "en"
+      ? {
+          detailLabel: "Read breakdown",
+          featuredSummary: "Editor-picked deal lanes that open straight into the merchant page.",
+        }
+      : {
+          detailLabel: "站内详情",
+          featuredSummary: "按栏目整理的精选优惠，主点击直接进入商品页。",
+        };
   const heroMetrics =
     activeLocale === "en"
       ? [
@@ -181,18 +192,20 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
 
           return (
             <section key={section.id} aria-labelledby={sectionHeadingId} className="web-panel">
-              <h2 id={sectionHeadingId}>{section.title}</h2>
-              <ul className="web-link-list">
+              <div className="web-panel__header">
+                <h2 id={sectionHeadingId}>{section.title}</h2>
+                <p>{cardActionCopy.featuredSummary}</p>
+              </div>
+              <ul className="web-card-list">
                 {section.deals.map((deal) => (
                   <li key={deal.slug}>
-                    <a
-                      href={appendSessionToken(
-                        buildLocaleHref(activeLocale, `/deals/${deal.slug}`),
-                        sessionToken,
-                      )}
-                    >
-                      {deal.locales[activeLocale].title}
-                    </a>
+                    <DealDiscoveryCard
+                      deal={deal}
+                      locale={activeLocale}
+                      primaryActionLabel={copy.ctaLabel}
+                      secondaryActionLabel={cardActionCopy.detailLabel}
+                      sessionToken={sessionToken}
+                    />
                   </li>
                 ))}
               </ul>
@@ -205,18 +218,16 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
           <h2 id="home-section-latest-deals">{copy.latestDealsTitle}</h2>
           <p>{activeLocale === "en" ? "Newest listings with merchant context." : "按商家上下文展示最新上架优惠。"}</p>
         </div>
-        <ul className="web-deal-list">
+        <ul className="web-card-list web-card-list--split">
           {latestDeals.map((deal) => (
             <li key={`latest-${deal.slug}`}>
-              <a
-                href={appendSessionToken(
-                  buildLocaleHref(activeLocale, `/deals/${deal.slug}`),
-                  sessionToken,
-                )}
-              >
-                {deal.locales[activeLocale].title}
-              </a>
-              <span>{deal.merchant.name}</span>
+              <DealDiscoveryCard
+                deal={deal}
+                locale={activeLocale}
+                primaryActionLabel={copy.ctaLabel}
+                secondaryActionLabel={cardActionCopy.detailLabel}
+                sessionToken={sessionToken}
+              />
             </li>
           ))}
         </ul>

@@ -108,7 +108,10 @@ describe("home hero search and search results page", () => {
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_789");
+    ).toBe("https://www.amazon.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_789",
+    );
   });
 
   it("renders localized empty state when query is blank", async () => {
@@ -119,7 +122,7 @@ describe("home hero search and search results page", () => {
       }),
     );
 
-    expect(screen.getByText("请输入关键词开始搜索。")).toBeTruthy();
+    expect(screen.getAllByText("请输入关键词开始搜索。").length).toBeGreaterThan(0);
   });
 
   it("renders localized empty state when no result is found", async () => {
@@ -191,7 +194,7 @@ describe("home hero search and search results page", () => {
       screen.getByRole("link", {
         name: "Breville Barista Express for A$499",
       }).getAttribute("href"),
-    ).toBe("/en/deals/breville-barista-express-for-a-499");
+    ).toBe("https://www.thegoodguys.com.au/deal");
   });
 
   it("renders merged live API deals for price token queries", async () => {
@@ -213,6 +216,6 @@ describe("home hero search and search results page", () => {
       screen.getByRole("link", {
         name: "Breville Barista Express for A$499",
       }).getAttribute("href"),
-    ).toBe("/en/deals/breville-barista-express-for-a-499");
+    ).toBe("https://www.thegoodguys.com.au/deal");
   });
 });

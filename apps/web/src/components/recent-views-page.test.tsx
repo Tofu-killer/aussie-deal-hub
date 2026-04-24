@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cookies } from "next/headers";
 
@@ -93,9 +93,10 @@ describe("recent views tracking and page", () => {
       }),
     );
 
-    const links = screen.getAllByRole("link");
-    expect(links[0]?.textContent).toBe("AirPods Pro (2nd Gen) for A$299 at Costco AU");
-    expect(links[1]?.textContent).toBe("Nintendo Switch OLED for A$399 at Amazon AU");
+    const recentSection = screen.getByRole("region", { name: "Recent deals" });
+    const headings = within(recentSection).getAllByRole("heading", { level: 3 });
+    expect(headings[0]?.textContent).toBe("AirPods Pro (2nd Gen) for A$299 at Costco AU");
+    expect(headings[1]?.textContent).toBe("Nintendo Switch OLED for A$399 at Amazon AU");
   });
 
   it("parses recent_views from multi-cookie header value", () => {
@@ -166,7 +167,10 @@ describe("recent views tracking and page", () => {
       screen
         .getByRole("link", { name: "AirPods Pro (2nd Gen) for A$299 at Costco AU" })
         .getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_123");
+    ).toBe("https://www.costco.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_123",
+    );
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
       "/en?sessionToken=session_test_123",
     );
@@ -228,7 +232,7 @@ describe("recent views tracking and page", () => {
       screen.getByRole("link", {
         name: "Weekend bundle for A$179 at JB Hi-Fi",
       }).getAttribute("href"),
-    ).toBe("/en/deals/live-only-weekend-bundle");
+    ).toBe("https://example.test/live-only-weekend-bundle");
     expect(screen.getByText("Live catalog weekend bundle with pickup available.")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/v1/public/deals/en",

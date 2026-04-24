@@ -2,6 +2,7 @@ import React from "react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
+import DealDiscoveryCard from "../../../../components/DealDiscoveryCard";
 import RecentViewTracker from "../../../../components/RecentViewTracker";
 import { getRelatedDeals } from "../../../../lib/discovery";
 import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
@@ -177,6 +178,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
     activeLocale === "en" ? "More deals you may want to check." : "你可能还想看看这些优惠。";
   const detailCopy = deal.detail.locales[activeLocale];
   const favoriteActionCopy = getFavoriteActionCopy(activeLocale, favoriteStatus);
+  const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
   async function handleAddToFavorites() {
     "use server";
@@ -192,24 +194,53 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
   }
 
   return (
-    <main>
+    <main className="web-detail-page">
       <RecentViewTracker slug={deal.slug} />
-      <LocaleSwitch
-        currentLocale={activeLocale}
-        locales={getLocaleSwitchLinks(activeLocale, deal.slug, sessionToken)}
-      />
-      <h1>{deal.locales[activeLocale].title}</h1>
-      <p>{deal.locales[activeLocale].summary}</p>
-      <PriceCard
-        currentPrice={deal.currentPrice}
-        currentPriceLabel={copy.currentPriceLabel}
-        originalPrice={deal.originalPrice}
-        originalPriceLabel={copy.originalPriceLabel}
-        discountLabel={deal.discountLabel}
-        ctaLabel={copy.ctaLabel}
-        ctaHref={deal.dealUrl}
-      />
-      <section aria-labelledby="favorite-action-title">
+      <section className="web-detail-hero">
+        <div className="web-detail-overview">
+          <LocaleSwitch
+            currentLocale={activeLocale}
+            locales={getLocaleSwitchLinks(activeLocale, deal.slug, sessionToken)}
+          />
+          <div className="web-badge-row">
+            <span className="web-chip">{deal.merchant.name}</span>
+            <span className="web-chip web-chip--accent">{deal.currentPrice}</span>
+            <span className="web-chip">{deal.discountLabel}</span>
+          </div>
+          <h1>{deal.locales[activeLocale].title}</h1>
+          <p className="web-detail-summary">{deal.locales[activeLocale].summary}</p>
+          <div className="web-note-grid">
+            <section className="web-note-card" aria-labelledby="deal-merchant-title">
+              <h2 id="deal-merchant-title">{copy.detailMerchantLabel}</h2>
+              <p>{deal.merchant.name}</p>
+            </section>
+            <section className="web-note-card" aria-labelledby="deal-coupon-code-title">
+              <h2 id="deal-coupon-code-title">{copy.detailCouponCodeLabel}</h2>
+              <p>
+                <code>{deal.detail.couponCode ?? copy.detailNoCouponCodeLabel}</code>
+              </p>
+            </section>
+            <section className="web-note-card" aria-labelledby="deal-validity-title">
+              <h2 id="deal-validity-title">{copy.detailValidityLabel}</h2>
+              <p>{detailCopy.validity}</p>
+            </section>
+            <section className="web-note-card" aria-labelledby="deal-worth-title">
+              <h2 id="deal-worth-title">{copy.detailWhyWorthItLabel}</h2>
+              <p>{detailCopy.whyWorthIt}</p>
+            </section>
+          </div>
+        </div>
+        <aside className="web-detail-aside">
+          <PriceCard
+            currentPrice={deal.currentPrice}
+            currentPriceLabel={copy.currentPriceLabel}
+            originalPrice={deal.originalPrice}
+            originalPriceLabel={copy.originalPriceLabel}
+            discountLabel={deal.discountLabel}
+            ctaLabel={copy.ctaLabel}
+            ctaHref={deal.dealUrl}
+          />
+          <section aria-labelledby="favorite-action-title" className="web-status-panel">
         <h2 id="favorite-action-title">{favoriteActionCopy.title}</h2>
         {favoriteActionCopy.feedbackMessage ? (
           <p role="status">{favoriteActionCopy.feedbackMessage}</p>
@@ -217,26 +248,11 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
         <form action={handleAddToFavorites}>
           <button type="submit">{favoriteActionCopy.ctaLabel}</button>
         </form>
+          </section>
+        </aside>
       </section>
-      <section aria-labelledby="deal-merchant-title">
-        <h2 id="deal-merchant-title">{copy.detailMerchantLabel}</h2>
-        <p>{deal.merchant.name}</p>
-      </section>
-      <section aria-labelledby="deal-coupon-code-title">
-        <h2 id="deal-coupon-code-title">{copy.detailCouponCodeLabel}</h2>
-        <p>
-          <code>{deal.detail.couponCode ?? copy.detailNoCouponCodeLabel}</code>
-        </p>
-      </section>
-      <section aria-labelledby="deal-validity-title">
-        <h2 id="deal-validity-title">{copy.detailValidityLabel}</h2>
-        <p>{detailCopy.validity}</p>
-      </section>
-      <section aria-labelledby="deal-worth-title">
-        <h2 id="deal-worth-title">{copy.detailWhyWorthItLabel}</h2>
-        <p>{detailCopy.whyWorthIt}</p>
-      </section>
-      <section aria-labelledby="deal-highlights-title">
+      <div className="web-detail-grid">
+        <section aria-labelledby="deal-highlights-title" className="web-panel">
         <h2 id="deal-highlights-title">{copy.detailHighlightsLabel}</h2>
         <ul>
           {detailCopy.highlights.map((highlight) => (
@@ -244,7 +260,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
           ))}
         </ul>
       </section>
-      <section aria-labelledby="deal-how-to-get-it-title">
+        <section aria-labelledby="deal-how-to-get-it-title" className="web-panel">
         <h2 id="deal-how-to-get-it-title">{copy.detailHowToGetItLabel}</h2>
         <ol>
           {detailCopy.howToGetIt.map((step) => (
@@ -252,7 +268,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
           ))}
         </ol>
       </section>
-      <section aria-labelledby="deal-terms-title">
+        <section aria-labelledby="deal-terms-title" className="web-panel">
         <h2 id="deal-terms-title">{copy.detailTermsLabel}</h2>
         <ul>
           {detailCopy.termsAndWarnings.map((term) => (
@@ -260,13 +276,14 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
           ))}
         </ul>
       </section>
+      </div>
       {snapshots.length > 0 ? (
-        <section aria-labelledby="price-context-title">
+        <section aria-labelledby="price-context-title" className="web-panel web-panel--wide">
           <h2 id="price-context-title">{priceContextTitle}</h2>
           <p>{priceContextSummary}</p>
-          <ul>
+          <ul className="web-snapshot-list">
             {snapshots.map((snapshot) => (
-              <li key={`${snapshot.label}-${snapshot.observedAt}`}>
+              <li key={`${snapshot.label}-${snapshot.observedAt}`} className="web-snapshot-card">
                 <p>{snapshot.label}</p>
                 <p>{snapshot.merchant}</p>
                 <p>{formatSnapshotPrice(snapshot.price)}</p>
@@ -276,24 +293,24 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
           </ul>
         </section>
       ) : priceContextError ? (
-        <p>{priceContextError}</p>
+        <section className="web-panel">
+          <p>{priceContextError}</p>
+        </section>
       ) : null}
       {relatedDeals.length > 0 ? (
-        <section aria-labelledby="related-deals-title">
+        <section aria-labelledby="related-deals-title" className="web-panel web-panel--wide">
           <h2 id="related-deals-title">{relatedDealsTitle}</h2>
           <p>{relatedDealsSummary}</p>
-          <ul>
+          <ul className="web-card-list web-card-list--split">
             {relatedDeals.map((relatedDeal) => (
               <li key={relatedDeal.slug}>
-                <a
-                  href={appendSessionToken(
-                    buildLocaleHref(activeLocale, `/deals/${relatedDeal.slug}`),
-                    sessionToken,
-                  )}
-                >
-                  {relatedDeal.locales[activeLocale].title}
-                </a>
-                <p>{relatedDeal.locales[activeLocale].summary}</p>
+                <DealDiscoveryCard
+                  deal={relatedDeal}
+                  locale={activeLocale}
+                  primaryActionLabel={copy.ctaLabel}
+                  secondaryActionLabel={detailActionLabel}
+                  sessionToken={sessionToken}
+                />
               </li>
             ))}
           </ul>

@@ -77,7 +77,10 @@ describe("listing query-param filters", () => {
       screen.getByRole("link", {
         name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_123");
+    ).toBe("https://www.costco.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_123",
+    );
     expect(
       screen.queryByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
@@ -169,7 +172,10 @@ describe("listing query-param filters", () => {
       screen.getByRole("link", {
         name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_456");
+    ).toBe("https://www.costco.com.au/deal");
+    expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
+      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_456",
+    );
     expect(
       screen.queryByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
