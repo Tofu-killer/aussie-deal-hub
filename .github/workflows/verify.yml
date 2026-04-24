@@ -50,6 +50,9 @@ jobs:
       - name: Run readiness smoke
         run: pnpm smoke:readiness
 
+      - name: Run route smoke
+        run: pnpm smoke:routes
+
       - name: Stop container stack
         if: always()
         run: docker compose down -v

@@ -47,4 +47,16 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("/health");
     expect(smokeScript).toContain("/ready");
   });
+
+  it("exposes a route smoke script at the repo root", () => {
+    const packageJson = readRepoFile("package.json");
+    const smokeScript = readRepoFile("scripts/smoke-routes.mjs");
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+
+    expect(packageJson).toContain("\"smoke:routes\": \"node scripts/smoke-routes.mjs\"");
+    expect(smokeScript).toContain("/en");
+    expect(smokeScript).toContain("/en/search?q=switch");
+    expect(smokeScript).toContain("http://127.0.0.1:3002/");
+    expect(workflow).toContain("pnpm smoke:routes");
+  });
 });
