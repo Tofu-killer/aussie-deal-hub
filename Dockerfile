@@ -24,7 +24,7 @@ RUN ./node_modules/.bin/tsc -p packages/config/tsconfig.json \
      node "$(node -p "require.resolve('prisma/build/index.js', { paths: ['./packages/db'] })")" \
      validate --schema packages/db/prisma/schema.prisma \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/api/src/index.ts \
-  && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/worker/src/jobs/buildDigest.ts apps/worker/src/jobs/reviewPendingLeads.ts apps/worker/src/jobs/publishDueReviews.ts \
+  && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/worker/src/index.ts apps/worker/src/runtime.ts apps/worker/src/jobs/buildDigest.ts apps/worker/src/jobs/reviewPendingLeads.ts apps/worker/src/jobs/publishDueReviews.ts \
   && cd apps/admin && ../../node_modules/.bin/next build \
   && cd /app/apps/web && ../../node_modules/.bin/next build
 
@@ -48,3 +48,9 @@ ENV NODE_ENV=production
 EXPOSE 3002
 
 CMD ["pnpm", "--filter", "@aussie-deal-hub/admin", "start"]
+
+FROM workspace AS worker
+
+ENV NODE_ENV=production
+
+CMD ["pnpm", "--filter", "@aussie-deal-hub/worker", "start"]

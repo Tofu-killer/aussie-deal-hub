@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/jobs/buildDigest.ts src/jobs/reviewPendingLeads.ts src/jobs/publishDueReviews.ts",
-    "test": "pnpm exec vitest run src/jobs/*.test.ts"
+    "build": "pnpm exec tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports src/index.ts src/runtime.ts src/runtime.test.ts src/jobs/buildDigest.ts src/jobs/reviewPendingLeads.ts src/jobs/publishDueReviews.ts",
+    "start": "pnpm exec tsx src/index.ts",
+    "test": "pnpm exec vitest run src/jobs/*.test.ts src/runtime.test.ts"
   },
   "exports": {
     "./jobs/reviewPendingLeads": "./src/jobs/reviewPendingLeads.ts",
@@ -13,6 +14,7 @@
   },
   "dependencies": {
     "@aussie-deal-hub/ai": "workspace:*",
+    "@aussie-deal-hub/db": "workspace:*",
     "@aussie-deal-hub/email": "workspace:*"
   }
 }

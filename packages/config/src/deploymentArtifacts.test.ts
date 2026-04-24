@@ -19,14 +19,16 @@ describe("deployment artifacts", () => {
     expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
   });
 
-  it("keeps dedicated runtime targets in the Dockerfile for api, web, and admin", () => {
+  it("keeps dedicated runtime targets in the Dockerfile for api, web, admin, and worker", () => {
     const dockerfile = readRepoFile("Dockerfile");
 
     expect(dockerfile).toContain("FROM workspace AS api");
     expect(dockerfile).toContain("FROM workspace AS web");
     expect(dockerfile).toContain("FROM workspace AS admin");
+    expect(dockerfile).toContain("FROM workspace AS worker");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/db prisma:generate");
     expect(dockerfile).toContain("apps/api/src/index.ts");
+    expect(dockerfile).toContain("apps/worker/src/index.ts");
     expect(dockerfile).toContain("cd apps/admin && ../../node_modules/.bin/next build");
     expect(dockerfile).toContain("cd /app/apps/web && ../../node_modules/.bin/next build");
     expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
@@ -39,6 +41,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("docker build . --target api");
     expect(workflow).toContain("docker build . --target web");
     expect(workflow).toContain("docker build . --target admin");
+    expect(workflow).toContain("docker build . --target worker");
     expect(workflow).toContain("docker compose config");
     expect(workflow).toContain("docker compose up -d --build");
     expect(workflow).toContain("pnpm smoke:readiness");

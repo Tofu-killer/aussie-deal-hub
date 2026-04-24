@@ -49,6 +49,9 @@ Set runtime variables in your process manager or deployment platform before star
 | `ADMIN_BASIC_AUTH_USERNAME` | admin | optional | Enables HTTP Basic Auth on the admin app when paired with a password. |
 | `ADMIN_BASIC_AUTH_PASSWORD` | admin | optional | Password for admin HTTP Basic Auth. |
 | `ADMIN_BASIC_AUTH_REALM` | admin | optional | Override the HTTP Basic Auth browser prompt realm. |
+| `WORKER_POLL_INTERVAL_MS` | worker | optional | Poll interval for the background review/publish loop. |
+| `WORKER_REVIEW_ENABLED` | worker | optional | Set to `0` to disable automatic draft generation for pending leads. |
+| `WORKER_PUBLISH_ENABLED` | worker | optional | Set to `0` to disable automatic publishing of due reviewed leads. |
 | `RUN_DB_TESTS` | test only | optional | Set to `1` to include DB-backed persistence tests. |
 
 ## Containerized stack
@@ -65,6 +68,7 @@ Compose now includes:
 - `api` with `/v1/health` and `/v1/ready`
 - `web` with `/health` and `/ready`
 - `admin` with `/health` and `/ready`
+- `worker` to continuously review pending leads and publish due reviewed leads
 
 The liveness/readiness split is:
 
@@ -118,6 +122,12 @@ Start the admin app on port `3002`:
 PORT=3002 pnpm --filter @aussie-deal-hub/admin start
 ```
 
+Start the worker:
+
+```bash
+pnpm --filter @aussie-deal-hub/worker start
+```
+
 ## Existing Host Deployment
 
 For hosts that already run other services and where you need isolated ports instead of taking over `80/443`, use a split deployment:
@@ -129,6 +139,7 @@ For hosts that already run other services and where you need isolated ports inst
   - web on `13000`
   - api on `13001`
   - admin on `13002`
+  - worker as a portless background service
 
 That mode works well when:
 

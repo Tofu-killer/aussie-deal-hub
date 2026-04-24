@@ -14,7 +14,11 @@ import {
 } from "./routes/adminPublishing.ts";
 import { createAdminPreviewRouter } from "./routes/adminPreview.ts";
 import { createAdminSourcesRouter, type SourcesStore } from "./routes/adminSources.ts";
-import { createAuthRouter, type SessionRecord } from "./routes/auth.ts";
+import {
+  createAuthRouter,
+  createSignedSessionManager,
+  type SessionManager,
+} from "./routes/auth.ts";
 import {
   createDigestPreferencesRouter,
   type DigestPreferencesRecord,
@@ -39,6 +43,7 @@ interface BuildAppOptions {
   favoritesStore?: FavoritesStore;
   healthCheck?: HealthChecker;
   readyCheck?: HealthChecker;
+  sessionManager?: SessionManager;
   publishedDealStore?: PublishedDealReader &
     Partial<PublishedDealListReader> &
     Partial<PublishedDealPublisher> &
@@ -51,7 +56,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   const leads = new Map<string, LeadRecord>();
   const leadReviews: LeadReviewStore = new Map();
   const codes = new Map<string, string>();
-  const sessions = new Map<string, SessionRecord>();
+  const sessionManager =
+    options.sessionManager ??
+    createSignedSessionManager(process.env.SESSION_SECRET ?? "development-session-secret");
   const publishedDeals = seedPublishedDeals();
   const publishedDealStore = options.publishedDealStore ?? createSeedPublishedDealStore(publishedDeals);
   const digestPreferences = new Map<string, DigestPreferencesRecord>();
@@ -94,7 +101,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use("/v1/health", createHealthRouter(options.healthCheck));
   app.use("/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
   app.use("/v1/ready", createHealthRouter(options.readyCheck ?? options.healthCheck));
-  app.use("/v1/auth", createAuthRouter(codes, sessions));
+  app.use("/v1/auth", createAuthRouter(codes, sessionManager));
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter());
   app.use(
@@ -106,7 +113,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   app.use(
     "/v1/digest-preferences",
     createDigestPreferencesRouter(
-      sessions,
+      sessionManager,
       options.digestPreferencesStore ?? {
         async getByEmail(email) {
           return digestPreferences.get(email.trim().toLowerCase()) ?? null;
@@ -121,7 +128,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   );
   app.use(
     "/v1/favorites",
-    createFavoritesRouter(sessions, publishedDealStore, options.favoritesStore),
+    createFavoritesRouter(sessionManager, publishedDealStore, options.favoritesStore),
   );
   app.use("/v1/public", createPublicDealsRouter(publishedDealStore, options.priceSnapshotStore));
 

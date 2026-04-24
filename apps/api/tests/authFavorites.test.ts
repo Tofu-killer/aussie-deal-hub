@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app";
 import type { FavoritesStore } from "../src/routes/favorites";
+import { createSignedSessionManager } from "../src/routes/auth";
 
 interface AppRequest {
   method: string;
@@ -392,6 +393,50 @@ describe("auth and favorites", () => {
     expect(favorites.body).toEqual({
       items: [{ dealId: validDealId }],
     });
+  });
+
+  it("keeps a signed session valid after rebuilding the app with the same secret", async () => {
+    const favoritesStore = createInMemoryFavoritesStore();
+    const sessionManager = createSignedSessionManager("test-session-secret");
+    const app = buildApp({
+      favoritesStore,
+      sessionManager,
+    });
+
+    await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/request-code",
+      body: {
+        email: "user@example.com",
+      },
+    });
+
+    const verify = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/auth/verify-code",
+      body: {
+        email: "user@example.com",
+        code: "123456",
+      },
+    });
+
+    const rebuiltApp = buildApp({
+      favoritesStore,
+      sessionManager: createSignedSessionManager("test-session-secret"),
+    });
+
+    const favorite = await dispatchRequest(rebuiltApp, {
+      method: "POST",
+      path: "/v1/favorites",
+      body: {
+        dealId: validDealId,
+      },
+      headers: {
+        "x-session-token": (verify.body as { sessionToken: string }).sessionToken,
+      },
+    });
+
+    expect(favorite.status).toBe(201);
   });
 
   it("rejects invalid deal IDs before persisting favorites", async () => {

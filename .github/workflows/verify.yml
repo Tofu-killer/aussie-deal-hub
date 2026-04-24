@@ -44,6 +44,9 @@ jobs:
       - name: Build Admin image target
         run: docker build . --target admin
 
+      - name: Build Worker image target
+        run: docker build . --target worker
+
       - name: Start container stack
         run: docker compose up -d --build
 

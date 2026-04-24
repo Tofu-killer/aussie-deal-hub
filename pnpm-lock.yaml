@@ -95,6 +95,9 @@ importers:
       '@aussie-deal-hub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@aussie-deal-hub/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@aussie-deal-hub/email':
         specifier: workspace:*
         version: link:../../packages/email

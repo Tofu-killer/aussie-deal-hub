@@ -5,6 +5,7 @@ import { prisma } from "../client.ts";
 interface LeadRecord {
   id: string;
   sourceId: string;
+  sourceName?: string;
   originalTitle: string;
   originalUrl: string;
   snippet: string;
@@ -43,6 +44,9 @@ interface StoredLeadRecord {
 interface LeadRecordRow {
   id: string;
   sourceId: string;
+  source: {
+    name: string;
+  };
   originalTitle: string;
   originalUrl: string;
   snippet: string;
@@ -85,6 +89,7 @@ function mapLeadRecord(row: LeadRecordRow): LeadRecord {
   return {
     id: row.id,
     sourceId: row.sourceId,
+    sourceName: row.source.name,
     originalTitle: row.originalTitle,
     originalUrl: row.originalUrl,
     snippet: row.snippet,
@@ -154,6 +159,11 @@ async function ensureSourceExists(sourceId: string) {
 const leadRecordSelect = {
   id: true,
   sourceId: true,
+  source: {
+    select: {
+      name: true,
+    },
+  },
   originalTitle: true,
   originalUrl: true,
   snippet: true,

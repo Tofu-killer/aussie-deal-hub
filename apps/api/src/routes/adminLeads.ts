@@ -5,6 +5,7 @@ import type { PublishedDealSlugLookup } from "./publicDeals.ts";
 export interface LeadRecord {
   id: string;
   sourceId: string;
+  sourceName?: string;
   originalTitle: string;
   originalUrl: string;
   snippet: string;

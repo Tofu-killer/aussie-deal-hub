@@ -5,7 +5,7 @@ import {
   listFavoritesByEmail,
   upsertFavorite,
 } from "@aussie-deal-hub/db/repositories/favorites";
-import type { SessionRecord } from "./auth.ts";
+import type { SessionManager } from "./auth.ts";
 import type { PublishedDealReader } from "./publicDeals.ts";
 
 export interface FavoriteRecord {
@@ -34,17 +34,6 @@ function isCreateFavoriteInput(value: unknown): value is CreateFavoriteInput {
   return isNonEmptyString((value as Record<string, unknown>).dealId);
 }
 
-function readAuthorizedSessionToken(
-  headerValue: string | undefined,
-  sessions: Map<string, SessionRecord>,
-) : SessionRecord | undefined {
-  if (!headerValue || !sessions.has(headerValue)) {
-    return undefined;
-  }
-
-  return sessions.get(headerValue);
-}
-
 async function hasPublishedDealSlug(
   store: Pick<PublishedDealReader, "hasPublishedDealSlug"> | Set<string>,
   slug: string,
@@ -53,7 +42,7 @@ async function hasPublishedDealSlug(
 }
 
 export function createFavoritesRouter(
-  sessions: Map<string, SessionRecord>,
+  sessionManager: SessionManager,
   publishedDealStore: Pick<PublishedDealReader, "hasPublishedDealSlug"> | Set<string>,
   store: FavoritesStore = {
     listByEmail: listFavoritesByEmail,
@@ -68,10 +57,7 @@ export function createFavoritesRouter(
   const router = Router();
 
   router.get("/", async (request, response) => {
-    const session = readAuthorizedSessionToken(
-      request.header("x-session-token") ?? undefined,
-      sessions,
-    );
+    const session = sessionManager.readSession(request.header("x-session-token") ?? undefined);
 
     if (!session) {
       response.status(401).json({ message: "Unauthorized." });
@@ -88,10 +74,7 @@ export function createFavoritesRouter(
   });
 
   router.post("/", async (request, response) => {
-    const session = readAuthorizedSessionToken(
-      request.header("x-session-token") ?? undefined,
-      sessions,
-    );
+    const session = sessionManager.readSession(request.header("x-session-token") ?? undefined);
 
     if (!session) {
       response.status(401).json({ message: "Unauthorized." });
@@ -116,10 +99,7 @@ export function createFavoritesRouter(
   });
 
   router.delete("/:dealId", async (request, response) => {
-    const session = readAuthorizedSessionToken(
-      request.header("x-session-token") ?? undefined,
-      sessions,
-    );
+    const session = sessionManager.readSession(request.header("x-session-token") ?? undefined);
 
     if (!session) {
       response.status(401).json({ message: "Unauthorized." });

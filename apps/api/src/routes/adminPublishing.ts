@@ -172,7 +172,7 @@ async function buildPublishPayload(
 
   return {
     leadId: record.lead.id,
-    merchant: record.lead.sourceId,
+    merchant: record.lead.sourceName ?? record.lead.sourceId,
     category: record.review.category,
     currentPrice: extractCurrentPrice(record),
     affiliateUrl: record.lead.originalUrl,

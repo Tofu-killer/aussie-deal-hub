@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import type { SessionRecord } from "./auth.ts";
+import type { SessionManager } from "./auth.ts";
 
 export interface DigestPreferencesRecord {
   categories: string[];
@@ -41,28 +41,14 @@ function isDigestPreferencesInput(value: unknown): value is DigestPreferencesRec
   );
 }
 
-function readAuthorizedSession(
-  headerValue: string | undefined,
-  sessions: Map<string, SessionRecord>,
-) {
-  if (!headerValue || !sessions.has(headerValue)) {
-    return undefined;
-  }
-
-  return sessions.get(headerValue);
-}
-
 export function createDigestPreferencesRouter(
-  sessions: Map<string, SessionRecord>,
+  sessionManager: SessionManager,
   store: DigestPreferencesStore,
 ) {
   const router = Router();
 
   router.get("/", async (request, response) => {
-    const session = readAuthorizedSession(
-      request.header("x-session-token") ?? undefined,
-      sessions,
-    );
+    const session = sessionManager.readSession(request.header("x-session-token") ?? undefined);
 
     if (!session) {
       response.status(401).json({ message: "Unauthorized." });
@@ -74,10 +60,7 @@ export function createDigestPreferencesRouter(
   });
 
   router.put("/", async (request, response) => {
-    const session = readAuthorizedSession(
-      request.header("x-session-token") ?? undefined,
-      sessions,
-    );
+    const session = sessionManager.readSession(request.header("x-session-token") ?? undefined);
 
     if (!session) {
       response.status(401).json({ message: "Unauthorized." });

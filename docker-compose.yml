@@ -124,6 +124,23 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
+      WORKER_POLL_INTERVAL_MS: 30000
+      WORKER_REVIEW_ENABLED: 1
+      WORKER_PUBLISH_ENABLED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
 volumes:
   postgres-data:
