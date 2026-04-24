@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "vitest --config vitest.workspace.ts --watch packages/config/src/env.test.ts",
+    "smoke:readiness": "node scripts/smoke-readiness.mjs",
     "test": "vitest run --config vitest.workspace.ts",
     "verify": "pnpm build && pnpm test"
   },

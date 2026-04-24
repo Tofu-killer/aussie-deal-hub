@@ -34,4 +34,14 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("docker build . --target admin");
     expect(workflow).toContain("docker compose config");
   });
+
+  it("exposes a readiness smoke script at the repo root", () => {
+    const packageJson = readRepoFile("package.json");
+    const smokeScript = readRepoFile("scripts/smoke-readiness.mjs");
+
+    expect(packageJson).toContain("\"smoke:readiness\": \"node scripts/smoke-readiness.mjs\"");
+    expect(smokeScript).toContain("/v1/ready");
+    expect(smokeScript).toContain("/health");
+    expect(smokeScript).toContain("/ready");
+  });
 });
