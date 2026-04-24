@@ -204,6 +204,11 @@ export function createAdminLeadRepository() {
   return {
     async listLeadRecords(): Promise<StoredLeadRecord[]> {
       const rows = await prisma.lead.findMany({
+        where: {
+          reviewStatus: {
+            not: "discarded",
+          },
+        },
         orderBy: [
           {
             createdAt: "asc",
@@ -298,6 +303,50 @@ export function createAdminLeadRepository() {
         created: true,
         lead: mapLeadRecord(row as LeadRecordRow),
       };
+    },
+
+    async discardLead(leadId: string): Promise<boolean> {
+      return prisma.$transaction(async (transaction) => {
+        const lead = await transaction.lead.findUnique({
+          where: {
+            id: leadId,
+          },
+          select: {
+            id: true,
+            reviewDraft: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        });
+
+        if (!lead) {
+          return false;
+        }
+
+        if (lead.reviewDraft) {
+          await transaction.leadReviewDraft.delete({
+            where: {
+              id: lead.reviewDraft.id,
+            },
+          });
+        }
+
+        await transaction.lead.update({
+          where: {
+            id: leadId,
+          },
+          data: {
+            reviewStatus: "discarded",
+            aiConfidence: null,
+            riskLabels: [],
+            localizedHints: [],
+          },
+        });
+
+        return true;
+      });
     },
 
     async saveLeadReviewDraft(

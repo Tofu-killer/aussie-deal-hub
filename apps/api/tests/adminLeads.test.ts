@@ -531,6 +531,146 @@ describe("admin lead pipeline", () => {
       ],
     });
   });
+
+  it("discards a lead and removes it from the admin queue", async () => {
+    const app = buildApp();
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const leadId = String((leadResponse.body as { id: string }).id);
+    const discardResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: `/v1/admin/leads/${leadId}/discard`,
+    });
+
+    expect(discardResponse.status).toBe(204);
+
+    const queueResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/leads",
+    });
+
+    expect(queueResponse.status).toBe(200);
+    expect(queueResponse.body).toEqual({
+      items: [],
+    });
+  });
+
+  it("reruns AI review and persists the regenerated draft for an existing lead", async () => {
+    const app = buildApp();
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const leadId = String((leadResponse.body as { id: string }).id);
+    const savedDraftResponse = await dispatchRequest(app, {
+      method: "PUT",
+      path: `/v1/admin/leads/${leadId}/review`,
+      body: {
+        leadId,
+        category: "Deals",
+        confidence: 91,
+        riskLabels: ["Limited stock"],
+        tags: ["gaming"],
+        featuredSlot: "hero",
+        publishAt: "2026-04-24T10:30:00.000Z",
+        locales: {
+          en: {
+            title: "Manually edited title",
+            summary: "Manually edited summary.",
+          },
+          zh: {
+            title: "人工修改标题",
+            summary: "人工修改摘要。",
+          },
+        },
+        publish: true,
+      },
+    });
+
+    expect(savedDraftResponse.status).toBe(200);
+
+    const rerunResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: `/v1/admin/leads/${leadId}/rerun-review`,
+    });
+
+    expect(rerunResponse.status).toBe(200);
+    expect(rerunResponse.body).toMatchObject({
+      leadId,
+      category: "Deals",
+      confidence: 88,
+      riskLabels: [],
+      tags: ["gaming"],
+      featuredSlot: "hero",
+      publishAt: "2026-04-24T10:30:00.000Z",
+      publish: true,
+      locales: {
+        en: {
+          title: "Nintendo Switch OLED for A$399 at Amazon AU",
+          summary: "Coupon GAME20 expires tonight.",
+        },
+        zh: {
+          title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+          summary: "优惠码 GAME20 今晚到期。",
+        },
+      },
+    });
+
+    const detailResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: `/v1/admin/leads/${leadId}`,
+    });
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).toEqual(
+      expect.objectContaining({
+        ...leadResponse.body,
+        review: expect.objectContaining({
+          leadId,
+          category: "Deals",
+          confidence: 88,
+          riskLabels: [],
+          tags: ["gaming"],
+          featuredSlot: "hero",
+          publishAt: "2026-04-24T10:30:00.000Z",
+          publish: true,
+          locales: {
+            en: {
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+              summary: "Coupon GAME20 expires tonight.",
+            },
+            zh: {
+              title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+              summary: "优惠码 GAME20 今晚到期。",
+            },
+          },
+          updatedAt: expect.any(String),
+        }),
+      }),
+    );
+  });
 });
 
 describeDb("admin lead persistence", () => {
@@ -704,6 +844,58 @@ describeDb("admin lead persistence", () => {
           }),
         ]),
       });
+    } finally {
+      await prisma.lead.deleteMany({
+        where: {
+          sourceId,
+        },
+      });
+      await prisma.source.deleteMany({
+        where: {
+          id: sourceId,
+        },
+      });
+    }
+  });
+
+  it("persists discarded leads outside the admin queue across app rebuilds", async () => {
+    const sourceId = `src_admin_${randomUUID()}`;
+    const app = await buildDbApp();
+
+    try {
+      const leadResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/leads",
+        body: {
+          sourceId,
+          originalTitle: "Amazon AU Kindle Paperwhite A$179",
+          originalUrl: `https://www.amazon.com.au/deal/${sourceId}`,
+          snippet: "Limited run.",
+        },
+      });
+
+      expect(leadResponse.status).toBe(201);
+
+      const leadId = String((leadResponse.body as { id: string }).id);
+      const discardResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: `/v1/admin/leads/${leadId}/discard`,
+      });
+
+      expect(discardResponse.status).toBe(204);
+
+      const rebuiltApp = await buildDbApp();
+      const queueResponse = await dispatchRequest(rebuiltApp, {
+        method: "GET",
+        path: "/v1/admin/leads",
+      });
+
+      expect(queueResponse.status).toBe(200);
+      expect((queueResponse.body as { items: Array<{ id: string }> }).items).not.toContainEqual(
+        expect.objectContaining({
+          id: leadId,
+        }),
+      );
     } finally {
       await prisma.lead.deleteMany({
         where: {

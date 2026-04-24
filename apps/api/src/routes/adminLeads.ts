@@ -52,6 +52,7 @@ export interface AdminLeadStore {
   listLeadRecords(): Promise<StoredLeadRecord[]>;
   getLeadRecord(leadId: string): Promise<StoredLeadRecord | null>;
   createLead(input: CreateLeadInput): Promise<LeadRecord>;
+  discardLead(leadId: string): Promise<boolean>;
   saveLeadReviewDraft(input: LeadReviewDraftSubmission): Promise<StoredLeadReviewDraft | null>;
 }
 
@@ -272,6 +273,22 @@ export function createAdminLeadsRouter(
 ) {
   const router = Router();
 
+  function buildRerunReviewDraft(record: StoredLeadRecord): LeadReviewDraftSubmission {
+    const review = reviewStoredLead(record.lead);
+
+    return {
+      leadId: record.lead.id,
+      category: review.category,
+      confidence: review.confidence,
+      riskLabels: review.riskLabels,
+      tags: record.review?.tags ?? [],
+      featuredSlot: record.review?.featuredSlot ?? "",
+      publishAt: record.review?.publishAt ?? record.lead.createdAt,
+      locales: review.locales,
+      publish: record.review?.publish ?? false,
+    };
+  }
+
   router.get("/leads", async (_request, response) => {
     response.json({
       items: await Promise.all(
@@ -334,6 +351,35 @@ export function createAdminLeadsRouter(
     }
 
     const review = await store.saveLeadReviewDraft(input);
+
+    if (!review) {
+      response.status(404).json({ message: "Lead not found." });
+      return;
+    }
+
+    response.json(review);
+  });
+
+  router.post("/leads/:leadId/discard", async (request, response) => {
+    const discarded = await store.discardLead(request.params.leadId ?? "");
+
+    if (!discarded) {
+      response.status(404).json({ message: "Lead not found." });
+      return;
+    }
+
+    response.status(204).end();
+  });
+
+  router.post("/leads/:leadId/rerun-review", async (request, response) => {
+    const record = await store.getLeadRecord(request.params.leadId ?? "");
+
+    if (!record) {
+      response.status(404).json({ message: "Lead not found." });
+      return;
+    }
+
+    const review = await store.saveLeadReviewDraft(buildRerunReviewDraft(record));
 
     if (!review) {
       response.status(404).json({ message: "Lead not found." });

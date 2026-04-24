@@ -122,6 +122,7 @@ function createDefaultAuthCodeGenerator(env: NodeJS.ProcessEnv) {
 export function buildApp(options: BuildAppOptions = {}) {
   const leads = new Map<string, LeadRecord>();
   const leadReviews: LeadReviewStore = new Map();
+  const discardedLeadIds = new Set<string>();
   const verificationCodeStore =
     options.verificationCodeStore ?? createInMemoryVerificationCodeStore();
   const sessionManager =
@@ -144,10 +145,12 @@ export function buildApp(options: BuildAppOptions = {}) {
     options.adminLeadStore ??
     ({
       async listLeadRecords() {
-        return Array.from(leads.values()).map((lead) => ({
-          lead,
-          review: leadReviews.get(lead.id) ?? null,
-        }));
+        return Array.from(leads.values())
+          .filter((lead) => !discardedLeadIds.has(lead.id))
+          .map((lead) => ({
+            lead,
+            review: leadReviews.get(lead.id) ?? null,
+          }));
       },
       async getLeadRecord(leadId) {
         const lead = leads.get(leadId);
@@ -164,8 +167,17 @@ export function buildApp(options: BuildAppOptions = {}) {
       async createLead(input) {
         return createLead(leads, input);
       },
+      async discardLead(leadId) {
+        if (!leads.has(leadId)) {
+          return false;
+        }
+
+        discardedLeadIds.add(leadId);
+        leadReviews.delete(leadId);
+        return true;
+      },
       async saveLeadReviewDraft(input) {
-        if (!leads.has(input.leadId)) {
+        if (!leads.has(input.leadId) || discardedLeadIds.has(input.leadId)) {
           return null;
         }
 

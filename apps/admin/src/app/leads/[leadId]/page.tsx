@@ -204,6 +204,53 @@ async function publishLeadReview(submission: LeadReviewSubmission) {
   }
 }
 
+async function rerunLeadReview(leadId: string) {
+  try {
+    const response = await fetch(`/v1/admin/leads/${leadId}/rerun-review`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return {
+        review: null,
+        error: "Failed to rerun AI review.",
+      };
+    }
+
+    return {
+      review: await response.json(),
+      error: null,
+    };
+  } catch {
+    return {
+      review: null,
+      error: "Failed to rerun AI review.",
+    };
+  }
+}
+
+async function discardLead(leadId: string) {
+  try {
+    const response = await fetch(`/v1/admin/leads/${leadId}/discard`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return {
+        error: "Failed to discard lead.",
+      };
+    }
+
+    return {
+      error: null,
+    };
+  } catch {
+    return {
+      error: "Failed to discard lead.",
+    };
+  }
+}
+
 async function resolveLeadId(params: LeadDetailPageProps["params"]) {
   const resolvedParams = await params;
   return resolvedParams.leadId;
@@ -285,6 +332,51 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
     setFeedback("Deal queued for publishing.");
   }
 
+  async function handleRerunReview() {
+    if (!lead) {
+      return;
+    }
+
+    setFeedback(null);
+    const result = await rerunLeadReview(lead.id);
+
+    if (result.error || !result.review) {
+      setFeedback("Failed to rerun AI review.");
+      return;
+    }
+
+    setLead((currentLead) =>
+      currentLead
+        ? {
+            ...currentLead,
+            review: buildLeadReviewDraft(
+              result.review,
+              currentLead.originalTitle,
+              currentLead.snippet,
+              currentLead.createdAt,
+            ),
+          }
+        : currentLead,
+    );
+    setFeedback("AI review rerun.");
+  }
+
+  async function handleDiscardLead() {
+    if (!lead) {
+      return;
+    }
+
+    setFeedback(null);
+    const result = await discardLead(lead.id);
+
+    if (result.error) {
+      setFeedback("Failed to discard lead.");
+      return;
+    }
+
+    setFeedback("Lead discarded.");
+  }
+
   return (
     <main>
       <h1>Lead {leadId}</h1>
@@ -318,9 +410,28 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
               <dt>Created at</dt>
               <dd>{lead.createdAt || "Unknown"}</dd>
             </dl>
+            <p>
+              <button
+                onClick={() => {
+                  void handleRerunReview();
+                }}
+                type="button"
+              >
+                Rerun AI review
+              </button>{" "}
+              <button
+                onClick={() => {
+                  void handleDiscardLead();
+                }}
+                type="button"
+              >
+                Discard lead
+              </button>
+            </p>
           </section>
 
           <LeadReviewForm
+            key={`${lead.id}:${lead.review.locales.en.title}:${lead.review.locales.zh.title}:${lead.review.publishAt}:${lead.review.featuredSlot}:${lead.review.tags.join(",")}`}
             initialReview={lead.review}
             leadId={lead.id}
             onSubmit={handleSubmit}

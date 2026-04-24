@@ -1,7 +1,16 @@
 import { Router } from "express";
 
 import { prisma } from "@aussie-deal-hub/db/client";
-import { listSources, updateSource } from "@aussie-deal-hub/db/repositories/sources";
+import {
+  getSourceById,
+  getSourceForPolling,
+  listSources,
+  recordSourcePoll,
+  updateSource,
+} from "@aussie-deal-hub/db/repositories/sources";
+import { createAdminLeadRepository } from "@aussie-deal-hub/db/repositories/leads";
+import { extractLeadCandidates } from "../../../../packages/scraping/src/extractLeadCandidates.ts";
+import { normalizeLead } from "../../../../packages/scraping/src/normalizeLead.ts";
 
 const sourceFetchMethods = ["html", "json"] as const;
 
@@ -48,6 +57,14 @@ export interface SourcesStore {
     input: UpdateSourceInput,
   ): Promise<SourceRecord | null>;
   create?(input: CreateSourceInput): Promise<SourceRecord>;
+  pollNow?(
+    sourceId: string,
+  ): Promise<{
+    source: SourceRecord;
+    createdLeadCount: number;
+    status: "error" | "ok";
+    message: string;
+  } | null>;
 }
 
 interface CreateSourceInput {
@@ -168,6 +185,100 @@ async function createSource(input: CreateSourceInput): Promise<SourceRecord> {
   return toSourceRecord(row);
 }
 
+async function fetchSourceContent(source: { baseUrl: string }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(source.baseUrl, {
+      headers: {
+        "user-agent": "AussieDealHubAdmin/1.0 (+https://aussie-deal-hub.local)",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Source fetch failed: ${response.status}`);
+    }
+
+    return {
+      body: await response.text(),
+      contentType: response.headers.get("content-type"),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function pollSourceNow(sourceId: string) {
+  const source = await getSourceForPolling(sourceId);
+
+  if (!source) {
+    return null;
+  }
+
+  const leadStore = createAdminLeadRepository();
+
+  try {
+    const fetched = await fetchSourceContent(source);
+    const candidates = extractLeadCandidates({
+      body: fetched.body,
+      contentType: fetched.contentType,
+      sourceName: source.name,
+      sourceType: source.sourceType,
+      sourceUrl: source.baseUrl,
+    }).slice(0, 5);
+    let createdLeadCount = 0;
+
+    for (const candidate of candidates) {
+      const normalized = normalizeLead(candidate);
+      const result = await leadStore.createLeadIfNew({
+        sourceId: source.id,
+        originalTitle: candidate.title,
+        originalUrl: candidate.url,
+        canonicalUrl: normalized.canonicalUrl,
+        snippet: candidate.snippet,
+        merchant: normalized.merchant,
+        localizedHints: normalized.localizedHints,
+      });
+
+      if (result.created) {
+        createdLeadCount += 1;
+      }
+    }
+
+    const message = `Fetched ${candidates.length} candidates; created ${createdLeadCount} leads.`;
+    await recordSourcePoll({
+      sourceId: source.id,
+      createdLeadCount,
+      message,
+      status: "ok",
+    });
+
+    return {
+      source: (await getSourceById(source.id))!,
+      createdLeadCount,
+      status: "ok" as const,
+      message,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await recordSourcePoll({
+      sourceId: source.id,
+      createdLeadCount: 0,
+      message,
+      status: "error",
+    });
+
+    return {
+      source: (await getSourceById(source.id))!,
+      createdLeadCount: 0,
+      status: "error" as const,
+      message,
+    };
+  }
+}
+
 export function createAdminSourcesRouter(
   store: SourcesStore = {},
 ) {
@@ -176,6 +287,7 @@ export function createAdminSourcesRouter(
     list: store.list ?? listSources,
     update: store.update ?? updateSource,
     create: store.create ?? createSource,
+    pollNow: store.pollNow ?? pollSourceNow,
   };
 
   router.get("/", async (_request, response) => {
@@ -212,6 +324,17 @@ export function createAdminSourcesRouter(
     }
 
     response.json(source);
+  });
+
+  router.post("/:sourceId/poll", async (request, response) => {
+    const result = await sourceStore.pollNow(request.params.sourceId ?? "");
+
+    if (!result) {
+      response.status(404).json({ message: "Source not found." });
+      return;
+    }
+
+    response.json(result);
   });
 
   return router;

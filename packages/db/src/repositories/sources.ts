@@ -58,6 +58,17 @@ export async function listSources(): Promise<SourceRecord[]> {
   return rows.map(toSourceRecord);
 }
 
+export async function getSourceById(sourceId: string): Promise<SourceRecord | null> {
+  const row = await prisma.source.findUnique({
+    where: {
+      id: sourceId,
+    },
+    select: sourceRecordSelect,
+  });
+
+  return row ? toSourceRecord(row) : null;
+}
+
 export interface UpdateSourceInput {
   enabled?: boolean;
   fetchMethod?: string;
@@ -155,4 +166,32 @@ export async function recordSourcePoll(input: SourcePollUpdateInput): Promise<vo
       lastLeadCreatedAt: input.createdLeadCount > 0 ? new Date() : undefined,
     },
   });
+}
+
+export async function getSourceForPolling(sourceId: string): Promise<IngestibleSourceRecord | null> {
+  const row = await prisma.source.findUnique({
+    where: {
+      id: sourceId,
+    },
+    select: {
+      id: true,
+      name: true,
+      sourceType: true,
+      baseUrl: true,
+      fetchMethod: true,
+      pollIntervalMinutes: true,
+      trustScore: true,
+      language: true,
+      lastPolledAt: true,
+    },
+  });
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
+  };
 }

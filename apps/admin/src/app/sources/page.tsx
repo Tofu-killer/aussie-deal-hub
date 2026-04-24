@@ -43,6 +43,14 @@ interface SourceUpdateResult {
   error: string | null;
 }
 
+interface SourcePollResult {
+  source: SourceItem | null;
+  createdLeadCount: number;
+  status: "error" | "ok";
+  message: string | null;
+  error: string | null;
+}
+
 interface CreateSourceInput {
   name: string;
   baseUrl: string;
@@ -175,6 +183,47 @@ async function createSource(input: CreateSourceInput): Promise<SourceUpdateResul
   }
 }
 
+async function pollSourceNow(sourceId: string): Promise<SourcePollResult> {
+  try {
+    const response = await fetch(`/v1/admin/sources/${sourceId}/poll`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      return {
+        source: null,
+        createdLeadCount: 0,
+        status: "error",
+        message: null,
+        error: "Failed to poll source.",
+      };
+    }
+
+    const body = (await response.json()) as {
+      source?: SourceItem;
+      createdLeadCount?: number;
+      status?: "error" | "ok";
+      message?: string;
+    };
+
+    return {
+      source: body.source ?? null,
+      createdLeadCount: body.createdLeadCount ?? 0,
+      status: body.status ?? "ok",
+      message: body.message ?? null,
+      error: null,
+    };
+  } catch {
+    return {
+      source: null,
+      createdLeadCount: 0,
+      status: "error",
+      message: null,
+      error: "Failed to poll source.",
+    };
+  }
+}
+
 export default function SourcesPage() {
   const [sources, setSources] = useState<SourceItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -280,6 +329,23 @@ export default function SourcesPage() {
 
     applyUpdatedSource(result.source);
     setFeedback("Source updated.");
+  }
+
+  async function handlePollNow(source: SourceItem) {
+    setFeedback(null);
+    markSourceUpdating(source.id);
+
+    const result = await pollSourceNow(source.id);
+
+    clearSourceUpdating(source.id);
+
+    if (result.error || !result.source) {
+      setFeedback("Failed to poll source.");
+      return;
+    }
+
+    applyUpdatedSource(result.source);
+    setFeedback("Source polled.");
   }
 
   async function handleCreateSourceSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -532,6 +598,15 @@ export default function SourcesPage() {
                   <td>{source.lastLeadCreatedAt ?? "No leads yet"}</td>
                   <td>
                     {source.enabled ? "Enabled" : "Disabled"}{" "}
+                    <button
+                      disabled={isUpdating}
+                      onClick={() => {
+                        void handlePollNow(source);
+                      }}
+                      type="button"
+                    >
+                      Poll now
+                    </button>{" "}
                     <button
                       disabled={isUpdating}
                       onClick={() => {

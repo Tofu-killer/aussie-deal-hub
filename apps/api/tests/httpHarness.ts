@@ -37,8 +37,10 @@ export async function dispatchRequest(
     app.handle(req, response);
   });
 
+  const bodyText = response._getData();
+
   return {
     status: response.statusCode,
-    body: response._getJSONData(),
+    body: bodyText ? response._getJSONData() : undefined,
   };
 }
