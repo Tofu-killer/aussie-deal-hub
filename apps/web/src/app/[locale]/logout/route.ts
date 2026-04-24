@@ -14,9 +14,15 @@ function shouldUseSecureSessionCookie() {
   return siteUrl.startsWith("https://");
 }
 
+function getLogoutRedirectBaseUrl(request: Request) {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL;
+
+  return configuredSiteUrl && configuredSiteUrl.length > 0 ? configuredSiteUrl : request.url;
+}
+
 export async function GET(request: Request, context: LogoutRouteContext) {
   const { locale } = await context.params;
-  const response = NextResponse.redirect(new URL(`/${locale}`, request.url));
+  const response = NextResponse.redirect(new URL(`/${locale}`, getLogoutRedirectBaseUrl(request)));
 
   response.cookies.set(SESSION_COOKIE_NAME, "", {
     expires: new Date(0),
