@@ -172,4 +172,85 @@ describe("admin preview routes", () => {
       },
     });
   });
+
+  it("uses the configured published deal store for digest preview when available", async () => {
+    const app = buildApp({
+      publishedDealStore: {
+        async getPublishedDeal() {
+          return null;
+        },
+        async hasPublishedDealSlug() {
+          return false;
+        },
+        async listPublishedDeals(locale: string) {
+          if (locale === "en") {
+            return [
+              {
+                locale: "en",
+                slug: "worker-live-en",
+                title: "Worker Live Deal EN",
+                summary: "Worker generated English summary.",
+                category: "Deals",
+                merchant: "Worker Merchant",
+                currentPrice: "123",
+                affiliateUrl: "https://example.test/en",
+                publishedAt: "2026-04-24T00:00:00.000Z",
+              },
+            ];
+          }
+
+          return [
+            {
+              locale: "zh",
+              slug: "worker-live-zh",
+              title: "Worker Live Deal ZH",
+              summary: "Worker generated Chinese summary.",
+              category: "Deals",
+              merchant: "实时商家",
+              currentPrice: "123",
+              affiliateUrl: "https://example.test/zh",
+              publishedAt: "2026-04-24T00:00:00.000Z",
+            },
+          ];
+        },
+        async publishDeal() {
+          return {
+            leadId: "lead_1",
+            status: "published",
+            locales: [],
+          };
+        },
+        async getPublishedDealSlugForLead() {
+          return null;
+        },
+      },
+    } as never);
+
+    const response = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/digest-preview",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      en: {
+        deals: [
+          {
+            id: "worker-live-en",
+            merchant: "Worker Merchant",
+            title: "Worker Live Deal EN",
+          },
+        ],
+      },
+      zh: {
+        deals: [
+          {
+            id: "worker-live-zh",
+            merchant: "实时商家",
+            title: "Worker Live Deal ZH",
+          },
+        ],
+      },
+    });
+  });
 });

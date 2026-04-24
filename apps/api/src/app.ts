@@ -61,6 +61,11 @@ export function buildApp(options: BuildAppOptions = {}) {
     createSignedSessionManager(process.env.SESSION_SECRET ?? "development-session-secret");
   const publishedDeals = seedPublishedDeals();
   const publishedDealStore = options.publishedDealStore ?? createSeedPublishedDealStore(publishedDeals);
+  const previewPublishedDealStore = options.publishedDealStore?.listPublishedDeals
+    ? {
+        listPublishedDeals: options.publishedDealStore.listPublishedDeals,
+      }
+    : undefined;
   const digestPreferences = new Map<string, DigestPreferencesRecord>();
   const app = express();
   const adminLeadStore =
@@ -108,7 +113,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     "/v1/admin/publishing",
     createAdminPublishingRouter(adminLeadStore, publishedDealStore),
   );
-  app.use("/v1/admin", createAdminPreviewRouter());
+  app.use("/v1/admin", createAdminPreviewRouter(previewPublishedDealStore));
   app.use("/v1/admin/sources", createAdminSourcesRouter(options.sourceStore));
   app.use(
     "/v1/digest-preferences",

@@ -413,7 +413,7 @@ const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
     homeTitle: "Today's picks",
     homeIntro: "Browse bilingual Australian deals with a clear price hierarchy and fast merchant CTA.",
     favoritesTitle: "My Favorites",
-    favoritesSummary: "Saved deals will appear here once login and favorites are wired up.",
+    favoritesSummary: "Saved published deals will appear here.",
     ctaLabel: "Open merchant page",
     favoritesCtaLabel: "Open Favorites",
     backToHomeLabel: "Back to home",
@@ -440,7 +440,7 @@ const LOCALE_COPY: Record<SupportedLocale, LocaleCopy> = {
     homeTitle: "今日精选",
     homeIntro: "用清晰的价格层级和直接跳转按钮浏览双语澳洲优惠。",
     favoritesTitle: "我的收藏",
-    favoritesSummary: "登录和收藏能力接入后，已保存的优惠会显示在这里。",
+    favoritesSummary: "这里会显示你已保存的已发布优惠。",
     ctaLabel: "打开商品页",
     favoritesCtaLabel: "查看收藏",
     backToHomeLabel: "返回首页",
@@ -577,9 +577,27 @@ export function normalizeLivePublicDeal(
   };
 }
 
+export function shouldIncludeSeededPublicDeals() {
+  const explicitMode = process.env.PUBLIC_SEEDED_DEALS_ENABLED?.trim().toLowerCase();
+
+  if (explicitMode === "1" || explicitMode === "true") {
+    return true;
+  }
+
+  if (explicitMode === "0" || explicitMode === "false") {
+    return false;
+  }
+
+  return process.env.NODE_ENV !== "production";
+}
+
+export function getDefaultPublicDeals() {
+  return shouldIncludeSeededPublicDeals() ? getSeededPublicDeals() : [];
+}
+
 export function mergePublicDeals(
   liveDeals: PublicDealRecord[] = [],
-  seededDeals: PublicDealRecord[] = PUBLIC_DEALS,
+  seededDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ) {
   const merged = new Map<string, PublicDealRecord>();
 
@@ -596,7 +614,7 @@ export function mergePublicDeals(
   return [...merged.values()];
 }
 
-export function getPublicDeal(slug: string, deals: PublicDealRecord[] = PUBLIC_DEALS) {
+export function getPublicDeal(slug: string, deals: PublicDealRecord[] = getDefaultPublicDeals()) {
   return deals.find((deal) => deal.slug === slug) ?? null;
 }
 
@@ -608,7 +626,7 @@ function toTimestamp(publishedAt: string) {
   return Date.parse(publishedAt);
 }
 
-export function getLatestDeals(limit = 4, deals: PublicDealRecord[] = PUBLIC_DEALS): PublicDealRecord[] {
+export function getLatestDeals(limit = 4, deals: PublicDealRecord[] = getDefaultPublicDeals()): PublicDealRecord[] {
   return [...deals]
     .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
     .slice(0, limit);
@@ -616,7 +634,7 @@ export function getLatestDeals(limit = 4, deals: PublicDealRecord[] = PUBLIC_DEA
 
 export function getTrendingMerchants(
   limit = 4,
-  deals: PublicDealRecord[] = PUBLIC_DEALS,
+  deals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): TrendingMerchantRecord[] {
   const merchants = new Map<string, TrendingMerchantRecord>();
 
@@ -657,7 +675,7 @@ export function getTrendingMerchants(
 export function getHomeSectionsFromDefinitions(
   locale: SupportedLocale,
   sections: HomeSectionDefinition[],
-  deals: PublicDealRecord[] = PUBLIC_DEALS,
+  deals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): PublicHomeSection[] {
   return sections.map((section) => ({
     id: section.id,
@@ -673,11 +691,33 @@ export function getHomeSectionsFromDefinitions(
   }));
 }
 
+function mapHomeSectionToCategory(sectionId: HomeSectionDefinition["id"]): PublicDealCategory {
+  switch (sectionId) {
+    case "historical-lows":
+    case "freebies":
+    case "gift-card-offers":
+      return sectionId;
+    default:
+      return "deals";
+  }
+}
+
 export function getHomeSections(
   locale: SupportedLocale,
-  deals: PublicDealRecord[] = PUBLIC_DEALS,
+  deals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): PublicHomeSection[] {
-  return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS, deals);
+  try {
+    return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS, deals);
+  } catch {
+    return HOME_SECTIONS.map((section) => ({
+      id: section.id,
+      title: section.locales[locale],
+      deals: deals
+        .filter((deal) => deal.categories.includes(mapHomeSectionToCategory(section.id)))
+        .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
+        .slice(0, 1),
+    })).filter((section) => section.deals.length > 0);
+  }
 }
 
 export function buildLocaleHref(locale: SupportedLocale, path: string) {
@@ -849,8 +889,8 @@ function getCategoryMetadataDescription(locale: SupportedLocale, category: Publi
   const label = PUBLIC_DEAL_CATEGORY_LABELS[category][locale];
 
   return locale === "en"
-    ? `Browse ${label.toLowerCase()} from the seeded public Australian deal feed.`
-    : `浏览${label}分类中的 seeded public 澳洲优惠。`;
+    ? `Browse ${label.toLowerCase()} from the published Australian deal feed.`
+    : `浏览${label}分类中的已发布澳洲优惠。`;
 }
 
 export function buildHomePageMetadata(locale: SupportedLocale): Metadata {
@@ -893,7 +933,7 @@ export function buildDealPageMetadata(
 
 function getLatestPublishedAtForCategory(
   category: PublicDealCategory,
-  deals: PublicDealRecord[] = PUBLIC_DEALS,
+  deals: PublicDealRecord[] = getDefaultPublicDeals(),
 ) {
   return deals.filter((deal) => deal.categories.includes(category))
     .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))[0]
@@ -903,7 +943,7 @@ function getLatestPublishedAtForCategory(
 export function buildPublicSitemapEntries(
   liveDeals: PublicDealRecord[] = [],
 ): MetadataRoute.Sitemap {
-  const sitemapDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
+  const sitemapDeals = mergePublicDeals(liveDeals);
   const localeEntries: MetadataRoute.Sitemap = (["en", "zh"] as SupportedLocale[]).map(
     (locale) => ({
       url: buildPublicUrl(buildLocaleHref(locale, "")),

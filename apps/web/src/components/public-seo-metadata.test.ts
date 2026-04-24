@@ -86,7 +86,7 @@ describe("public SEO metadata and discovery files", () => {
 
     expect(metadata).toMatchObject({
       title: "历史低价优惠 | Aussie Deal Hub",
-      description: "浏览历史低价分类中的 seeded public 澳洲优惠。",
+      description: "浏览历史低价分类中的已发布澳洲优惠。",
       alternates: {
         canonical: `${SITE_URL}/zh/categories/historical-lows`,
         languages: {

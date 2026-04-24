@@ -47,4 +47,30 @@ describe("discovery helpers", () => {
     expect(relatedSlugs).not.toContain("coles-gift-card-bonus-credit");
     expect(getRelatedDeals("coles-gift-card-bonus-credit")).toEqual([]);
   });
+
+  it("does not fall back to seeded deals when production runtime disables them", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousSeededFlag = process.env.PUBLIC_SEEDED_DEALS_ENABLED;
+
+    process.env.NODE_ENV = "production";
+    process.env.PUBLIC_SEEDED_DEALS_ENABLED = "0";
+
+    try {
+      expect(searchDeals("AirPods", "en")).toEqual([]);
+      expect(getCategoryDealGroups("en")).toEqual([]);
+      expect(getRelatedDeals("nintendo-switch-oled-amazon-au")).toEqual([]);
+    } finally {
+      if (previousNodeEnv) {
+        process.env.NODE_ENV = previousNodeEnv;
+      } else {
+        delete process.env.NODE_ENV;
+      }
+
+      if (previousSeededFlag) {
+        process.env.PUBLIC_SEEDED_DEALS_ENABLED = previousSeededFlag;
+      } else {
+        delete process.env.PUBLIC_SEEDED_DEALS_ENABLED;
+      }
+    }
+  });
 });

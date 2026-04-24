@@ -5,6 +5,7 @@ import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import {
   appendSessionToken,
   buildLocaleHref,
+  getDefaultPublicDeals,
   getLocaleCopy,
   getPublicDeal,
   isSupportedLocale,
@@ -143,6 +144,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
             (await listPublicDeals(activeLocale)).map((deal) =>
               normalizeLivePublicDeal(deal, activeLocale),
             ),
+            getDefaultPublicDeals(),
           )
         : null;
 

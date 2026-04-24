@@ -7,7 +7,7 @@ import { listPublicDeals } from "../../../lib/serverApi";
 import {
   appendSessionToken,
   buildLocaleHref,
-  getSeededPublicDeals,
+  getDefaultPublicDeals,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
   hasActiveListingFilters,
@@ -105,7 +105,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
-  const publicDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
+  const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
   const merchantOptions = getMerchantOptions(publicDeals);
   const results = normalizedQuery
     ? hasFilters

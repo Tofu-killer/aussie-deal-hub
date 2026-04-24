@@ -5,7 +5,7 @@ import {
   type PublicListingFilters,
   type PublicDealRecord,
   getPublicDeal,
-  getSeededPublicDeals,
+  getDefaultPublicDeals,
   type SupportedLocale,
 } from "./publicDeals";
 
@@ -94,7 +94,7 @@ function matchesListingFilters(deal: PublicDealRecord, filters?: PublicListingFi
 export function getCategoryDealGroups(
   locale: SupportedLocale,
   filters?: PublicListingFilters,
-  sourceDeals: PublicDealRecord[] = getSeededPublicDeals(),
+  sourceDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): CategoryDealGroup[] {
   const deals = sourceDeals.filter((deal) => matchesListingFilters(deal, filters));
   const grouped = new Map<PublicDealCategory, PublicDealRecord[]>();
@@ -123,7 +123,7 @@ export function searchDeals(
   query: string,
   _locale: SupportedLocale,
   filters?: PublicListingFilters,
-  sourceDeals: PublicDealRecord[] = getSeededPublicDeals(),
+  sourceDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): PublicDealRecord[] {
   const token = toSearchToken(query);
   if (!token) {
@@ -138,7 +138,7 @@ export function searchDeals(
 export function getRelatedDeals(
   slug: string,
   { limit = 3 }: RelatedDealsOptions = {},
-  sourceDeals: PublicDealRecord[] = getSeededPublicDeals(),
+  sourceDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): PublicDealRecord[] {
   const sourceDeal = getPublicDeal(slug, sourceDeals);
   if (!sourceDeal) {

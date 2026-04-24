@@ -11,7 +11,7 @@ import {
   appendSessionToken,
   buildCategoryPageMetadata,
   buildLocaleHref,
-  getSeededPublicDeals,
+  getDefaultPublicDeals,
   getListingFilterQueryParams,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
@@ -124,7 +124,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
-  const publicDeals = mergePublicDeals(liveDeals, getSeededPublicDeals());
+  const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
   const merchantOptions = getMerchantOptions(publicDeals);
   const categoryGroups = hasFilters
     ? getCategoryDealGroups(activeLocale, filters, publicDeals)

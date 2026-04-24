@@ -7,6 +7,7 @@ import { getRecentViewSlugsFromCookie, RECENT_VIEWS_COOKIE_NAME } from "../../..
 import {
   appendSessionToken,
   buildLocaleHref,
+  getDefaultPublicDeals,
   getPublicDeal,
   isSupportedLocale,
   mergePublicDeals,
@@ -100,6 +101,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
           (await listPublicDeals(activeLocale)).map((deal) =>
             normalizeLivePublicDeal(deal, activeLocale),
           ),
+          getDefaultPublicDeals(),
         )
       : null;
   const recentDeals = recentViewSlugs

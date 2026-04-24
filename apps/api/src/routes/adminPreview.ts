@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { reviewLead } from "@aussie-deal-hub/ai/reviewLead";
+import { buildDailyDigest } from "../../../../packages/email/src/buildDailyDigest.ts";
+import type { PublishedDealListReader } from "./publicDeals.ts";
 
 interface ReviewPreviewInput {
   originalTitle: string;
@@ -96,28 +98,17 @@ function escapeHtml(value: string) {
 }
 
 function buildDigestPreviewHtml(locale: DigestLocale, deals: DigestPreviewDeal[]) {
-  const copy = DIGEST_COPY[locale];
-  const groups = new Map<string, DigestPreviewDeal[]>();
-
-  for (const deal of deals) {
-    const bucket = groups.get(deal.merchant) ?? [];
-    bucket.push(deal);
-    groups.set(deal.merchant, bucket);
-  }
-
-  const sections = Array.from(groups.entries())
-    .map(([merchant, merchantDeals]) => {
-      const items = merchantDeals
-        .map((deal) => `<li><strong>${escapeHtml(deal.title)}</strong></li>`)
-        .join("");
-
-      return `<section><h2>${escapeHtml(merchant)}</h2><ul>${items}</ul></section>`;
-    })
-    .join("");
+  const digest = buildDailyDigest(
+    locale,
+    deals.map((deal) => ({
+      merchant: deal.merchant,
+      title: deal.title,
+    })),
+  );
 
   return {
-    subject: copy.subject,
-    html: `<section><h1>${copy.intro}</h1>${sections}</section>`,
+    subject: digest.subject,
+    html: digest.html,
   };
 }
 
@@ -136,7 +127,28 @@ function buildDigestPreviewLocale(locale: DigestLocale) {
   };
 }
 
-export function createAdminPreviewRouter() {
+async function buildPublishedDigestPreviewLocale(
+  locale: DigestLocale,
+  publishedDealStore: Pick<PublishedDealListReader, "listPublishedDeals">,
+) {
+  const deals = (await publishedDealStore.listPublishedDeals(locale)).slice(0, 12).map((deal) => ({
+    id: deal.slug,
+    merchant: deal.merchant ?? "Unknown merchant",
+    title: deal.title,
+  }));
+  const digest = buildDigestPreviewHtml(locale, deals);
+
+  return {
+    locale,
+    subject: digest.subject,
+    html: digest.html,
+    deals,
+  };
+}
+
+export function createAdminPreviewRouter(
+  publishedDealStore?: Pick<PublishedDealListReader, "listPublishedDeals">,
+) {
   const router = Router();
 
   router.post("/review-preview", (request, response) => {
@@ -155,7 +167,15 @@ export function createAdminPreviewRouter() {
     );
   });
 
-  router.get("/digest-preview", (_request, response) => {
+  router.get("/digest-preview", async (_request, response) => {
+    if (publishedDealStore?.listPublishedDeals) {
+      response.json({
+        en: await buildPublishedDigestPreviewLocale("en", publishedDealStore),
+        zh: await buildPublishedDigestPreviewLocale("zh", publishedDealStore),
+      });
+      return;
+    }
+
     response.json({
       en: buildDigestPreviewLocale("en"),
       zh: buildDigestPreviewLocale("zh"),
