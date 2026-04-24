@@ -18,6 +18,7 @@ import {
   mergePublicDeals,
   normalizeLivePublicDeal,
 } from "../../../../lib/publicDeals";
+import { resolveSessionTokens } from "../../../../lib/session";
 
 interface DealDetailPageProps {
   params: Promise<{
@@ -146,7 +147,9 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
   }
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const sessionToken = toSingleSearchParam(resolvedSearchParams?.sessionToken);
+  const { sessionToken, urlSessionToken } = await resolveSessionTokens(
+    resolvedSearchParams?.sessionToken,
+  );
   const favoriteStatus = toFavoriteStatus(
     toSingleSearchParam(resolvedSearchParams?.favoriteStatus),
   );
@@ -190,7 +193,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
       status = "error";
     }
 
-    redirect(buildFavoriteStatusRedirectTarget(activeLocale, deal.slug, sessionToken, status));
+    redirect(buildFavoriteStatusRedirectTarget(activeLocale, deal.slug, urlSessionToken, status));
   }
 
   return (
@@ -200,7 +203,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
         <div className="web-detail-overview">
           <LocaleSwitch
             currentLocale={activeLocale}
-            locales={getLocaleSwitchLinks(activeLocale, deal.slug, sessionToken)}
+            locales={getLocaleSwitchLinks(activeLocale, deal.slug, urlSessionToken)}
           />
           <div className="web-badge-row">
             <span className="web-chip">{deal.merchant.name}</span>
@@ -309,7 +312,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
                   locale={activeLocale}
                   primaryActionLabel={copy.ctaLabel}
                   secondaryActionLabel={detailActionLabel}
-                  sessionToken={sessionToken}
+                  sessionToken={urlSessionToken}
                 />
               </li>
             ))}

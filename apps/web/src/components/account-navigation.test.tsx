@@ -24,7 +24,7 @@ const quickLinkCopy = {
     favorites: "My Favorites",
     emailPreferences: "Email preferences",
     recentViews: "Recently viewed",
-    login: "Login",
+    logout: "Logout",
   },
   zh: {
     navLabel: "账户快捷导航",
@@ -32,7 +32,7 @@ const quickLinkCopy = {
     favorites: "我的收藏",
     emailPreferences: "邮件偏好",
     recentViews: "最近浏览",
-    login: "登录",
+    logout: "退出登录",
   },
 } as const;
 
@@ -55,8 +55,8 @@ function expectQuickLinks(locale: "en" | "zh") {
   expect(
     within(navigation).getByRole("link", { name: copy.recentViews }).getAttribute("href"),
   ).toBe(`${basePath}/recent-views?sessionToken=${SESSION_TOKEN}`);
-  expect(within(navigation).getByRole("link", { name: copy.login }).getAttribute("href")).toBe(
-    `${basePath}/login?sessionToken=${SESSION_TOKEN}`,
+  expect(within(navigation).getByRole("link", { name: copy.logout }).getAttribute("href")).toBe(
+    `${basePath}/logout`,
   );
 }
 
@@ -193,4 +193,54 @@ describe("account quick links", () => {
       expectQuickLinks(locale);
     },
   );
+
+  it("uses session cookie for favorites API calls while keeping links clean", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get(name: string) {
+        if (name === "aussie_deal_hub_session") {
+          return {
+            name,
+            value: SESSION_TOKEN,
+          };
+        }
+
+        return undefined;
+      },
+    } as Awaited<ReturnType<typeof cookies>>);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        expect(String(input)).toBe("http://127.0.0.1:3001/v1/favorites");
+        expect(init?.headers).toMatchObject({
+          "x-session-token": SESSION_TOKEN,
+        });
+
+        return new Response(
+          JSON.stringify({
+            items: [],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }),
+    );
+
+    render(
+      await FavoritesPage({
+        params: Promise.resolve({ locale: "en" }),
+      }),
+    );
+
+    const navigation = screen.getByRole("navigation", { name: quickLinkCopy.en.navLabel });
+    expect(within(navigation).getByRole("link", { name: quickLinkCopy.en.home }).getAttribute("href")).toBe(
+      "/en",
+    );
+    expect(within(navigation).getByRole("link", { name: quickLinkCopy.en.favorites }).getAttribute("href")).toBe(
+      "/en/favorites",
+    );
+  });
 });

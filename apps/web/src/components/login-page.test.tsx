@@ -4,6 +4,15 @@ import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { cookieSetMock, cookiesMock } = vi.hoisted(() => ({
+  cookieSetMock: vi.fn(),
+  cookiesMock: vi.fn(),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: cookiesMock,
+}));
+
 import LoginPage from "../app/[locale]/login/page";
 import {
   buildLoginRequestCodeRedirectTarget,
@@ -17,6 +26,14 @@ import { verifyLoginCode } from "../lib/serverApi";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  cookieSetMock.mockReset();
+  cookiesMock.mockReset();
+  cookiesMock.mockResolvedValue({
+    get() {
+      return undefined;
+    },
+    set: cookieSetMock,
+  });
 });
 
 describe("login page", () => {
@@ -125,6 +142,12 @@ describe("login page", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
+    cookiesMock.mockResolvedValue({
+      get() {
+        return undefined;
+      },
+      set: cookieSetMock,
+    });
 
     const formData = new FormData();
     formData.set("email", "user@example.com");
@@ -142,6 +165,15 @@ describe("login page", () => {
       email: "user@example.com",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "aussie_deal_hub_session",
+      "session_new_123",
+      expect.objectContaining({
+        httpOnly: true,
+        path: "/",
+        sameSite: "lax",
+      }),
+    );
   });
 
   it("returns localized error feedback when verification fails", async () => {
@@ -203,7 +235,7 @@ describe("login page", () => {
         activeLocale: "en",
         sessionToken: "session_new_123",
       }),
-    ).toBe("/en/favorites?sessionToken=session_new_123");
+    ).toBe("/en/favorites");
   });
 
   it("throws when verify-code response misses session token", async () => {

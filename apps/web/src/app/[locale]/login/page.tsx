@@ -15,6 +15,7 @@ import {
   getLocaleCopy,
   isSupportedLocale,
 } from "../../../lib/publicDeals";
+import { resolveSessionTokens } from "../../../lib/session";
 
 interface LoginPageProps {
   params: Promise<{
@@ -45,6 +46,7 @@ function getAccountQuickLinks(
           emailPreferences: "Email preferences",
           recentViews: "Recently viewed",
           login: "Login",
+          logout: "Logout",
         }
       : {
           navLabel: "账户快捷导航",
@@ -53,6 +55,7 @@ function getAccountQuickLinks(
           emailPreferences: "邮件偏好",
           recentViews: "最近浏览",
           login: "登录",
+          logout: "退出登录",
         };
 
   return {
@@ -78,11 +81,17 @@ function getAccountQuickLinks(
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      {
-        href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
-        label: copy.login,
-        isCurrent: currentPage === "login",
-      },
+      sessionToken
+        ? {
+            href: buildLocaleHref(locale, "/logout"),
+            label: copy.logout,
+            isCurrent: false,
+          }
+        : {
+            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            label: copy.login,
+            isCurrent: currentPage === "login",
+          },
     ],
   };
 }
@@ -99,7 +108,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const resolvedSearchParams = await searchParams;
   const status = toSingleParam(resolvedSearchParams?.status);
   const email = toSingleParam(resolvedSearchParams?.email) ?? "";
-  const sessionToken = toSingleParam(resolvedSearchParams?.sessionToken);
+  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
 
   async function handleRequestCode(formData: FormData) {
     "use server";
@@ -109,12 +118,12 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
       formData,
     });
     redirect(
-      buildLoginRequestCodeRedirectTarget({
-        activeLocale,
-        sessionToken,
-        status: result.status,
-        email: result.email,
-      }),
+        buildLoginRequestCodeRedirectTarget({
+          activeLocale,
+          sessionToken: urlSessionToken,
+          status: result.status,
+          email: result.email,
+        }),
     );
   }
 
@@ -138,7 +147,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     redirect(
       buildLoginVerifyErrorRedirectTarget({
         activeLocale,
-        sessionToken,
+        sessionToken: urlSessionToken,
         email: result.email,
       }),
     );
@@ -152,7 +161,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
         : status === "verify_error"
           ? copy.verifyErrorMessage
           : null;
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "login", sessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "login", urlSessionToken);
 
   return (
     <main>
@@ -191,7 +200,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
         <button type="submit">{copy.loginCtaLabel}</button>
       </form>
 
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
         {localeCopy.backToHomeLabel}
       </a>
     </main>

@@ -7,6 +7,7 @@ import {
   submitDigestPreferencesFromForm,
 } from "../../../lib/emailPreferences";
 import { getDigestPreferences } from "../../../lib/serverApi";
+import { resolveSessionTokens } from "../../../lib/session";
 
 interface EmailPreferencesPageProps {
   params: Promise<{
@@ -36,6 +37,7 @@ function getAccountQuickLinks(
           emailPreferences: "Email preferences",
           recentViews: "Recently viewed",
           login: "Login",
+          logout: "Logout",
         }
       : {
           navLabel: "账户快捷导航",
@@ -44,6 +46,7 @@ function getAccountQuickLinks(
           emailPreferences: "邮件偏好",
           recentViews: "最近浏览",
           login: "登录",
+          logout: "退出登录",
         };
 
   return {
@@ -69,11 +72,17 @@ function getAccountQuickLinks(
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      {
-        href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
-        label: copy.login,
-        isCurrent: currentPage === "login",
-      },
+      sessionToken
+        ? {
+            href: buildLocaleHref(locale, "/logout"),
+            label: copy.logout,
+            isCurrent: false,
+          }
+        : {
+            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            label: copy.login,
+            isCurrent: currentPage === "login",
+          },
     ],
   };
 }
@@ -90,7 +99,9 @@ export default async function EmailPreferencesPage({
   const activeLocale = locale;
   const copy = getEmailPreferencesCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const sessionToken = toSingleParam(resolvedSearchParams?.sessionToken);
+  const { sessionToken, urlSessionToken } = await resolveSessionTokens(
+    resolvedSearchParams?.sessionToken,
+  );
   const status = toSingleParam(resolvedSearchParams?.status);
   const localeCopy = getLocaleCopy(activeLocale);
 
@@ -121,7 +132,10 @@ export default async function EmailPreferencesPage({
       formData,
     });
 
-    const target = appendSessionToken(buildLocaleHref(activeLocale, "/email-preferences"), sessionToken);
+    const target = appendSessionToken(
+      buildLocaleHref(activeLocale, "/email-preferences"),
+      urlSessionToken,
+    );
     const url = new URL(target, "http://local.test");
     url.searchParams.set("status", result.status);
     redirect(`${url.pathname}${url.search}`);
@@ -137,7 +151,7 @@ export default async function EmailPreferencesPage({
   const accountQuickLinks = getAccountQuickLinks(
     activeLocale,
     "email-preferences",
-    sessionToken,
+    urlSessionToken,
   );
 
   return (
@@ -206,7 +220,7 @@ export default async function EmailPreferencesPage({
 
         <button type="submit">{copy.saveCtaLabel}</button>
       </form>
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
         {localeCopy.backToHomeLabel}
       </a>
     </main>

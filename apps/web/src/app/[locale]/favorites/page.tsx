@@ -13,6 +13,7 @@ import {
   normalizeLivePublicDeal,
 } from "../../../lib/publicDeals";
 import { listFavoriteDealIds, listPublicDeals, removeFavoriteDealId } from "../../../lib/serverApi";
+import { resolveSessionTokens } from "../../../lib/session";
 
 interface FavoritesPageProps {
   params: Promise<{
@@ -59,6 +60,7 @@ function getAccountQuickLinks(
           emailPreferences: "Email preferences",
           recentViews: "Recently viewed",
           login: "Login",
+          logout: "Logout",
         }
       : {
           navLabel: "账户快捷导航",
@@ -67,6 +69,7 @@ function getAccountQuickLinks(
           emailPreferences: "邮件偏好",
           recentViews: "最近浏览",
           login: "登录",
+          logout: "退出登录",
         };
 
   return {
@@ -92,11 +95,17 @@ function getAccountQuickLinks(
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      {
-        href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
-        label: copy.login,
-        isCurrent: currentPage === "login",
-      },
+      sessionToken
+        ? {
+            href: buildLocaleHref(locale, "/logout"),
+            label: copy.logout,
+            isCurrent: false,
+          }
+        : {
+            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            label: copy.login,
+            isCurrent: currentPage === "login",
+          },
     ],
   };
 }
@@ -131,7 +140,9 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const sessionToken = toSingleSearchParam(resolvedSearchParams?.sessionToken);
+  const { sessionToken, urlSessionToken } = await resolveSessionTokens(
+    resolvedSearchParams?.sessionToken,
+  );
   const removeStatus = toRemoveFavoriteStatus(toSingleSearchParam(resolvedSearchParams?.removeStatus));
   let favoriteItems = [] as FavoriteListItem[];
   let favoritesError: string | null = null;
@@ -185,7 +196,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
       ? "This saved deal is no longer published."
       : "这条收藏优惠已不再公开展示。";
   const orphanFavoriteDealIdLabel = activeLocale === "en" ? "Deal ID" : "优惠 ID";
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "favorites", sessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "favorites", urlSessionToken);
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
   async function handleRemoveFavorite(formData: FormData) {
@@ -202,7 +213,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
       }
     }
 
-    redirect(buildRemoveFavoriteRedirectTarget(activeLocale, sessionToken, status));
+    redirect(buildRemoveFavoriteRedirectTarget(activeLocale, urlSessionToken, status));
   }
 
   return (
@@ -233,7 +244,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
                       locale={activeLocale}
                       primaryActionLabel={copy.ctaLabel}
                       secondaryActionLabel={detailActionLabel}
-                      sessionToken={sessionToken}
+                      sessionToken={urlSessionToken}
                     />
                     <form action={handleRemoveFavorite}>
                       <input name="dealId" type="hidden" value={item.dealId} />
@@ -264,7 +275,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
       ) : (
         <p>{emptyStateLabel}</p>
       )}
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
         {copy.backToHomeLabel}
       </a>
     </main>

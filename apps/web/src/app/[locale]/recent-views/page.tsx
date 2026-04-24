@@ -14,6 +14,7 @@ import {
   normalizeLivePublicDeal,
 } from "../../../lib/publicDeals";
 import { listPublicDeals } from "../../../lib/serverApi";
+import { resolveSessionTokens } from "../../../lib/session";
 
 interface RecentViewsPageProps {
   params: Promise<{
@@ -38,6 +39,7 @@ function getAccountQuickLinks(
           emailPreferences: "Email preferences",
           recentViews: "Recently viewed",
           login: "Login",
+          logout: "Logout",
         }
       : {
           navLabel: "账户快捷导航",
@@ -46,6 +48,7 @@ function getAccountQuickLinks(
           emailPreferences: "邮件偏好",
           recentViews: "最近浏览",
           login: "登录",
+          logout: "退出登录",
         };
 
   return {
@@ -71,11 +74,17 @@ function getAccountQuickLinks(
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      {
-        href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
-        label: copy.login,
-        isCurrent: currentPage === "login",
-      },
+      sessionToken
+        ? {
+            href: buildLocaleHref(locale, "/logout"),
+            label: copy.logout,
+            isCurrent: false,
+          }
+        : {
+            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            label: copy.login,
+            isCurrent: currentPage === "login",
+          },
     ],
   };
 }
@@ -88,9 +97,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
 
   const activeLocale = locale;
   const resolvedSearchParams = await searchParams;
-  const sessionToken = Array.isArray(resolvedSearchParams?.sessionToken)
-    ? resolvedSearchParams.sessionToken[0]
-    : resolvedSearchParams?.sessionToken;
+  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
 
   const cookieStore = await cookies();
   const recentViewsCookieValue = cookieStore.get(RECENT_VIEWS_COOKIE_NAME)?.value;
@@ -116,7 +123,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   const listTitle = activeLocale === "en" ? "Recent deals" : "最近浏览的优惠";
   const clearRecentViewsLabel = activeLocale === "en" ? "Clear recent views" : "清空最近浏览";
   const backToHomeLabel = activeLocale === "en" ? "Back to home" : "返回首页";
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", sessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", urlSessionToken);
   const ctaLabel = activeLocale === "en" ? "Open merchant page" : "打开商品页";
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
@@ -128,7 +135,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
       expires: new Date(0),
       path: "/",
     });
-    redirect(appendSessionToken(buildLocaleHref(activeLocale, "/recent-views"), sessionToken));
+    redirect(appendSessionToken(buildLocaleHref(activeLocale, "/recent-views"), urlSessionToken));
   }
 
   return (
@@ -145,7 +152,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
                   locale={activeLocale}
                   primaryActionLabel={ctaLabel}
                   secondaryActionLabel={detailActionLabel}
-                  sessionToken={sessionToken}
+                  sessionToken={urlSessionToken}
                 />
               </li>
             ))}
@@ -168,7 +175,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
           ))}
         </ul>
       </nav>
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
         {backToHomeLabel}
       </a>
     </main>

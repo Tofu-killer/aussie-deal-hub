@@ -17,6 +17,7 @@ import {
   type SupportedLocale,
   type PublicDealRecord,
 } from "../../../lib/publicDeals";
+import { resolveSessionTokens } from "../../../lib/session";
 
 interface SearchPageProps {
   params: Promise<{
@@ -97,7 +98,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
   const query = toSingleSearchParam(resolvedSearchParams?.q);
-  const sessionToken = toSingleSearchParam(resolvedSearchParams?.sessionToken) || undefined;
+  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
   const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
   const hasFilters = hasActiveListingFilters(filters);
   const normalizedQuery = query.trim();
@@ -135,8 +136,8 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
           <p className="web-page__summary">
             {normalizedQuery
               ? activeLocale === "en"
-                ? `Showing live and seeded matches for "${normalizedQuery}".`
-                : `展示与“${normalizedQuery}”匹配的实时和种子优惠。`
+                ? `Showing published matches for "${normalizedQuery}".`
+                : `展示与“${normalizedQuery}”匹配的已发布优惠。`
               : emptyPrompt}
           </p>
         </div>
@@ -206,7 +207,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
             {filterCopy.historicalLowLabel}
           </label>
         </p>
-        {sessionToken ? <input name="sessionToken" type="hidden" value={sessionToken} /> : null}
+        {urlSessionToken ? <input name="sessionToken" type="hidden" value={urlSessionToken} /> : null}
         <button type="submit">{filterCopy.submitLabel}</button>
       </form>
         </aside>
@@ -225,7 +226,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
                       locale={activeLocale}
                       primaryActionLabel={copy.ctaLabel}
                       secondaryActionLabel={detailActionLabel}
-                      sessionToken={sessionToken}
+                      sessionToken={urlSessionToken}
                     />
                   </li>
                 ))}
@@ -238,7 +239,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
           )}
         </section>
       </div>
-      <a className="web-primary-link" href={appendSessionToken(buildLocaleHref(activeLocale, ""), sessionToken)}>
+      <a className="web-primary-link" href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
         {copy.backToHomeLabel}
       </a>
     </main>

@@ -1,5 +1,6 @@
 import { requestLoginCode, verifyLoginCode } from "./serverApi";
 import { appendSessionToken, buildLocaleHref } from "./publicDeals";
+import { persistSessionTokenCookie } from "./session";
 
 export interface LoginCopy {
   codeLabel: string;
@@ -117,9 +118,8 @@ export function buildLoginVerifyErrorRedirectTarget({
 
 export function buildLoginVerifySuccessRedirectTarget({
   activeLocale,
-  sessionToken,
 }: BuildLoginVerifySuccessRedirectTargetInput) {
-  return appendSessionToken(buildLocaleHref(activeLocale, "/favorites"), sessionToken);
+  return buildLocaleHref(activeLocale, "/favorites");
 }
 
 export async function submitRequestCodeFromForm({
@@ -155,6 +155,7 @@ export async function submitVerifyCodeFromForm({
 
   try {
     const sessionToken = await verifyLoginCode(email, code);
+    await persistSessionTokenCookie(sessionToken);
     return {
       status: "success",
       message: copy.verifySuccessMessage,

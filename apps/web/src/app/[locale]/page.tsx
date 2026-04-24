@@ -18,6 +18,7 @@ import {
   mergePublicDeals,
   normalizeLivePublicDeal,
 } from "../../lib/publicDeals";
+import { resolveSessionTokens } from "../../lib/session";
 
 interface LocaleHomePageProps {
   params: Promise<{
@@ -42,6 +43,7 @@ function getAccountQuickLinks(
           emailPreferences: "Email preferences",
           recentViews: "Recently viewed",
           login: "Login",
+          logout: "Logout",
         }
       : {
           navLabel: "账户快捷导航",
@@ -50,6 +52,7 @@ function getAccountQuickLinks(
           emailPreferences: "邮件偏好",
           recentViews: "最近浏览",
           login: "登录",
+          logout: "退出登录",
         };
 
   return {
@@ -75,11 +78,17 @@ function getAccountQuickLinks(
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      {
-        href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
-        label: copy.login,
-        isCurrent: currentPage === "login",
-      },
+      sessionToken
+        ? {
+            href: buildLocaleHref(locale, "/logout"),
+            label: copy.logout,
+            isCurrent: false,
+          }
+        : {
+            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            label: copy.login,
+            isCurrent: currentPage === "login",
+          },
     ],
   };
 }
@@ -112,10 +121,8 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
   const latestDeals = getLatestDeals(4, publicDeals);
   const trendingMerchants = getTrendingMerchants(4, publicDeals);
   const resolvedSearchParams = await searchParams;
-  const sessionToken = Array.isArray(resolvedSearchParams?.sessionToken)
-    ? resolvedSearchParams.sessionToken[0]
-    : resolvedSearchParams?.sessionToken;
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", sessionToken);
+  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", urlSessionToken);
   const cardActionCopy =
     activeLocale === "en"
       ? {
@@ -150,7 +157,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
             <label htmlFor="home-search-q">{activeLocale === "en" ? "Search deals" : "搜索优惠"}</label>
             <div className="web-search-card__controls">
               <input id="home-search-q" name="q" type="text" />
-              {sessionToken ? <input type="hidden" name="sessionToken" value={sessionToken} /> : null}
+              {urlSessionToken ? <input type="hidden" name="sessionToken" value={urlSessionToken} /> : null}
               <button type="submit">{activeLocale === "en" ? "Search" : "搜索"}</button>
             </div>
           </form>
@@ -158,7 +165,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
         <aside className="web-home__aside">
           <LocaleSwitch
             currentLocale={activeLocale}
-            locales={getHomeLocaleSwitchLinks(sessionToken)}
+            locales={getHomeLocaleSwitchLinks(urlSessionToken)}
           />
           <nav aria-label={accountQuickLinks.navLabel} className="web-account-nav">
             <ul>
@@ -204,7 +211,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
                       locale={activeLocale}
                       primaryActionLabel={copy.ctaLabel}
                       secondaryActionLabel={cardActionCopy.detailLabel}
-                      sessionToken={sessionToken}
+                      sessionToken={urlSessionToken}
                     />
                   </li>
                 ))}
@@ -226,7 +233,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
                 locale={activeLocale}
                 primaryActionLabel={copy.ctaLabel}
                 secondaryActionLabel={cardActionCopy.detailLabel}
-                sessionToken={sessionToken}
+                sessionToken={urlSessionToken}
               />
             </li>
           ))}
@@ -247,7 +254,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
       </section>
       <a
         className="web-primary-link"
-        href={appendSessionToken(buildLocaleHref(activeLocale, "/favorites"), sessionToken)}
+        href={appendSessionToken(buildLocaleHref(activeLocale, "/favorites"), urlSessionToken)}
       >
         {copy.favoritesCtaLabel}
       </a>
