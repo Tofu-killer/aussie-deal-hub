@@ -1,0 +1,476 @@
+:root {
+  --web-ink: #1d2733;
+  --web-muted: #5e6c76;
+  --web-paper: #f6f0e4;
+  --web-paper-strong: #fffaf1;
+  --web-panel: rgba(255, 251, 244, 0.9);
+  --web-panel-strong: rgba(255, 248, 239, 0.98);
+  --web-border: rgba(34, 54, 70, 0.12);
+  --web-accent: #cf5c36;
+  --web-accent-strong: #aa4020;
+  --web-accent-soft: rgba(207, 92, 54, 0.12);
+  --web-highlight: #0d7a74;
+  --web-shadow: 0 24px 60px rgba(27, 37, 44, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: linear-gradient(180deg, #fbf4e7 0%, #f5efe6 100%);
+}
+
+body.web-body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--web-ink);
+  font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+  line-height: 1.6;
+  position: relative;
+}
+
+.web-backdrop {
+  border-radius: 999px;
+  filter: blur(18px);
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+
+.web-backdrop--amber {
+  background: rgba(218, 132, 64, 0.22);
+  height: 24rem;
+  right: -4rem;
+  top: 4rem;
+  width: 24rem;
+}
+
+.web-backdrop--teal {
+  background: rgba(13, 122, 116, 0.18);
+  bottom: 6rem;
+  height: 18rem;
+  left: -5rem;
+  width: 18rem;
+}
+
+.web-shell {
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: 1.5rem 1rem 4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.web-masthead {
+  align-items: flex-end;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr);
+  margin-bottom: 2rem;
+}
+
+.web-masthead__eyebrow,
+.web-kicker {
+  color: var(--web-accent-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+}
+
+.web-masthead__brand {
+  color: var(--web-ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.web-masthead__summary {
+  color: var(--web-muted);
+  margin: 0;
+  max-width: 32rem;
+}
+
+main {
+  position: relative;
+}
+
+.web-home {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.web-home__hero {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 1fr);
+}
+
+.web-home__lead,
+.web-home__aside,
+.web-panel,
+.price-card,
+main > form,
+main > section,
+main > nav,
+main > article,
+main > div,
+main > table {
+  backdrop-filter: blur(12px);
+  background: var(--web-panel);
+  border: 1px solid var(--web-border);
+  border-radius: 1.35rem;
+  box-shadow: var(--web-shadow);
+}
+
+.web-home__lead {
+  background:
+    linear-gradient(140deg, rgba(255, 244, 226, 0.95), rgba(255, 251, 244, 0.92)),
+    var(--web-panel);
+  padding: 2rem;
+}
+
+.web-home__lead h1,
+main h1,
+main h2,
+main h3 {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.web-home__lead h1,
+main h1 {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1.05;
+}
+
+.web-home__intro {
+  color: var(--web-muted);
+  font-size: 1.05rem;
+  margin: 1rem 0 0;
+  max-width: 40rem;
+}
+
+.web-search-card {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1.75rem;
+}
+
+.web-search-card__controls {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.web-home__aside {
+  background:
+    linear-gradient(180deg, rgba(13, 122, 116, 0.08), rgba(255, 255, 255, 0.92)),
+    var(--web-panel-strong);
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+}
+
+.web-account-nav ul,
+.web-metrics-panel ul,
+.locale-switch__list,
+.web-link-list,
+.web-deal-list,
+.web-merchant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.locale-switch__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.locale-switch__link {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(13, 122, 116, 0.18);
+  border-radius: 999px;
+  color: var(--web-highlight);
+  display: inline-flex;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 0.95rem;
+  text-decoration: none;
+}
+
+.locale-switch__link[aria-current="page"] {
+  background: var(--web-highlight);
+  border-color: var(--web-highlight);
+  color: #f7fffe;
+}
+
+.web-account-nav ul {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.web-account-nav a,
+.web-link-list a,
+.web-deal-list a,
+.web-primary-link,
+.price-card__cta,
+main a {
+  color: var(--web-accent-strong);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.web-account-nav a {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(34, 54, 70, 0.08);
+  border-radius: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  text-decoration: none;
+}
+
+.web-account-nav a[aria-current="page"] {
+  border-color: rgba(207, 92, 54, 0.28);
+  color: var(--web-accent-strong);
+}
+
+.web-metrics-panel {
+  background: rgba(255, 255, 255, 0.58);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.web-metrics-panel ul {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.web-metrics-panel strong {
+  display: block;
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.web-metrics-panel span {
+  color: var(--web-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+.web-home__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.web-panel {
+  padding: 1.35rem;
+}
+
+.web-panel--wide {
+  padding: 1.5rem;
+}
+
+.web-panel__header {
+  align-items: baseline;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.web-panel__header p {
+  color: var(--web-muted);
+  margin: 0;
+}
+
+.web-link-list,
+.web-deal-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.web-link-list li,
+.web-deal-list li {
+  background: rgba(255, 255, 255, 0.68);
+  border-radius: 1rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.web-link-list a,
+.web-deal-list a {
+  color: var(--web-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.web-deal-list li {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.web-deal-list span,
+.web-merchant-list li {
+  background: var(--web-accent-soft);
+  border-radius: 999px;
+  color: var(--web-accent-strong);
+  display: inline-flex;
+  font-size: 0.88rem;
+  font-weight: 700;
+  justify-self: start;
+  padding: 0.35rem 0.7rem;
+}
+
+.web-merchant-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.web-primary-link {
+  align-items: center;
+  background: linear-gradient(135deg, var(--web-accent), var(--web-accent-strong));
+  border-radius: 999px;
+  color: #fff7f2;
+  display: inline-flex;
+  font-weight: 700;
+  justify-self: start;
+  padding: 0.8rem 1.2rem;
+  text-decoration: none;
+}
+
+.price-card {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 22rem;
+  padding: 1.2rem;
+}
+
+.price-card__label,
+.price-card__original,
+.price-card__discount {
+  margin: 0;
+}
+
+.price-card__label {
+  color: var(--web-muted);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.price-card__current {
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1;
+}
+
+.price-card__original {
+  color: var(--web-muted);
+  display: flex;
+  gap: 0.65rem;
+}
+
+.price-card__discount {
+  color: var(--web-highlight);
+  font-weight: 700;
+}
+
+.price-card__cta,
+button {
+  align-items: center;
+  background: linear-gradient(135deg, var(--web-highlight), #0a5d58);
+  border: none;
+  border-radius: 999px;
+  color: #f6fffd;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 2.9rem;
+  padding: 0.75rem 1.1rem;
+  text-decoration: none;
+}
+
+input,
+select,
+textarea {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(34, 54, 70, 0.16);
+  border-radius: 0.9rem;
+  color: var(--web-ink);
+  font: inherit;
+  min-height: 2.9rem;
+  padding: 0.75rem 0.9rem;
+  width: 100%;
+}
+
+textarea {
+  min-height: 8rem;
+}
+
+label {
+  font-weight: 700;
+}
+
+main > form,
+main > section,
+main > article {
+  padding: 1.35rem;
+}
+
+main > form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid rgba(34, 54, 70, 0.1);
+  padding: 0.8rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+p {
+  margin: 0.45rem 0 0;
+}
+
+@media (max-width: 900px) {
+  .web-masthead,
+  .web-home__hero,
+  .web-home__grid,
+  .web-search-card__controls,
+  .web-deal-list li,
+  .web-panel__header {
+    grid-template-columns: 1fr;
+  }
+
+  .web-panel__header {
+    display: grid;
+  }
+
+  .web-metrics-panel ul {
+    grid-template-columns: 1fr;
+  }
+}

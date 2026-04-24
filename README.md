@@ -46,6 +46,9 @@ Set runtime variables in your process manager or deployment platform before star
 | `NEXT_PUBLIC_SITE_URL` | web | yes | Public site origin used for canonical URLs and sitemap output. |
 | `SITE_URL` | web | optional | Legacy fallback for `NEXT_PUBLIC_SITE_URL`. |
 | `ADMIN_API_BASE_URL` | admin | yes | Base URL that admin uses to call the API. |
+| `ADMIN_BASIC_AUTH_USERNAME` | admin | optional | Enables HTTP Basic Auth on the admin app when paired with a password. |
+| `ADMIN_BASIC_AUTH_PASSWORD` | admin | optional | Password for admin HTTP Basic Auth. |
+| `ADMIN_BASIC_AUTH_REALM` | admin | optional | Override the HTTP Basic Auth browser prompt realm. |
 | `RUN_DB_TESTS` | test only | optional | Set to `1` to include DB-backed persistence tests. |
 
 ## Containerized stack
@@ -137,6 +140,7 @@ The current repo supports that setup because:
 
 - `apps/api` now starts through `tsx`, so it does not depend on Node 22-only `--experimental-strip-types`
 - `admin` browser requests are proxied at runtime through `/v1/[...path]`
+- `admin` can be protected with optional HTTP Basic Auth through `ADMIN_BASIC_AUTH_USERNAME` and `ADMIN_BASIC_AUTH_PASSWORD`
 - `health` and `ready` endpoints exist for all three app services
 
 If you also want the DB-backed persistence tests gated by `RUN_DB_TESTS`, run:

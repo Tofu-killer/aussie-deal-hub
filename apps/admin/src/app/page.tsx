@@ -275,14 +275,22 @@ export default async function AdminHomePage() {
   const summary = await loadDashboardSummary();
 
   return (
-    <main>
-      <h1>Admin review dashboard</h1>
-      <p>Review incoming leads and prepare them for publication.</p>
-      <section aria-labelledby="live-summary-heading">
+    <main className="admin-home">
+      <section className="admin-home__hero">
+        <div>
+          <p className="admin-kicker">Operational overview</p>
+          <h1>Admin review dashboard</h1>
+          <p>Review incoming leads and prepare them for publication.</p>
+        </div>
+        <p className="admin-home__note">
+          Keep intake, review, and publishing inside one protected workspace.
+        </p>
+      </section>
+      <section aria-labelledby="live-summary-heading" className="admin-panel">
         <h2 id="live-summary-heading">Live summary</h2>
-        <ul>
+        <ul className="admin-summary-grid">
           {Object.values(summary).map((card) => (
-            <li key={card.title}>
+            <li key={card.title} className="admin-summary-card">
               <h3>{card.title}</h3>
               {card.error
                 ? (
@@ -295,7 +303,12 @@ export default async function AdminHomePage() {
           ))}
         </ul>
       </section>
-      <ul>
+      <section aria-labelledby="workflow-shortcuts-heading" className="admin-panel">
+        <div className="admin-panel__header">
+          <h2 id="workflow-shortcuts-heading">Workflow shortcuts</h2>
+          <p>Jump directly into the queue, preview tools, or publishing catalog.</p>
+        </div>
+        <ul className="admin-action-grid">
         <li>
           <a href="/leads">Open lead queue</a>
         </li>
@@ -317,7 +330,8 @@ export default async function AdminHomePage() {
         <li>
           <a href="/tags">Manage tags</a>
         </li>
-      </ul>
+        </ul>
+      </section>
     </main>
   );
 }

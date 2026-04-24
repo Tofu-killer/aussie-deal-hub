@@ -22,17 +22,21 @@ export function PriceCard({
   const currentPriceLabelId = React.useId();
 
   return (
-    <section aria-labelledby={currentPriceLabelId}>
-      <p id={currentPriceLabelId}>{currentPriceLabel}</p>
-      <strong>{currentPrice}</strong>
+    <section aria-labelledby={currentPriceLabelId} className="price-card">
+      <p id={currentPriceLabelId} className="price-card__label">
+        {currentPriceLabel}
+      </p>
+      <strong className="price-card__current">{currentPrice}</strong>
       {originalPrice ? (
-        <p>
+        <p className="price-card__original">
           <span>{originalPriceLabel}</span>
           <span>{originalPrice}</span>
         </p>
       ) : null}
-      {discountLabel ? <p>{discountLabel}</p> : null}
-      <a href={ctaHref}>{ctaLabel}</a>
+      {discountLabel ? <p className="price-card__discount">{discountLabel}</p> : null}
+      <a className="price-card__cta" href={ctaHref}>
+        {ctaLabel}
+      </a>
     </section>
   );
 }
