@@ -93,7 +93,7 @@ The liveness/readiness split is:
 If you want to run only Postgres and Redis locally instead of the full app stack:
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis
 ```
 
 Apply the Prisma schema and seed the baseline data:

@@ -142,6 +142,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("services:");
     expect(workflow).toContain("postgres:");
     expect(readme).toContain("pnpm test:db");
+    expect(readme).toContain("docker compose up -d postgres redis");
     expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
     expect(testDbScript).toContain("\"vitest\"");
   });
