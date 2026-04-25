@@ -55,6 +55,16 @@ function readComposeServiceEnvironmentBlock(compose: string, serviceName: string
   return environmentLines.join("\n");
 }
 
+function findLineIndex(lines: string[], fragment: string) {
+  const index = lines.findIndex((line) => line.includes(fragment));
+
+  if (index === -1) {
+    throw new Error(`Could not find workflow line containing: ${fragment}`);
+  }
+
+  return index;
+}
+
 describe("deployment artifacts", () => {
   it("defines a db-init service that applies schema and seed data before api startup", () => {
     const compose = readRepoFile("docker-compose.yml");
@@ -145,5 +155,62 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("docker compose up -d postgres redis");
     expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
     expect(testDbScript).toContain("\"vitest\"");
+  });
+
+  it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+    const packageJson = JSON.parse(readRepoFile("package.json")) as {
+      packageManager: string;
+    };
+    const pnpmVersion = packageJson.packageManager.replace("pnpm@", "");
+
+    expect(workflow).toContain(
+      "uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5",
+    );
+    expect(workflow).toContain(
+      "uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5",
+    );
+    expect(workflow).toContain(
+      "uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5",
+    );
+    expect(workflow).toContain(`version: ${pnpmVersion}`);
+    expect(workflow).toContain("node-version: 22");
+    expect(workflow).toContain("cache: pnpm");
+    expect(workflow).toContain("pnpm install --frozen-lockfile");
+  });
+
+  it("keeps verify workflow permissions and cleanup safeguards in place", () => {
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+
+    expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain("- name: Stop container stack\n        if: always()");
+  });
+
+  it("runs key CI verification steps in the required order", () => {
+    const workflowLines = readRepoFile(".github/workflows/verify.yml").split("\n");
+    const orderedFragments = [
+      "name: Install dependencies",
+      "name: Verify workspace",
+      "name: Prepare database for DB-backed tests",
+      "name: Run DB-backed tests",
+      "name: Validate compose file",
+      "name: Build API image target",
+      "name: Build Web image target",
+      "name: Build Admin image target",
+      "name: Build Worker image target",
+      "name: Start container stack",
+      "name: Run readiness smoke",
+      "name: Run route smoke",
+      "name: Stop container stack",
+    ];
+
+    let previousIndex = -1;
+
+    for (const fragment of orderedFragments) {
+      const currentIndex = findLineIndex(workflowLines, fragment);
+
+      expect(currentIndex).toBeGreaterThan(previousIndex);
+      previousIndex = currentIndex;
+    }
   });
 });
