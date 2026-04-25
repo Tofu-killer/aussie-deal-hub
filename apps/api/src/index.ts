@@ -12,7 +12,10 @@ import {
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
 import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
 import { createAdminLeadRepository } from "@aussie-deal-hub/db/repositories/leads";
-import { listPriceSnapshotsForDeal } from "@aussie-deal-hub/db/repositories/priceSnapshots";
+import {
+  listPriceSnapshotsForDeal,
+  replacePriceSnapshotsForDeal,
+} from "@aussie-deal-hub/db/repositories/priceSnapshots";
 import { listSources, updateSource } from "@aussie-deal-hub/db/repositories/sources";
 
 const {
@@ -22,6 +25,10 @@ const {
 } = parseApiEnv(process.env);
 const adminCatalogStore = createAdminCatalogRepository();
 const adminLeadStore = createAdminLeadRepository();
+const adminSnapshotsStore = {
+  listForDeal: listPriceSnapshotsForDeal,
+  replaceForDeal: replacePriceSnapshotsForDeal,
+};
 const publishedDealStore = createPublishedDealRepository();
 
 async function listPublishedDealPriceSnapshots(dealSlug: string) {
@@ -91,6 +98,7 @@ async function checkReadiness() {
 
 buildApp({
   adminCatalogStore,
+  adminSnapshotsStore,
   adminTopicsStore: {
     listTopics: adminCatalogStore.listTopics,
     createTopic: adminCatalogStore.createTopic,
