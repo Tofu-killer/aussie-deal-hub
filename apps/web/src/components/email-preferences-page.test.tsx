@@ -83,6 +83,38 @@ describe("email preferences page", () => {
     expect(screen.queryByText("Preferences updated.")).toBeNull();
   });
 
+  it("falls back to daily in the frequency select when persisted preferences return an unknown value", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            locale: "en",
+            frequency: "monthly",
+            categories: ["deals"],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }),
+    );
+
+    render(
+      await EmailPreferencesPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
+      }),
+    );
+
+    expect((screen.getByLabelText("Digest frequency") as HTMLSelectElement).value).toBe(
+      "daily",
+    );
+  });
+
   it("submits deduplicated locale, frequency, and categories and returns success status", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       expect(String(input)).toBe("http://127.0.0.1:3001/v1/digest-preferences");

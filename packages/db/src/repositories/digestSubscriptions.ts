@@ -1,15 +1,21 @@
 import { prisma } from "../client.ts";
 
+const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type DigestFrequency = "daily" | "weekly";
+
 export interface DigestSubscriptionRecord {
   categories: string[];
-  frequency: string;
+  frequency: DigestFrequency;
   locale: "en" | "zh";
 }
 
-export interface DailyDigestSubscriptionRecord extends DigestSubscriptionRecord {
+export interface EligibleDigestSubscriptionRecord extends DigestSubscriptionRecord {
   email: string;
   lastSentAt: string | null;
 }
+
+export type DailyDigestSubscriptionRecord = EligibleDigestSubscriptionRecord;
 
 interface UpsertDigestSubscriptionInput {
   categories: string[];
@@ -26,6 +32,16 @@ function toDigestLocale(locale: string): "en" | "zh" {
   return locale === "zh" ? "zh" : "en";
 }
 
+function toDigestFrequency(frequency: string): DigestFrequency {
+  return frequency === "weekly" ? "weekly" : "daily";
+}
+
+function getStartOfUtcDay(now: Date) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
 export async function upsertDigestSubscription(
   input: UpsertDigestSubscriptionInput,
 ): Promise<DigestSubscriptionRecord> {
@@ -35,13 +51,13 @@ export async function upsertDigestSubscription(
     },
     create: {
       normalizedEmail: normalizeEmail(input.email),
-      locale: input.locale,
-      frequency: input.frequency,
+      locale: toDigestLocale(input.locale),
+      frequency: toDigestFrequency(input.frequency),
       categories: input.categories,
     },
     update: {
-      locale: input.locale,
-      frequency: input.frequency,
+      locale: toDigestLocale(input.locale),
+      frequency: toDigestFrequency(input.frequency),
       categories: input.categories,
     },
     select: {
@@ -53,7 +69,7 @@ export async function upsertDigestSubscription(
 
   return {
     locale: toDigestLocale(record.locale),
-    frequency: record.frequency,
+    frequency: toDigestFrequency(record.frequency),
     categories: record.categories,
   };
 }
@@ -78,31 +94,47 @@ export async function getDigestSubscription(
 
   return {
     locale: toDigestLocale(record.locale),
-    frequency: record.frequency,
+    frequency: toDigestFrequency(record.frequency),
     categories: record.categories,
   };
 }
 
-export async function listEligibleDailyDigestSubscriptions(
+export async function listEligibleDigestSubscriptions(
   now: Date,
-): Promise<DailyDigestSubscriptionRecord[]> {
-  const startOfDayUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+): Promise<EligibleDigestSubscriptionRecord[]> {
+  const startOfDayUtc = getStartOfUtcDay(now);
+  const weeklyCutoff = new Date(now.getTime() - WEEKLY_DIGEST_INTERVAL_MS);
   const rows = await prisma.emailDigestSubscription.findMany({
     where: {
-      frequency: "daily",
       categories: {
         has: "deals",
       },
       OR: [
         {
-          lastSentAt: null,
+          frequency: "daily",
+          OR: [
+            {
+              lastSentAt: null,
+            },
+            {
+              lastSentAt: {
+                lt: startOfDayUtc,
+              },
+            },
+          ],
         },
         {
-          lastSentAt: {
-            lt: startOfDayUtc,
-          },
+          frequency: "weekly",
+          OR: [
+            {
+              lastSentAt: null,
+            },
+            {
+              lastSentAt: {
+                lte: weeklyCutoff,
+              },
+            },
+          ],
         },
       ],
     },
@@ -121,11 +153,13 @@ export async function listEligibleDailyDigestSubscriptions(
   return rows.map((row) => ({
     email: row.normalizedEmail,
     locale: toDigestLocale(row.locale),
-    frequency: row.frequency,
+    frequency: toDigestFrequency(row.frequency),
     categories: row.categories,
     lastSentAt: row.lastSentAt?.toISOString() ?? null,
   }));
 }
+
+export const listEligibleDailyDigestSubscriptions = listEligibleDigestSubscriptions;
 
 export async function markDigestSent(email: string, sentAt: Date): Promise<void> {
   await prisma.emailDigestSubscription.update({

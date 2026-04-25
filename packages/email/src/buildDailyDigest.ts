@@ -3,6 +3,8 @@ export interface DailyDigestDeal {
   merchant: string;
 }
 
+export type DigestFrequency = "daily" | "weekly";
+
 export interface DailyDigest {
   subject: string;
   html: string;
@@ -10,14 +12,30 @@ export interface DailyDigest {
 
 const DIGEST_COPY = {
   en: {
-    subject: "Daily Deals Digest",
-    intro: "Today&apos;s picks",
+    daily: {
+      subject: "Daily Deals Digest",
+      intro: "Today&apos;s picks",
+    },
+    weekly: {
+      subject: "Weekly Deals Digest",
+      intro: "This Week&apos;s Picks",
+    },
   },
   zh: {
-    subject: "每日捡漏摘要",
-    intro: "今日精选",
+    daily: {
+      subject: "每日捡漏摘要",
+      intro: "今日精选",
+    },
+    weekly: {
+      subject: "每周捡漏摘要",
+      intro: "本周精选",
+    },
   },
 } as const;
+
+export interface BuildDailyDigestOptions {
+  frequency?: DigestFrequency;
+}
 
 function escapeHtml(value: string) {
   return value
@@ -31,8 +49,10 @@ function escapeHtml(value: string) {
 export function buildDailyDigest(
   locale: keyof typeof DIGEST_COPY,
   deals: DailyDigestDeal[],
+  options: BuildDailyDigestOptions = {},
 ): DailyDigest {
-  const copy = DIGEST_COPY[locale];
+  const frequency = options.frequency === "weekly" ? "weekly" : "daily";
+  const copy = DIGEST_COPY[locale][frequency];
   const groups = new Map<string, DailyDigestDeal[]>();
 
   for (const deal of deals) {

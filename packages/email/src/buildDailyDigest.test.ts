@@ -40,6 +40,25 @@ describe("buildDailyDigest", () => {
     expect(digest.html).toContain("亚马逊澳洲");
   });
 
+  it("builds a weekly digest with weekly-specific copy", () => {
+    const digest = buildDailyDigest(
+      "en",
+      [
+        {
+          title: "Nintendo Switch OLED for A$399",
+          merchant: "Amazon AU",
+        },
+      ],
+      {
+        frequency: "weekly",
+      },
+    );
+
+    expect(digest.subject).toBe("Weekly Deals Digest");
+    expect(digest.html).toContain("This Week&apos;s Picks");
+    expect(digest.html).toContain("Nintendo Switch OLED for A$399");
+  });
+
   it("renders an empty grouped digest without list items when there are no deals", () => {
     const digest = buildDailyDigest("en", []);
 

@@ -62,4 +62,33 @@ describe("buildDigestJob", () => {
     expect(digests.zh.html).toContain("亚马逊澳洲");
     expect(digests.zh.html).not.toContain("Bing Lee");
   });
+
+  it("supports weekly digest copy when requested", () => {
+    const digests = buildDigestJob(
+      [
+        {
+          id: "deal_1",
+          merchant: "Amazon AU",
+          status: "published",
+          locales: {
+            en: {
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            },
+            zh: {
+              title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+              merchant: "亚马逊澳洲",
+            },
+          },
+        },
+      ],
+      {
+        frequency: "weekly",
+      },
+    );
+
+    expect(digests.en.subject).toBe("Weekly Deals Digest");
+    expect(digests.en.html).toContain("This Week&apos;s Picks");
+    expect(digests.zh.subject).toBe("每周捡漏摘要");
+    expect(digests.zh.html).toContain("本周精选");
+  });
 });

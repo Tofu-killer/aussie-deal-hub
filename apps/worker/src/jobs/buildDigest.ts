@@ -1,4 +1,7 @@
-import { buildDailyDigest } from "@aussie-deal-hub/email/buildDailyDigest";
+import {
+  buildDailyDigest,
+  type DigestFrequency,
+} from "@aussie-deal-hub/email/buildDailyDigest";
 
 export type DigestLocale = "en" | "zh";
 
@@ -38,9 +41,14 @@ export interface DigestJobPayload {
   deals: DigestDealPayload[];
 }
 
+export interface BuildDigestJobOptions {
+  frequency?: DigestFrequency;
+}
+
 function buildLocaleDigest(
   locale: DigestLocale,
   deals: DigestDealRecord[],
+  options: BuildDigestJobOptions = {},
 ): DigestJobPayload {
   const localizedDeals = deals
     .filter((deal) => deal.status === "published")
@@ -56,6 +64,9 @@ function buildLocaleDigest(
       merchant: deal.merchant,
       title: deal.title,
     })),
+    {
+      frequency: options.frequency,
+    },
   );
 
   return {
@@ -80,11 +91,12 @@ function resolveDigestDeals(
 
 export function buildDigestJob(
   input: DigestDealRecord[] | DigestPersistedInput,
+  options: BuildDigestJobOptions = {},
 ): Record<DigestLocale, DigestJobPayload> {
   const deals = resolveDigestDeals(input);
 
   return {
-    en: buildLocaleDigest("en", deals),
-    zh: buildLocaleDigest("zh", deals),
+    en: buildLocaleDigest("en", deals, options),
+    zh: buildLocaleDigest("zh", deals, options),
   };
 }

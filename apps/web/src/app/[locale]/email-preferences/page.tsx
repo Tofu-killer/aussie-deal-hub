@@ -116,7 +116,7 @@ export default async function EmailPreferencesPage({
     const persistedPreferences = await getDigestPreferences(sessionToken);
     preferences = {
       locale: persistedPreferences.locale === "zh" ? "zh" : "en",
-      frequency: persistedPreferences.frequency,
+      frequency: persistedPreferences.frequency === "weekly" ? "weekly" : "daily",
       categories: persistedPreferences.categories,
     };
   } catch {

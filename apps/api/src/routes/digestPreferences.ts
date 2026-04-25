@@ -22,6 +22,20 @@ const defaultDigestPreferences: DigestPreferencesRecord = {
   categories: [],
 };
 
+function toDigestFrequency(value: string) {
+  return value === "weekly" ? "weekly" : "daily";
+}
+
+function normalizeDigestPreferences(
+  value: DigestPreferencesRecord,
+): DigestPreferencesRecord {
+  return {
+    locale: value.locale,
+    frequency: toDigestFrequency(value.frequency),
+    categories: value.categories,
+  };
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -56,7 +70,9 @@ export function createDigestPreferencesRouter(
     }
 
     const preferences = await store.getByEmail(session.email);
-    response.json(preferences ?? defaultDigestPreferences);
+    response.json(
+      preferences ? normalizeDigestPreferences(preferences) : defaultDigestPreferences,
+    );
   });
 
   router.put("/", async (request, response) => {
@@ -74,8 +90,11 @@ export function createDigestPreferencesRouter(
       return;
     }
 
-    const preferences = await store.upsertByEmail(session.email, input);
-    response.json(preferences);
+    const preferences = await store.upsertByEmail(
+      session.email,
+      normalizeDigestPreferences(input),
+    );
+    response.json(normalizeDigestPreferences(preferences));
   });
 
   return router;

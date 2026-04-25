@@ -1,7 +1,7 @@
 import { prisma } from "@aussie-deal-hub/db/client";
 import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
 import {
-  listEligibleDailyDigestSubscriptions,
+  listEligibleDigestSubscriptions,
   markDigestSent,
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
 import { listFavoritesByEmail } from "@aussie-deal-hub/db/repositories/favorites";
@@ -198,7 +198,7 @@ async function executeWorkerPass() {
       digestDelivery: digestEnabled
         ? {
             subscriptionStore: {
-              listEligibleSubscriptions: listEligibleDailyDigestSubscriptions,
+              listEligibleSubscriptions: listEligibleDigestSubscriptions,
               markSent: markDigestSent,
             },
             favoriteStore: {

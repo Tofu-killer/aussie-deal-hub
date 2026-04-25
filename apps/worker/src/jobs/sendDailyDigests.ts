@@ -41,7 +41,23 @@ export interface SendDailyDigestsSummary {
   sentEmails: string[];
 }
 
-function wasSentToday(lastSentAt: string | null, now: Date) {
+const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function getStartOfUtcDay(now: Date) {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
+function toDigestFrequency(frequency: string): "daily" | "weekly" {
+  return frequency === "weekly" ? "weekly" : "daily";
+}
+
+function wasSentInCurrentDigestWindow(
+  frequency: string,
+  lastSentAt: string | null,
+  now: Date,
+) {
   if (!lastSentAt) {
     return false;
   }
@@ -52,11 +68,11 @@ function wasSentToday(lastSentAt: string | null, now: Date) {
     return false;
   }
 
-  return (
-    sentAt.getUTCFullYear() === now.getUTCFullYear() &&
-    sentAt.getUTCMonth() === now.getUTCMonth() &&
-    sentAt.getUTCDate() === now.getUTCDate()
-  );
+  if (toDigestFrequency(frequency) === "weekly") {
+    return now.getTime() - sentAt.getTime() < WEEKLY_DIGEST_INTERVAL_MS;
+  }
+
+  return sentAt >= getStartOfUtcDay(now);
 }
 
 export async function sendDailyDigests(
@@ -76,7 +92,13 @@ export async function sendDailyDigests(
   };
 
   for (const subscription of subscriptions) {
-    if (wasSentToday(subscription.lastSentAt, now)) {
+    if (
+      wasSentInCurrentDigestWindow(
+        subscription.frequency,
+        subscription.lastSentAt,
+        now,
+      )
+    ) {
       summary.skippedCount += 1;
       continue;
     }
@@ -100,6 +122,9 @@ export async function sendDailyDigests(
         ...deal,
         slug: subscription.locale === "zh" ? deal.locales.zh.slug : deal.locales.en.slug,
       })),
+      {
+        frequency: toDigestFrequency(subscription.frequency),
+      },
     )[subscription.locale];
 
     await digestSender.sendDigest({
