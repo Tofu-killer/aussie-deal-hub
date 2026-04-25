@@ -13,7 +13,7 @@
     "./repositories/sources": "./src/repositories/sources.ts"
   },
   "scripts": {
-    "build": "pnpm prisma:validate",
+    "build": "pnpm prisma:generate && pnpm prisma:validate",
     "db:push": "prisma db push --skip-generate",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
