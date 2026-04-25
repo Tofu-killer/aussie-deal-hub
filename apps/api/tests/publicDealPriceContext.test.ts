@@ -116,6 +116,37 @@ describeDb("public deal price context", () => {
       await clearSelectedPriceSnapshots();
     }
   });
+
+  it("writes and reads price snapshots for a second published deal slug", async () => {
+    const secondDealSlug = "airpods-pro-2-costco-au";
+    const snapshots: PriceSnapshotRecord[] = [
+      {
+        label: "Warehouse weekend",
+        merchant: "Costco AU",
+        observedAt: "2025-04-01T00:00:00.000Z",
+        price: "299.00",
+      },
+    ];
+
+    try {
+      await prisma.priceSnapshot.deleteMany({
+        where: {
+          dealSlug: secondDealSlug,
+        },
+      });
+
+      const writtenSnapshots = await replacePriceSnapshotsForDeal(secondDealSlug, snapshots);
+
+      expect(writtenSnapshots).toEqual(snapshots);
+      expect(await listPriceSnapshotsForDeal(secondDealSlug)).toEqual(snapshots);
+    } finally {
+      await prisma.priceSnapshot.deleteMany({
+        where: {
+          dealSlug: secondDealSlug,
+        },
+      });
+    }
+  });
 });
 
 describe("public deal price context for persisted deal store", () => {

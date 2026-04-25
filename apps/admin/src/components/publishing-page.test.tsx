@@ -35,6 +35,7 @@ describe("publishing page", () => {
       "/merchants",
     );
     expect(screen.getByRole("link", { name: "Manage tags" }).getAttribute("href")).toBe("/tags");
+    expect(screen.getByRole("link", { name: "Manage topics" }).getAttribute("href")).toBe("/topics");
     expect(screen.getByRole("link", { name: "Open lead queue" }).getAttribute("href")).toBe(
       "/leads",
     );

@@ -25,18 +25,7 @@ const adminLeadStore = createAdminLeadRepository();
 const publishedDealStore = createPublishedDealRepository();
 
 async function listPublishedDealPriceSnapshots(dealSlug: string) {
-  try {
-    return await listPriceSnapshotsForDeal(dealSlug);
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("Price snapshots are only supported for ")
-    ) {
-      return [];
-    }
-
-    throw error;
-  }
+  return listPriceSnapshotsForDeal(dealSlug);
 }
 
 async function checkRedisHealth() {
@@ -93,6 +82,7 @@ async function checkReadiness() {
         prisma.merchantCatalog.findFirst({ select: { id: true } }),
         prisma.priceSnapshot.findFirst({ select: { id: true } }),
         prisma.tagCatalog.findFirst({ select: { id: true } }),
+        prisma.topicCatalog.findFirst({ select: { id: true } }),
       ]);
     },
     redis: checkRedisHealth,
@@ -101,6 +91,10 @@ async function checkReadiness() {
 
 buildApp({
   adminCatalogStore,
+  adminTopicsStore: {
+    listTopics: adminCatalogStore.listTopics,
+    createTopic: adminCatalogStore.createTopic,
+  },
   adminLeadStore,
   digestPreferencesStore: {
     getByEmail: getDigestSubscription,

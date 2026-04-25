@@ -377,6 +377,9 @@ export default async function AdminHomePage() {
         <li>
           <a href="/tags">Manage tags</a>
         </li>
+        <li>
+          <a href="/topics">Manage topics</a>
+        </li>
         </ul>
       </section>
     </main>

@@ -18,6 +18,15 @@ export interface TagCatalogRecord {
   owner: string;
 }
 
+export interface TopicCatalogRecord {
+  id: string;
+  name: string;
+  slug: string;
+  spotlightDeals: number;
+  status: string;
+  owner: string;
+}
+
 const seededMerchants: MerchantCatalogRecord[] = [
   {
     id: "amazon-au",
@@ -72,6 +81,33 @@ const seededTags: TagCatalogRecord[] = [
   },
 ];
 
+const seededTopics: TopicCatalogRecord[] = [
+  {
+    id: "work-from-home",
+    name: "Work From Home",
+    slug: "work-from-home",
+    spotlightDeals: 6,
+    status: "Active",
+    owner: "Discovery desk",
+  },
+  {
+    id: "gaming-setup",
+    name: "Gaming Setup",
+    slug: "gaming-setup",
+    spotlightDeals: 9,
+    status: "Active",
+    owner: "Discovery desk",
+  },
+  {
+    id: "school-savings",
+    name: "School Savings",
+    slug: "school-savings",
+    spotlightDeals: 4,
+    status: "Seasonal",
+    owner: "Everyday desk",
+  },
+];
+
 function slugify(value: string) {
   return value
     .trim()
@@ -112,6 +148,14 @@ export async function seedAdminCatalog() {
   if (tagCount === 0) {
     await prisma.tagCatalog.createMany({
       data: seededTags,
+    });
+  }
+
+  const topicCount = await prisma.topicCatalog.count();
+
+  if (topicCount === 0) {
+    await prisma.topicCatalog.createMany({
+      data: seededTopics,
     });
   }
 }
@@ -205,6 +249,52 @@ export function createAdminCatalogRepository() {
           slug: true,
           visibleDeals: true,
           localization: true,
+          owner: true,
+        },
+      });
+    },
+    async listTopics(): Promise<TopicCatalogRecord[]> {
+      await seedAdminCatalog();
+
+      return prisma.topicCatalog.findMany({
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          spotlightDeals: true,
+          status: true,
+          owner: true,
+        },
+      });
+    },
+    async createTopic(input: {
+      name: string;
+    }): Promise<TopicCatalogRecord> {
+      await seedAdminCatalog();
+      const existingIds = (
+        await prisma.topicCatalog.findMany({
+          select: {
+            id: true,
+          },
+        })
+      ).map((row) => row.id);
+      const id = createUniqueId(input.name, existingIds);
+
+      return prisma.topicCatalog.create({
+        data: {
+          id,
+          name: input.name,
+          slug: id,
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          spotlightDeals: true,
+          status: true,
           owner: true,
         },
       });

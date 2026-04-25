@@ -24,12 +24,6 @@ export const seededSelectedPriceSnapshots: PriceSnapshotRecord[] = [
   },
 ];
 
-function assertSelectedDealSlug(dealSlug: string) {
-  if (dealSlug !== selectedPriceSnapshotDealSlug) {
-    throw new Error(`Price snapshots are only supported for ${selectedPriceSnapshotDealSlug}.`);
-  }
-}
-
 function mapPriceSnapshotRecord(record: {
   label: string;
   merchant: string;
@@ -48,8 +42,6 @@ export async function replacePriceSnapshotsForDeal(
   dealSlug: string,
   snapshots: PriceSnapshotRecord[],
 ): Promise<PriceSnapshotRecord[]> {
-  assertSelectedDealSlug(dealSlug);
-
   return prisma.$transaction(async (tx) => {
     await tx.priceSnapshot.deleteMany({
       where: {
@@ -96,8 +88,6 @@ export async function replacePriceSnapshotsForDeal(
 export async function listPriceSnapshotsForDeal(
   dealSlug: string,
 ): Promise<PriceSnapshotRecord[]> {
-  assertSelectedDealSlug(dealSlug);
-
   const records = await prisma.priceSnapshot.findMany({
     where: {
       dealSlug,

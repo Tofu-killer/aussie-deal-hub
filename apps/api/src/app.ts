@@ -6,6 +6,7 @@ import {
 } from "@aussie-deal-hub/email/verificationCodeSender";
 
 import { createAdminCatalogRouter, type AdminCatalogStore } from "./routes/adminCatalog.ts";
+import { createAdminTopicsRouter, type TopicsStore } from "./routes/adminTopics.ts";
 import {
   createLead,
   createAdminLeadsRouter,
@@ -52,6 +53,7 @@ import {
 
 interface BuildAppOptions {
   adminCatalogStore?: AdminCatalogStore;
+  adminTopicsStore?: TopicsStore;
   adminLeadStore?: AdminLeadStore;
   authCodeGenerator?: () => string;
   authCodeSender?: AuthCodeSender;
@@ -200,6 +202,7 @@ export function buildApp(options: BuildAppOptions = {}) {
   );
   app.use("/v1/admin", createAdminLeadsRouter(adminLeadStore, publishedDealStore));
   app.use("/v1/admin", createAdminCatalogRouter(options.adminCatalogStore));
+  app.use("/v1/admin", createAdminTopicsRouter(options.adminTopicsStore));
   app.use("/v1/admin", createAdminRuntimeRouter());
   app.use(
     "/v1/admin/publishing",
