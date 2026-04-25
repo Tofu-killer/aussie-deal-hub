@@ -356,30 +356,33 @@ export default async function AdminHomePage() {
           <p>Jump directly into the queue, preview tools, or publishing catalog.</p>
         </div>
         <ul className="admin-action-grid">
-        <li>
-          <a href="/leads">Open lead queue</a>
-        </li>
-        <li>
-          <a href="/publishing">Review publishing queue</a>
-        </li>
-        <li>
-          <a href="/intake">Preview intake</a>
-        </li>
-        <li>
-          <a href="/digest">Preview digest</a>
-        </li>
-        <li>
-          <a href="/sources">Manage sources</a>
-        </li>
-        <li>
-          <a href="/merchants">Manage merchants</a>
-        </li>
-        <li>
-          <a href="/tags">Manage tags</a>
-        </li>
-        <li>
-          <a href="/topics">Manage topics</a>
-        </li>
+          <li>
+            <a href="/leads">Open lead queue</a>
+          </li>
+          <li>
+            <a href="/publishing">Review publishing queue</a>
+          </li>
+          <li>
+            <a href="/intake">Preview intake</a>
+          </li>
+          <li>
+            <a href="/digest">Preview digest</a>
+          </li>
+          <li>
+            <a href="/sources">Manage sources</a>
+          </li>
+          <li>
+            <a href="/snapshots">Manage snapshots</a>
+          </li>
+          <li>
+            <a href="/merchants">Manage merchants</a>
+          </li>
+          <li>
+            <a href="/tags">Manage tags</a>
+          </li>
+          <li>
+            <a href="/topics">Manage topics</a>
+          </li>
         </ul>
       </section>
     </main>

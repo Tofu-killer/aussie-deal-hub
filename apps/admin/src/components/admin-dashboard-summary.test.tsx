@@ -250,6 +250,9 @@ describe("admin dashboard summary", () => {
     expect(screen.getByRole("link", { name: "Manage sources" }).getAttribute("href")).toBe(
       "/sources",
     );
+    expect(screen.getByRole("link", { name: "Manage snapshots" }).getAttribute("href")).toBe(
+      "/snapshots",
+    );
     expect(screen.getByRole("link", { name: "Manage merchants" }).getAttribute("href")).toBe(
       "/merchants",
     );
