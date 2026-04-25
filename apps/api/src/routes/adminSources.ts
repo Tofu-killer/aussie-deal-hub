@@ -232,15 +232,27 @@ async function pollSourceNow(sourceId: string) {
 
     for (const candidate of candidates) {
       const normalized = normalizeLead(candidate);
-      const result = await leadStore.createLeadIfNew({
-        sourceId: source.id,
-        originalTitle: candidate.title,
-        originalUrl: candidate.url,
-        canonicalUrl: normalized.canonicalUrl,
-        snippet: candidate.snippet,
-        merchant: normalized.merchant,
-        localizedHints: normalized.localizedHints,
-      });
+        const result = await leadStore.createLeadIfNew({
+          sourceId: source.id,
+          originalTitle: candidate.title,
+          originalUrl: candidate.url,
+          canonicalUrl: normalized.canonicalUrl,
+          snippet: candidate.snippet,
+          merchant: normalized.merchant,
+          localizedHints: normalized.localizedHints,
+          sourceScore: source.trustScore,
+          sourceSnapshot: JSON.stringify({
+            source: {
+              id: source.id,
+              name: source.name,
+              sourceType: source.sourceType,
+              baseUrl: source.baseUrl,
+              trustScore: source.trustScore,
+            },
+            candidate,
+            normalized,
+          }),
+        });
 
       if (result.created) {
         createdLeadCount += 1;

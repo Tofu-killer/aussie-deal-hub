@@ -480,18 +480,24 @@ describeDb("admin sources persistence", () => {
         select: {
           canonicalUrl: true,
           originalTitle: true,
+          sourceScore: true,
+          sourceSnapshot: true,
         },
       });
 
       expect(leads).toEqual([
-        {
+        expect.objectContaining({
           canonicalUrl: `${seeded.baseUrl}/deal/airpods`,
           originalTitle: "AirPods Pro (2nd Gen) for A$299 at Amazon AU",
-        },
-        {
+          sourceScore: 84,
+          sourceSnapshot: expect.stringContaining("\"candidate\""),
+        }),
+        expect.objectContaining({
           canonicalUrl: `${seeded.baseUrl}/deal/switch`,
           originalTitle: "Nintendo Switch OLED for A$399 at Amazon AU",
-        },
+          sourceScore: 84,
+          sourceSnapshot: expect.stringContaining("\"candidate\""),
+        }),
       ]);
     } finally {
       await prisma.source.deleteMany({
