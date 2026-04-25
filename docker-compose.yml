@@ -55,6 +55,8 @@ services:
       REDIS_URL: redis://redis:6379
       SESSION_SECRET: change-me-to-at-least-16-characters
       EMAIL_FROM: deals@example.com
+      SMTP_HOST: smtp-placeholder
+      SMTP_PORT: 1025
       WORKER_STATE_PATH: /app/.runtime/worker-state.json
       WORKER_STALE_AFTER_MS: 120000
     ports:
@@ -136,6 +138,8 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
+      SMTP_HOST: smtp-placeholder
+      SMTP_PORT: 1025
       WORKER_POLL_INTERVAL_MS: 30000
       WORKER_REVIEW_ENABLED: 1
       WORKER_PUBLISH_ENABLED: 1

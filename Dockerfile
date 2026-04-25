@@ -25,8 +25,8 @@ RUN ./node_modules/.bin/tsc -p packages/config/tsconfig.json \
      validate --schema packages/db/prisma/schema.prisma \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/api/src/index.ts \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/worker/src/index.ts apps/worker/src/runtime.ts apps/worker/src/jobs/buildDigest.ts apps/worker/src/jobs/reviewPendingLeads.ts apps/worker/src/jobs/publishDueReviews.ts apps/worker/src/jobs/ingestEnabledSources.ts \
-  && cd apps/admin && ../../node_modules/.bin/next build \
-  && cd /app/apps/web && ../../node_modules/.bin/next build
+  && pnpm --filter @aussie-deal-hub/admin build \
+  && pnpm --filter @aussie-deal-hub/web build
 
 FROM workspace AS api
 

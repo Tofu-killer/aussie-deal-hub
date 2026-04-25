@@ -8,6 +8,53 @@ function readRepoFile(path: string) {
   return readFileSync(join(repoRoot, path), "utf8");
 }
 
+function readComposeServiceBlock(compose: string, serviceName: string) {
+  const lines = compose.split("\n");
+  const serviceStart = lines.findIndex((line) => line === `  ${serviceName}:`);
+
+  if (serviceStart === -1) {
+    throw new Error(`Service ${serviceName} not found in docker-compose.yml`);
+  }
+
+  const serviceLines: string[] = [];
+
+  for (let index = serviceStart; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (index > serviceStart && line.startsWith("  ") && !line.startsWith("    ")) {
+      break;
+    }
+
+    serviceLines.push(line);
+  }
+
+  return serviceLines.join("\n");
+}
+
+function readComposeServiceEnvironmentBlock(compose: string, serviceName: string) {
+  const serviceBlock = readComposeServiceBlock(compose, serviceName);
+  const lines = serviceBlock.split("\n");
+  const environmentStart = lines.findIndex((line) => line === "    environment:");
+
+  if (environmentStart === -1) {
+    throw new Error(`Service ${serviceName} does not define an environment block`);
+  }
+
+  const environmentLines: string[] = [];
+
+  for (let index = environmentStart + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (!line.startsWith("      ")) {
+      break;
+    }
+
+    environmentLines.push(line);
+  }
+
+  return environmentLines.join("\n");
+}
+
 describe("deployment artifacts", () => {
   it("defines a db-init service that applies schema and seed data before api startup", () => {
     const compose = readRepoFile("docker-compose.yml");
@@ -17,6 +64,17 @@ describe("deployment artifacts", () => {
     expect(compose).toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(compose).toContain("service_completed_successfully");
     expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
+  });
+
+  it("provides smtp delivery placeholders for production api and worker containers", () => {
+    const compose = readRepoFile("docker-compose.yml");
+    const apiEnvironment = readComposeServiceEnvironmentBlock(compose, "api");
+    const workerEnvironment = readComposeServiceEnvironmentBlock(compose, "worker");
+
+    expect(apiEnvironment).toContain("SMTP_HOST: smtp-placeholder");
+    expect(apiEnvironment).toContain("SMTP_PORT: 1025");
+    expect(workerEnvironment).toContain("SMTP_HOST: smtp-placeholder");
+    expect(workerEnvironment).toContain("SMTP_PORT: 1025");
   });
 
   it("keeps dedicated runtime targets in the Dockerfile for api, web, admin, and worker", () => {
@@ -29,8 +87,8 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/db prisma:generate");
     expect(dockerfile).toContain("apps/api/src/index.ts");
     expect(dockerfile).toContain("apps/worker/src/index.ts");
-    expect(dockerfile).toContain("cd apps/admin && ../../node_modules/.bin/next build");
-    expect(dockerfile).toContain("cd /app/apps/web && ../../node_modules/.bin/next build");
+    expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/admin build");
+    expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/web build");
     expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
     expect(dockerfile).toContain("validate --schema packages/db/prisma/schema.prisma");
   });
