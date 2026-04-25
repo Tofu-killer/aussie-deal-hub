@@ -12,6 +12,7 @@ interface PriceSnapshotRecord {
 
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
 const selectedDealSlug = "nintendo-switch-oled-amazon-au";
+const persistedDealSlug = "admin-snapshot-persistence-test-deal";
 
 describe("admin snapshot routes", () => {
   it("returns snapshots for a deal slug from the injected store", async () => {
@@ -149,7 +150,7 @@ describeDb("admin snapshot persistence", () => {
       listPriceSnapshotsForDeal,
       replacePriceSnapshotsForDeal,
     } = await import("@aussie-deal-hub/db/repositories/priceSnapshots");
-    const originalSnapshots = await listPriceSnapshotsForDeal(selectedDealSlug);
+    const originalSnapshots = await listPriceSnapshotsForDeal(persistedDealSlug);
     const replacement: PriceSnapshotRecord[] = [
       {
         label: "Admin current deal",
@@ -174,15 +175,15 @@ describeDb("admin snapshot persistence", () => {
     try {
       const putResponse = await dispatchRequest(app, {
         method: "PUT",
-        path: `/v1/admin/price-snapshots/${selectedDealSlug}`,
+        path: `/v1/admin/price-snapshots/${persistedDealSlug}`,
         body: {
           snapshots: replacement,
         },
       });
-      const persisted = await listPriceSnapshotsForDeal(selectedDealSlug);
+      const persisted = await listPriceSnapshotsForDeal(persistedDealSlug);
       const getResponse = await dispatchRequest(app, {
         method: "GET",
-        path: `/v1/admin/price-snapshots/${selectedDealSlug}`,
+        path: `/v1/admin/price-snapshots/${persistedDealSlug}`,
       });
 
       expect(putResponse.status).toBe(200);
@@ -197,12 +198,12 @@ describeDb("admin snapshot persistence", () => {
     } finally {
       await prisma.priceSnapshot.deleteMany({
         where: {
-          dealSlug: selectedDealSlug,
+          dealSlug: persistedDealSlug,
         },
       });
 
       if (originalSnapshots.length > 0) {
-        await replacePriceSnapshotsForDeal(selectedDealSlug, originalSnapshots);
+        await replacePriceSnapshotsForDeal(persistedDealSlug, originalSnapshots);
       }
     }
   });

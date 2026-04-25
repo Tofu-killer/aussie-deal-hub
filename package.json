@@ -9,6 +9,7 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "smoke:readiness": "node scripts/smoke-readiness.mjs",
     "test": "vitest run --config vitest.workspace.ts",
+    "test:db": "node scripts/test-db.mjs",
     "verify": "pnpm build && pnpm test"
   },
   "devDependencies": {

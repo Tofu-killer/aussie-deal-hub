@@ -8,6 +8,7 @@ docker compose up -d
 pnpm --filter @aussie-deal-hub/db db:push
 pnpm --filter @aussie-deal-hub/db seed
 pnpm verify
+pnpm test:db
 ```
 
 GitHub Actions runs the same contract from `.github/workflows/verify.yml` on `main` pushes and pull requests:
@@ -15,6 +16,7 @@ GitHub Actions runs the same contract from `.github/workflows/verify.yml` on `ma
 ```bash
 pnpm install --frozen-lockfile
 pnpm verify
+pnpm test:db
 ```
 
 `pnpm verify` runs the repeatable workspace contract:
@@ -57,7 +59,7 @@ Set runtime variables in your process manager or deployment platform before star
 | `WORKER_DIGEST_ENABLED` | worker | optional | Set to `0` to disable automatic digest delivery for eligible daily and weekly subscribers. |
 | `WORKER_STATE_PATH` | api, worker | optional | Shared state file used for worker heartbeat and admin runtime visibility. |
 | `WORKER_STALE_AFTER_MS` | api, worker | optional | Maximum heartbeat age before the worker is reported stale. |
-| `RUN_DB_TESTS` | test only | optional | Set to `1` to include DB-backed persistence tests. |
+| `RUN_DB_TESTS` | test only | optional | Only needed for direct Vitest invocations; `pnpm test:db` sets it automatically. |
 
 ## Containerized stack
 
@@ -99,6 +101,18 @@ Apply the Prisma schema and seed the baseline data:
 ```bash
 pnpm --filter @aussie-deal-hub/db db:push
 pnpm --filter @aussie-deal-hub/db seed
+```
+
+Then run the DB-backed persistence suite:
+
+```bash
+pnpm test:db
+```
+
+If PostgreSQL is not exposed on `127.0.0.1:5432`, set `DATABASE_URL` explicitly before running the suite. For example, the split-deployment layout above uses:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:15432/aussie_deals_hub pnpm test:db
 ```
 
 ## Service start commands
@@ -159,10 +173,10 @@ The current repo supports that setup because:
 - `admin` can be protected with optional HTTP Basic Auth through `ADMIN_BASIC_AUTH_USERNAME` and `ADMIN_BASIC_AUTH_PASSWORD`
 - `health` and `ready` endpoints exist for all three app services
 
-If you also want the DB-backed persistence tests gated by `RUN_DB_TESTS`, run:
+If you also want the DB-backed persistence tests, run:
 
 ```bash
-RUN_DB_TESTS=1 pnpm test
+pnpm test:db
 ```
 
 To verify the API slice in isolation, run:

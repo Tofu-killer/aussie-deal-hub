@@ -127,4 +127,22 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("http://127.0.0.1:3002/");
     expect(workflow).toContain("pnpm smoke:routes");
   });
+
+  it("exposes db-backed test entrypoints for local and CI verification", () => {
+    const packageJson = readRepoFile("package.json");
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+    const readme = readRepoFile("README.md");
+    const testDbScript = readRepoFile("scripts/test-db.mjs");
+
+    expect(packageJson).toContain("\"test:db\": \"node scripts/test-db.mjs\"");
+    expect(workflow).toContain("Prepare database for DB-backed tests");
+    expect(workflow).toContain("pnpm test:db");
+    expect(workflow).toContain("5433:5432");
+    expect(workflow).toContain("127.0.0.1:5433");
+    expect(workflow).toContain("services:");
+    expect(workflow).toContain("postgres:");
+    expect(readme).toContain("pnpm test:db");
+    expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
+    expect(testDbScript).toContain("\"vitest\"");
+  });
 });
