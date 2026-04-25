@@ -18,6 +18,8 @@ interface LeadDetailRecord {
   originalTitle: string;
   originalUrl: string;
   snippet: string;
+  sourceScore: number | null;
+  sourceSnapshot: string | null;
   createdAt: string;
   review: LeadReviewDraft;
 }
@@ -113,6 +115,11 @@ function normalizeLeadDetail(body: unknown): LeadDetailRecord | null {
     originalTitle,
     originalUrl: readString(lead.originalUrl),
     snippet,
+    sourceScore:
+      typeof lead.sourceScore === "number" && Number.isFinite(lead.sourceScore)
+        ? lead.sourceScore
+        : null,
+    sourceSnapshot: readString(lead.sourceSnapshot) || null,
     createdAt,
     review: buildLeadReviewDraft(review, originalTitle, snippet, createdAt),
   };
@@ -407,6 +414,10 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
               </dd>
               <dt>Snippet</dt>
               <dd>{lead.snippet || "No snippet"}</dd>
+              <dt>Source score</dt>
+              <dd>{lead.sourceScore ?? "Unknown"}</dd>
+              <dt>Source snapshot</dt>
+              <dd>{lead.sourceSnapshot ? <pre>{lead.sourceSnapshot}</pre> : "No source snapshot"}</dd>
               <dt>Created at</dt>
               <dd>{lead.createdAt || "Unknown"}</dd>
             </dl>

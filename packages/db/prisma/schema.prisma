@@ -35,6 +35,8 @@ model Lead {
   canonicalUrl   String
   snippet        String
   merchant       String?
+  sourceScore    Int?
+  sourceSnapshot String?
   reviewStatus   String           @default("pending")
   aiConfidence   Int?
   riskLabels     String[]

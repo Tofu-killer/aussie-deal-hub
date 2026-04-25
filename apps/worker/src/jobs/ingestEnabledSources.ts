@@ -22,6 +22,8 @@ export interface IngestLeadStore {
     snippet: string;
     merchant?: string;
     localizedHints?: string[];
+    sourceScore?: number;
+    sourceSnapshot?: string;
   }): Promise<{ created: boolean }>;
 }
 
@@ -114,6 +116,18 @@ export async function ingestEnabledSources(
           snippet: candidate.snippet,
           merchant: normalized.merchant,
           localizedHints: normalized.localizedHints,
+          sourceScore: source.trustScore,
+          sourceSnapshot: JSON.stringify({
+            source: {
+              id: source.id,
+              name: source.name,
+              sourceType: source.sourceType,
+              baseUrl: source.baseUrl,
+              trustScore: source.trustScore,
+            },
+            candidate,
+            normalized,
+          }),
         });
 
         if (ingested.created) {

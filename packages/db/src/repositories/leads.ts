@@ -9,6 +9,8 @@ interface LeadRecord {
   originalTitle: string;
   originalUrl: string;
   snippet: string;
+  sourceScore?: number | null;
+  sourceSnapshot?: string | null;
   createdAt: string;
 }
 
@@ -50,6 +52,8 @@ interface LeadRecordRow {
   originalTitle: string;
   originalUrl: string;
   snippet: string;
+  sourceScore: number | null;
+  sourceSnapshot: string | null;
   createdAt: Date;
 }
 
@@ -93,6 +97,8 @@ function mapLeadRecord(row: LeadRecordRow): LeadRecord {
     originalTitle: row.originalTitle,
     originalUrl: row.originalUrl,
     snippet: row.snippet,
+    sourceScore: row.sourceScore,
+    sourceSnapshot: row.sourceSnapshot,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -167,6 +173,8 @@ const leadRecordSelect = {
   originalTitle: true,
   originalUrl: true,
   snippet: true,
+  sourceScore: true,
+  sourceSnapshot: true,
   createdAt: true,
 } as const;
 
@@ -250,6 +258,8 @@ export function createAdminLeadRepository() {
           originalUrl: input.originalUrl,
           canonicalUrl: input.originalUrl,
           snippet: input.snippet,
+          sourceScore: null,
+          sourceSnapshot: null,
           riskLabels: [],
           localizedHints: [],
         },
@@ -267,6 +277,8 @@ export function createAdminLeadRepository() {
       snippet: string;
       merchant?: string;
       localizedHints?: string[];
+      sourceScore?: number;
+      sourceSnapshot?: string;
     }): Promise<{ created: boolean; lead: LeadRecord }> {
       await ensureSourceExists(input.sourceId);
 
@@ -293,6 +305,8 @@ export function createAdminLeadRepository() {
           canonicalUrl: input.canonicalUrl,
           snippet: input.snippet,
           merchant: input.merchant,
+          sourceScore: input.sourceScore,
+          sourceSnapshot: input.sourceSnapshot ?? null,
           riskLabels: [],
           localizedHints: input.localizedHints ?? [],
         },

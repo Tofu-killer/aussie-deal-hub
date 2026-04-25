@@ -9,6 +9,8 @@ export interface LeadRecord {
   originalTitle: string;
   originalUrl: string;
   snippet: string;
+  sourceScore?: number | null;
+  sourceSnapshot?: string | null;
   createdAt: string;
 }
 
@@ -172,6 +174,8 @@ export function createLead(
     originalTitle: input.originalTitle,
     originalUrl: input.originalUrl,
     snippet: input.snippet,
+    sourceScore: null,
+    sourceSnapshot: null,
     createdAt: new Date().toISOString(),
   };
 

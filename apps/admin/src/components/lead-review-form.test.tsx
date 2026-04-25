@@ -311,6 +311,8 @@ describe("LeadReviewForm", () => {
         originalTitle: "Amazon AU Nintendo Switch OLED A$399",
         originalUrl: "https://www.amazon.com.au/deal",
         snippet: "Coupon GAME20 expires tonight.",
+        sourceScore: 84,
+        sourceSnapshot: "{\"candidate\":{\"title\":\"Nintendo Switch OLED\"}}",
         createdAt: "2026-04-23T08:00:00.000Z",
         review: {
           category: "Deals",
@@ -340,6 +342,8 @@ describe("LeadReviewForm", () => {
     expect(await screen.findByText("src_amazon")).toBeTruthy();
     expect(screen.getByText("Amazon AU Nintendo Switch OLED A$399")).toBeTruthy();
     expect(screen.getByText("https://www.amazon.com.au/deal")).toBeTruthy();
+    expect(screen.getByText("84")).toBeTruthy();
+    expect(screen.getByText("{\"candidate\":{\"title\":\"Nintendo Switch OLED\"}}")).toBeTruthy();
     expect(screen.getAllByText("Coupon GAME20 expires tonight.").length).toBeGreaterThan(0);
     expect((await screen.findByLabelText("English title") as HTMLInputElement).value).toBe(
       "Nintendo Switch OLED for A$399 at Amazon AU",

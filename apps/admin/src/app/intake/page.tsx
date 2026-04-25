@@ -169,6 +169,17 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
         <p>{error}</p>
       ) : review ? (
         <section>
+          <h2>Raw evidence</h2>
+          <dl>
+            <dt>Original title</dt>
+            <dd>{originalTitle || "No original title provided."}</dd>
+            <dt>Original URL</dt>
+            <dd>{originalUrl || "No original URL provided."}</dd>
+            <dt>Snippet</dt>
+            <dd>{snippet || "No snippet provided."}</dd>
+            <dt>Source snapshot</dt>
+            <dd>No source snapshot captured yet.</dd>
+          </dl>
           <h2>AI review preview</h2>
           <dl>
             <dt>Category</dt>

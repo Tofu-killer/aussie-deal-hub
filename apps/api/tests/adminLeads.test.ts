@@ -135,6 +135,27 @@ describe("admin lead pipeline", () => {
     });
   });
 
+  it("returns raw evidence fields for leads that were manually created", async () => {
+    const app = buildApp();
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+    expect(leadResponse.body).toMatchObject({
+      sourceScore: null,
+      sourceSnapshot: null,
+    });
+  });
+
   it("returns 404 when the admin detail read endpoint cannot find the lead", async () => {
     const app = buildApp();
 
@@ -894,6 +915,61 @@ describeDb("admin lead persistence", () => {
       expect((queueResponse.body as { items: Array<{ id: string }> }).items).not.toContainEqual(
         expect.objectContaining({
           id: leadId,
+        }),
+      );
+    } finally {
+      await prisma.lead.deleteMany({
+        where: {
+          sourceId,
+        },
+      });
+      await prisma.source.deleteMany({
+        where: {
+          id: sourceId,
+        },
+      });
+    }
+  });
+
+  it("persists source score and snapshot for ingestion-created leads across app rebuilds", async () => {
+    const sourceId = `src_ingest_${randomUUID()}`;
+    const { createAdminLeadRepository } = await import("@aussie-deal-hub/db/repositories/leads");
+    const repository = createAdminLeadRepository();
+
+    try {
+      const created = await repository.createLeadIfNew({
+        sourceId,
+        originalTitle: "Amazon AU Kindle Paperwhite A$179",
+        originalUrl: `https://www.amazon.com.au/deal/${sourceId}`,
+        canonicalUrl: `https://www.amazon.com.au/deal/${sourceId}`,
+        snippet: "Ingestion evidence snippet.",
+        sourceScore: 84,
+        sourceSnapshot: JSON.stringify({
+          source: {
+            id: sourceId,
+            name: "Amazon AU Feed",
+          },
+          candidate: {
+            title: "Amazon AU Kindle Paperwhite A$179",
+            url: `https://www.amazon.com.au/deal/${sourceId}`,
+          },
+        }),
+      });
+
+      expect(created.created).toBe(true);
+
+      const rebuiltApp = await buildDbApp();
+      const detailResponse = await dispatchRequest(rebuiltApp, {
+        method: "GET",
+        path: `/v1/admin/leads/${created.lead.id}`,
+      });
+
+      expect(detailResponse.status).toBe(200);
+      expect(detailResponse.body).toEqual(
+        expect.objectContaining({
+          id: created.lead.id,
+          sourceScore: 84,
+          sourceSnapshot: expect.stringContaining("\"candidate\""),
         }),
       );
     } finally {
