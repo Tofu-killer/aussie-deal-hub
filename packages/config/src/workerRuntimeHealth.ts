@@ -24,7 +24,23 @@ interface WorkerRuntimeHealthOptions {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isWorkerStatus(value: unknown): value is WorkerStateRecord["status"] {
+  return value === "error" || value === "idle" || value === "ok";
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isNullableTimestamp(value: unknown): value is string | null {
+  return value === null || isTimestamp(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
 }
 
 export function isWorkerStateRecord(value: unknown): value is WorkerStateRecord {
@@ -32,7 +48,15 @@ export function isWorkerStateRecord(value: unknown): value is WorkerStateRecord 
     return false;
   }
 
-  return typeof value.status === "string" && typeof value.serviceStartedAt === "string";
+  return (
+    isWorkerStatus(value.status) &&
+    isTimestamp(value.serviceStartedAt) &&
+    isNullableTimestamp(value.lastAttemptedAt) &&
+    isNullableTimestamp(value.lastCompletedAt) &&
+    isNullableTimestamp(value.lastErrorAt) &&
+    isNullableString(value.lastErrorMessage) &&
+    (value.lastSummary === null || isRecord(value.lastSummary))
+  );
 }
 
 export function evaluateWorkerRuntimeHealth(

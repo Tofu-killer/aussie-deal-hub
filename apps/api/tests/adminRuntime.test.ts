@@ -81,6 +81,33 @@ describe("admin runtime routes", () => {
     });
   });
 
+  it("returns 503 when the worker state file contains an unsupported status", async () => {
+    const now = new Date().toISOString();
+    await writeWorkerStateFile({
+      serviceStartedAt: now,
+      status: "booting",
+      lastAttemptedAt: now,
+      lastCompletedAt: now,
+      lastErrorAt: null,
+      lastErrorMessage: null,
+      lastSummary: null,
+    });
+    process.env.WORKER_STALE_AFTER_MS = "60000";
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/runtime/worker",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      ok: false,
+      status: "missing",
+      message: "Worker state unavailable.",
+    });
+  });
+
   it("returns 200 while the worker is still in its startup window", async () => {
     await writeWorkerStateFile({
       serviceStartedAt: new Date().toISOString(),
@@ -103,6 +130,32 @@ describe("admin runtime routes", () => {
     expect(response.body).toMatchObject({
       ok: true,
       status: "starting",
+      ageMs: null,
+    });
+  });
+
+  it("returns 503 once the startup grace window expires without a first heartbeat", async () => {
+    await writeWorkerStateFile({
+      serviceStartedAt: "2026-04-20T00:00:00.000Z",
+      status: "idle",
+      lastAttemptedAt: null,
+      lastCompletedAt: null,
+      lastErrorAt: null,
+      lastErrorMessage: null,
+      lastSummary: null,
+    });
+    process.env.WORKER_STALE_AFTER_MS = "1000";
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/runtime/worker",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toMatchObject({
+      ok: false,
+      status: "stale",
       ageMs: null,
     });
   });

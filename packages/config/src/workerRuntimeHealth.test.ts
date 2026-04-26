@@ -25,6 +25,13 @@ describe("worker runtime health", () => {
     expect(isWorkerStateRecord({ status: "ok" })).toBe(false);
   });
 
+  it("rejects malformed worker state records", () => {
+    expect(isWorkerStateRecord({ ...createState(), status: "booting" })).toBe(false);
+    expect(isWorkerStateRecord({ ...createState(), lastCompletedAt: "not-a-date" })).toBe(false);
+    expect(isWorkerStateRecord({ ...createState(), lastErrorMessage: 42 })).toBe(false);
+    expect(isWorkerStateRecord({ ...createState(), lastSummary: [] })).toBe(false);
+  });
+
   it("treats a fresh completed heartbeat as healthy", () => {
     const result = evaluateWorkerRuntimeHealth(createState(), {
       now: Date.parse("2026-04-27T00:00:20.000Z"),
