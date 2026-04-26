@@ -1,27 +1,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  evaluateWorkerRuntimeHealth,
+  isWorkerStateRecord,
+  type WorkerStateRecord,
+} from "../../../../packages/config/src/workerRuntimeHealth.ts";
 import { Router } from "express";
-
-interface WorkerStateSummary {
-  publishedCount: number;
-  publishedLeadIds: string[];
-  queuedPublishCount: number;
-  queuedReviewCount: number;
-  reviewedCount: number;
-  reviewedLeadIds: string[];
-  skippedPublishCount: number;
-}
-
-interface WorkerStateRecord {
-  lastAttemptedAt: string | null;
-  lastCompletedAt: string | null;
-  lastErrorAt: string | null;
-  lastErrorMessage: string | null;
-  lastSummary: WorkerStateSummary | null;
-  serviceStartedAt: string;
-  status: "error" | "idle" | "ok";
-}
 
 function resolveWorkerStatePath() {
   return process.env.WORKER_STATE_PATH ?? path.join(process.cwd(), ".runtime/worker-state.json");
@@ -37,18 +22,6 @@ function readPositiveIntegerEnv(name: string, fallbackValue: number) {
   const parsedValue = Number.parseInt(rawValue, 10);
 
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallbackValue;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
-}
-
-function isWorkerStateRecord(value: unknown): value is WorkerStateRecord {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return typeof value.status === "string" && typeof value.serviceStartedAt === "string";
 }
 
 function buildMissingWorkerStateResponse() {
@@ -89,16 +62,14 @@ export function createAdminRuntimeRouter() {
     }
 
     const staleAfterMs = readPositiveIntegerEnv("WORKER_STALE_AFTER_MS", 120000);
-    const lastTimestamp = state.lastCompletedAt ?? state.lastAttemptedAt;
-    const ageMs = lastTimestamp ? Math.max(Date.now() - Date.parse(lastTimestamp), 0) : null;
-    const isStale = ageMs === null || Number.isNaN(ageMs) || ageMs > staleAfterMs;
-    const isError = state.status === "error";
-    const ok = !isError && !isStale;
+    const runtimeHealth = evaluateWorkerRuntimeHealth(state, {
+      staleAfterMs,
+    });
 
-    response.status(ok ? 200 : 503).json({
-      ok,
-      status: isError ? "error" : isStale ? "stale" : "ok",
-      ageMs,
+    response.status(runtimeHealth.ok ? 200 : 503).json({
+      ok: runtimeHealth.ok,
+      status: runtimeHealth.status,
+      ageMs: runtimeHealth.ageMs,
       serviceStartedAt: state.serviceStartedAt,
       lastAttemptedAt: state.lastAttemptedAt,
       lastCompletedAt: state.lastCompletedAt,

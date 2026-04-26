@@ -156,7 +156,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const fs=require('node:fs'); const p=process.env.WORKER_STATE_PATH; const maxAge=Number(process.env.WORKER_STALE_AFTER_MS||120000); const stat=fs.statSync(p); process.exit(Date.now()-stat.mtimeMs <= maxAge ? 0 : 1)\"",
+          "node scripts/check-worker-health.mjs",
         ]
       interval: 15s
       timeout: 5s

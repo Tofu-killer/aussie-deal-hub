@@ -181,11 +181,17 @@ describe("deployment artifacts", () => {
   it("exposes a readiness smoke script at the repo root", () => {
     const packageJson = readRepoFile("package.json");
     const smokeScript = readRepoFile("scripts/smoke-readiness.mjs");
+    const workerHealthScript = readRepoFile("scripts/check-worker-health.mjs");
+    const workerBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "worker");
 
     expect(packageJson).toContain("\"smoke:readiness\": \"node scripts/smoke-readiness.mjs\"");
     expect(smokeScript).toContain("/v1/ready");
     expect(smokeScript).toContain("/health");
     expect(smokeScript).toContain("/ready");
+    expect(smokeScript).toContain("/v1/admin/runtime/worker");
+    expect(workerHealthScript).toContain("WORKER_STATE_PATH");
+    expect(workerHealthScript).toContain("workerRuntimeHealth");
+    expect(workerBlock).toContain("node scripts/check-worker-health.mjs");
   });
 
   it("exposes a route smoke script at the repo root", () => {

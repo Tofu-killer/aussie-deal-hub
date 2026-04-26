@@ -31,6 +31,11 @@ const targets = [
     url: process.env.ADMIN_READY_URL ?? "http://127.0.0.1:3002/ready",
     expectedStatus: 200,
   },
+  {
+    name: "worker-runtime-ready",
+    url: process.env.WORKER_RUNTIME_URL ?? "http://127.0.0.1:3001/v1/admin/runtime/worker",
+    expectedStatus: 200,
+  },
 ];
 
 async function main() {
