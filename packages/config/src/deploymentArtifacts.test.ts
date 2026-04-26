@@ -138,6 +138,14 @@ describe("deployment artifacts", () => {
     expect(workerEnvironment).toContain("SMTP_PORT: 1025");
   });
 
+  it("keeps the postgres container bootstrap compatible with POSTGRES_DB initialization", () => {
+    const compose = readRepoFile("docker-compose.yml");
+    const postgresBlock = readComposeServiceBlock(compose, "postgres");
+
+    expect(postgresBlock).toContain("POSTGRES_DB: aussie_deals_hub");
+    expect(postgresBlock).not.toContain("unix_socket_directories=");
+  });
+
   it("keeps dedicated runtime targets in the Dockerfile for api, web, admin, and worker", () => {
     const dockerfile = readRepoFile("Dockerfile");
 
