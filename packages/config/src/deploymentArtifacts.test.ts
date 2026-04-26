@@ -73,6 +73,7 @@ describe("deployment artifacts", () => {
     const packageJson = JSON.parse(readRepoFile("packages/db/package.json")) as {
       scripts?: Record<string, string>;
     };
+    const dbInitEnvironment = readComposeServiceEnvironmentBlock(compose, "db-init");
     const migrateScript = packageJson.scripts?.["db:migrate"] ?? "";
     const migrateWrapper = readRepoFile("packages/db/src/migrate.ts");
     const seedMigrationPath = join(
@@ -96,6 +97,10 @@ describe("deployment artifacts", () => {
     expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(compose).toContain("service_completed_successfully");
     expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
+    expect(dbInitEnvironment).toContain(
+      "DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub",
+    );
+    expect(migrateScript).toBe("node --import tsx ./src/migrate.ts");
     expect(migrateScript).toContain("migrate.ts");
     expect(migrateWrapper).toContain("baselineMigrationName");
     expect(migrateWrapper).toContain('baselineMigrationName = "20260425000000_baseline"');
