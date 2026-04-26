@@ -114,6 +114,10 @@ jobs:
       - name: Run route smoke
         run: pnpm smoke:routes
 
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose logs postgres redis db-init api web admin worker
+
       - name: Stop container stack
         if: always()
         run: docker compose down -v

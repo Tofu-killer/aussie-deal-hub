@@ -30,7 +30,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: api
+      target: workspace
     command:
       [
         "sh",

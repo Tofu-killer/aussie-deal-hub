@@ -73,6 +73,7 @@ describe("deployment artifacts", () => {
     const packageJson = JSON.parse(readRepoFile("packages/db/package.json")) as {
       scripts?: Record<string, string>;
     };
+    const dbInitBlock = readComposeServiceBlock(compose, "db-init");
     const dbInitEnvironment = readComposeServiceEnvironmentBlock(compose, "db-init");
     const migrateScript = packageJson.scripts?.["db:migrate"] ?? "";
     const migrateWrapper = readRepoFile("packages/db/src/migrate.ts");
@@ -92,6 +93,7 @@ describe("deployment artifacts", () => {
       : "";
 
     expect(compose).toContain("db-init:");
+    expect(dbInitBlock).toContain("target: workspace");
     expect(compose).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
     expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db db:push");
     expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
@@ -143,6 +145,7 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("FROM workspace AS web");
     expect(dockerfile).toContain("FROM workspace AS admin");
     expect(dockerfile).toContain("FROM workspace AS worker");
+    expect(dockerfile).toContain("apt-get install -y --no-install-recommends openssl");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/db prisma:generate");
     expect(dockerfile).toContain("apps/api/src/index.ts");
     expect(dockerfile).toContain("apps/worker/src/index.ts");
@@ -161,6 +164,8 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("docker build . --target worker");
     expect(workflow).toContain("docker compose config");
     expect(workflow).toContain("docker compose up -d --build");
+    expect(workflow).toContain("Dump container logs on failure");
+    expect(workflow).toContain("docker compose logs postgres redis db-init api web admin worker");
     expect(workflow).toContain("pnpm smoke:readiness");
     expect(workflow).toContain("docker compose down -v");
   });
