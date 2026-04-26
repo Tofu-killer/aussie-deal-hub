@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "vitest --config vitest.workspace.ts --watch packages/config/src/env.test.ts",
+    "smoke:container-health": "node scripts/check-compose-health.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "smoke:readiness": "node scripts/smoke-readiness.mjs",
     "test": "vitest run --config vitest.workspace.ts",

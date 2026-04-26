@@ -172,6 +172,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("docker build . --target worker");
     expect(workflow).toContain("docker compose config");
     expect(workflow).toContain("docker compose up -d --build");
+    expect(workflow).toContain("pnpm smoke:container-health");
     expect(workflow).toContain("Dump container logs on failure");
     expect(workflow).toContain("docker compose logs postgres redis db-init api web admin worker");
     expect(workflow).toContain("pnpm smoke:readiness");
@@ -204,6 +205,25 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("/en/search?q=switch");
     expect(smokeScript).toContain("http://127.0.0.1:3002/");
     expect(workflow).toContain("pnpm smoke:routes");
+  });
+
+  it("exposes a container health smoke script at the repo root", () => {
+    const packageJson = readRepoFile("package.json");
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+    const script = readRepoFile("scripts/check-compose-health.mjs");
+    const apiBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "api");
+    const webBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "web");
+    const adminBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "admin");
+    const workerBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "worker");
+
+    expect(packageJson).toContain("\"smoke:container-health\": \"node scripts/check-compose-health.mjs\"");
+    expect(workflow).toContain("pnpm smoke:container-health");
+    expect(script).toContain('return ["api", "web", "admin", "worker"]');
+    expect(script).toContain('"docker", ["compose", "ps", "--format", "json"]');
+    expect(apiBlock).toContain("healthcheck:");
+    expect(webBlock).toContain("healthcheck:");
+    expect(adminBlock).toContain("healthcheck:");
+    expect(workerBlock).toContain("healthcheck:");
   });
 
   it("exposes db-backed test entrypoints for local and CI verification", () => {
@@ -317,6 +337,7 @@ describe("deployment artifacts", () => {
       "name: Build Admin image target",
       "name: Build Worker image target",
       "name: Start container stack",
+      "name: Run container health smoke",
       "name: Run readiness smoke",
       "name: Run route smoke",
       "name: Stop container stack",

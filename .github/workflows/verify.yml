@@ -108,6 +108,9 @@ jobs:
       - name: Start container stack
         run: docker compose up -d --build
 
+      - name: Run container health smoke
+        run: pnpm smoke:container-health
+
       - name: Run readiness smoke
         run: pnpm smoke:readiness
 
