@@ -4,33 +4,17 @@ import { prisma } from "@aussie-deal-hub/db/client";
 import {
   listPriceSnapshotsForDeal,
   replacePriceSnapshotsForDeal,
+  seedSelectedPriceSnapshots,
+  seededSelectedPriceSnapshots,
+  selectedPriceSnapshotDealSlug,
+  type PriceSnapshotRecord,
 } from "@aussie-deal-hub/db/repositories/priceSnapshots";
 import { buildApp } from "../src/app";
 import { dispatchRequest } from "./httpHarness";
 
-interface PriceSnapshotRecord {
-  label: string;
-  merchant: string;
-  observedAt: string;
-  price: string;
-}
-
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
-const selectedDealSlug = "nintendo-switch-oled-amazon-au";
-const seededSnapshots: PriceSnapshotRecord[] = [
-  {
-    label: "Previous promo",
-    merchant: "Amazon AU",
-    observedAt: "2025-03-14T00:00:00.000Z",
-    price: "429.00",
-  },
-  {
-    label: "Current public deal",
-    merchant: "Amazon AU",
-    observedAt: "2025-04-15T00:00:00.000Z",
-    price: "399.00",
-  },
-];
+const selectedDealSlug = selectedPriceSnapshotDealSlug;
+const seededSnapshots: PriceSnapshotRecord[] = seededSelectedPriceSnapshots;
 
 async function clearSelectedPriceSnapshots() {
   await prisma.priceSnapshot.deleteMany({
@@ -41,6 +25,10 @@ async function clearSelectedPriceSnapshots() {
 }
 
 describeDb("public deal price context", () => {
+  it("keeps migrated selected snapshots available for the published deal", async () => {
+    expect(await listPriceSnapshotsForDeal(selectedDealSlug)).toEqual(seededSnapshots);
+  });
+
   it("writes and reads selected price snapshots for the published deal", async () => {
     try {
       await clearSelectedPriceSnapshots();
@@ -56,7 +44,7 @@ describeDb("public deal price context", () => {
 
       expect(snapshots).toEqual(seededSnapshots);
     } finally {
-      await clearSelectedPriceSnapshots();
+      await seedSelectedPriceSnapshots();
     }
   });
 
@@ -84,7 +72,7 @@ describeDb("public deal price context", () => {
         },
       });
     } finally {
-      await clearSelectedPriceSnapshots();
+      await seedSelectedPriceSnapshots();
     }
   });
 
@@ -113,7 +101,7 @@ describeDb("public deal price context", () => {
         },
       });
     } finally {
-      await clearSelectedPriceSnapshots();
+      await seedSelectedPriceSnapshots();
     }
   });
 

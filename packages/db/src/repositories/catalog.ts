@@ -135,36 +135,25 @@ function createUniqueId(name: string, existingIds: string[]) {
 }
 
 export async function seedAdminCatalog() {
-  const merchantCount = await prisma.merchantCatalog.count();
+  await prisma.merchantCatalog.createMany({
+    data: seededMerchants,
+    skipDuplicates: true,
+  });
 
-  if (merchantCount === 0) {
-    await prisma.merchantCatalog.createMany({
-      data: seededMerchants,
-    });
-  }
+  await prisma.tagCatalog.createMany({
+    data: seededTags,
+    skipDuplicates: true,
+  });
 
-  const tagCount = await prisma.tagCatalog.count();
-
-  if (tagCount === 0) {
-    await prisma.tagCatalog.createMany({
-      data: seededTags,
-    });
-  }
-
-  const topicCount = await prisma.topicCatalog.count();
-
-  if (topicCount === 0) {
-    await prisma.topicCatalog.createMany({
-      data: seededTopics,
-    });
-  }
+  await prisma.topicCatalog.createMany({
+    data: seededTopics,
+    skipDuplicates: true,
+  });
 }
 
 export function createAdminCatalogRepository() {
   return {
     async listMerchants(): Promise<MerchantCatalogRecord[]> {
-      await seedAdminCatalog();
-
       return prisma.merchantCatalog.findMany({
         orderBy: {
           name: "asc",
@@ -182,7 +171,6 @@ export function createAdminCatalogRepository() {
     async createMerchant(input: {
       name: string;
     }): Promise<MerchantCatalogRecord> {
-      await seedAdminCatalog();
       const existingIds = (
         await prisma.merchantCatalog.findMany({
           select: {
@@ -208,8 +196,6 @@ export function createAdminCatalogRepository() {
       });
     },
     async listTags(): Promise<TagCatalogRecord[]> {
-      await seedAdminCatalog();
-
       return prisma.tagCatalog.findMany({
         orderBy: {
           name: "asc",
@@ -227,7 +213,6 @@ export function createAdminCatalogRepository() {
     async createTag(input: {
       name: string;
     }): Promise<TagCatalogRecord> {
-      await seedAdminCatalog();
       const existingIds = (
         await prisma.tagCatalog.findMany({
           select: {
@@ -254,8 +239,6 @@ export function createAdminCatalogRepository() {
       });
     },
     async listTopics(): Promise<TopicCatalogRecord[]> {
-      await seedAdminCatalog();
-
       return prisma.topicCatalog.findMany({
         orderBy: {
           name: "asc",
@@ -273,7 +256,6 @@ export function createAdminCatalogRepository() {
     async createTopic(input: {
       name: string;
     }): Promise<TopicCatalogRecord> {
-      await seedAdminCatalog();
       const existingIds = (
         await prisma.topicCatalog.findMany({
           select: {

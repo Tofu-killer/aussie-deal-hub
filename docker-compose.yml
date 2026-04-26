@@ -35,7 +35,7 @@ services:
       [
         "sh",
         "-lc",
-        "pnpm --filter @aussie-deal-hub/db db:push && pnpm --filter @aussie-deal-hub/db seed",
+        "pnpm --filter @aussie-deal-hub/db db:migrate",
       ]
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub

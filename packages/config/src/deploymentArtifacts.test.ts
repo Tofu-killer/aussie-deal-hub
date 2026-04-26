@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -66,14 +66,58 @@ function findLineIndex(lines: string[], fragment: string) {
 }
 
 describe("deployment artifacts", () => {
-  it("defines a db-init service that applies schema and seed data before api startup", () => {
+  it("defines a db-init service that applies checked-in migrations before api startup", () => {
     const compose = readRepoFile("docker-compose.yml");
+    const migrationsDir = join(repoRoot, "packages/db/prisma/migrations");
+    const migrationEntries = existsSync(migrationsDir) ? readdirSync(migrationsDir) : [];
+    const packageJson = JSON.parse(readRepoFile("packages/db/package.json")) as {
+      scripts?: Record<string, string>;
+    };
+    const migrateScript = packageJson.scripts?.["db:migrate"] ?? "";
+    const migrateWrapper = readRepoFile("packages/db/src/migrate.ts");
+    const seedMigrationPath = join(
+      migrationsDir,
+      "20260426000000_admin_catalog_topic_baselines",
+      "migration.sql",
+    );
+    const seedMigration = existsSync(seedMigrationPath) ? readFileSync(seedMigrationPath, "utf8") : "";
+    const sourceAndSnapshotMigrationPath = join(
+      migrationsDir,
+      "20260426010000_source_and_price_snapshot_baselines",
+      "migration.sql",
+    );
+    const sourceAndSnapshotMigration = existsSync(sourceAndSnapshotMigrationPath)
+      ? readFileSync(sourceAndSnapshotMigrationPath, "utf8")
+      : "";
 
     expect(compose).toContain("db-init:");
-    expect(compose).toContain("pnpm --filter @aussie-deal-hub/db db:push");
-    expect(compose).toContain("pnpm --filter @aussie-deal-hub/db seed");
+    expect(compose).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
+    expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db db:push");
+    expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(compose).toContain("service_completed_successfully");
     expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
+    expect(migrateScript).toContain("migrate.ts");
+    expect(migrateWrapper).toContain("baselineMigrationName");
+    expect(migrateWrapper).toContain('baselineMigrationName = "20260425000000_baseline"');
+    expect(migrateWrapper).toContain('"migrate"');
+    expect(migrateWrapper).toContain('"diff"');
+    expect(migrateWrapper).toContain('"resolve"');
+    expect(migrateWrapper).toContain('"--applied"');
+    expect(migrateWrapper).toContain('"deploy"');
+    expect(migrateWrapper).toContain('"--from-schema-datasource"');
+    expect(migrateWrapper).toContain('"--to-schema-datamodel"');
+    expect(existsSync(join(migrationsDir, "migration_lock.toml"))).toBe(true);
+    expect(migrationEntries.some((entry) => entry.endsWith("_baseline"))).toBe(true);
+    expect(migrationEntries).toContain("20260426000000_admin_catalog_topic_baselines");
+    expect(migrationEntries).toContain("20260426010000_source_and_price_snapshot_baselines");
+    expect(seedMigration).toContain('INSERT INTO "MerchantCatalog"');
+    expect(seedMigration).toContain('INSERT INTO "TagCatalog"');
+    expect(seedMigration).toContain('INSERT INTO "TopicCatalog"');
+    expect(seedMigration).toContain("ON CONFLICT DO NOTHING");
+    expect(sourceAndSnapshotMigration).toContain('INSERT INTO "Source"');
+    expect(sourceAndSnapshotMigration).toContain('ON CONFLICT ("baseUrl") DO NOTHING');
+    expect(sourceAndSnapshotMigration).toContain('INSERT INTO "PriceSnapshot"');
+    expect(sourceAndSnapshotMigration).toContain('WHERE NOT EXISTS');
   });
 
   it("provides smtp delivery placeholders for production api and worker containers", () => {
@@ -143,16 +187,62 @@ describe("deployment artifacts", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const readme = readRepoFile("README.md");
     const testDbScript = readRepoFile("scripts/test-db.mjs");
+    const dbBootstrapMigrationBlock = [
+      "Apply the checked-in Prisma migrations:",
+      "",
+      "```bash",
+      "export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+      "pnpm --filter @aussie-deal-hub/db db:migrate",
+      "```",
+    ].join("\n");
+    const dbBootstrapTestBlock = [
+      "Then run the DB-backed persistence suite:",
+      "",
+      "```bash",
+      "export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+      "pnpm test:db",
+      "```",
+    ].join("\n");
 
     expect(packageJson).toContain("\"test:db\": \"node scripts/test-db.mjs\"");
+    expect(workflow).toContain("Create shadow database for migration drift check");
+    expect(workflow).toContain("Check migration drift against schema");
+    expect(workflow).toContain("CREATE DATABASE aussie_deals_hub_shadow");
+    expect(workflow).toContain("Create legacy verification database");
+    expect(workflow).toContain("Verify legacy db:push upgrade path");
+    expect(workflow).toContain("CREATE DATABASE aussie_deals_hub_legacy_verify");
+    expect(workflow).toContain("pnpm --filter @aussie-deal-hub/db db:push");
+    expect(workflow).toContain("--from-migrations prisma/migrations");
+    expect(workflow).toContain("--to-schema-datamodel prisma/schema.prisma");
+    expect(workflow).toContain("--shadow-database-url \"$SHADOW_DATABASE_URL\"");
+    expect(workflow).toContain('SELECT COUNT(*) FROM "MerchantCatalog"');
+    expect(workflow).toContain('SELECT COUNT(*) FROM "TagCatalog"');
+    expect(workflow).toContain('SELECT COUNT(*) FROM "TopicCatalog"');
     expect(workflow).toContain("Prepare database for DB-backed tests");
     expect(workflow).toContain("pnpm test:db");
+    expect(workflow).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
+    expect(workflow).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(workflow).toContain("5433:5432");
     expect(workflow).toContain("127.0.0.1:5433");
     expect(workflow).toContain("services:");
     expect(workflow).toContain("postgres:");
     expect(readme).toContain("pnpm test:db");
     expect(readme).toContain("docker compose up -d postgres redis");
+    expect(readme).toContain("export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub");
+    expect(readme).toContain("SHADOW_DATABASE_URL");
+    expect(readme).toContain("CREATE DATABASE aussie_deals_hub_shadow");
+    expect(readme).toContain("docker compose up -d postgres redis");
+    expect(readme).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
+    expect(readme).toContain(dbBootstrapMigrationBlock);
+    expect(readme).toContain(dbBootstrapTestBlock);
+    expect(readme).toContain("still matches the checked-in Prisma schema");
+    expect(readme).toContain("alongside those existing rows");
+    expect(readme).toContain("Workspace verification contract");
+    expect(readme).toContain("Container boot contract");
+    expect(readme).not.toContain("GitHub Actions runs that workspace verification contract");
+    expect(readme).not.toContain("prisma migrate resolve --applied 20260425000000_baseline");
+    expect(readme).not.toContain("pnpm --filter @aussie-deal-hub/db db:push");
+    expect(readme).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
     expect(testDbScript).toContain("\"vitest\"");
   });
@@ -191,6 +281,10 @@ describe("deployment artifacts", () => {
     const orderedFragments = [
       "name: Install dependencies",
       "name: Verify workspace",
+      "name: Create shadow database for migration drift check",
+      "name: Check migration drift against schema",
+      "name: Create legacy verification database",
+      "name: Verify legacy db:push upgrade path",
       "name: Prepare database for DB-backed tests",
       "name: Run DB-backed tests",
       "name: Validate compose file",

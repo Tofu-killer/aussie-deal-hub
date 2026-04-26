@@ -1,23 +1,34 @@
 # Aussie Deal Hub
 
-Minimal deploy contract for the current slice:
+Workspace verification contract for the current slice against the local compose-backed Postgres and Redis services:
 
 ```bash
-pnpm install
-docker compose up -d
-pnpm --filter @aussie-deal-hub/db db:push
-pnpm --filter @aussie-deal-hub/db seed
-pnpm verify
-pnpm test:db
-```
-
-GitHub Actions runs the same contract from `.github/workflows/verify.yml` on `main` pushes and pull requests:
-
-```bash
+docker compose up -d postgres redis
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
+export SHADOW_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub_shadow
+psql postgresql://postgres:postgres@127.0.0.1:5432/postgres -c "DROP DATABASE IF EXISTS aussie_deals_hub_shadow"
+psql postgresql://postgres:postgres@127.0.0.1:5432/postgres -c "CREATE DATABASE aussie_deals_hub_shadow"
 pnpm install --frozen-lockfile
 pnpm verify
+pnpm --filter @aussie-deal-hub/db exec prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL"
+pnpm --filter @aussie-deal-hub/db db:migrate
 pnpm test:db
 ```
+
+The GitHub workflow in `.github/workflows/verify.yml` verifies those same build/test/migrate entrypoints against a service PostgreSQL instance, exercises the legacy `db:push -> db:migrate` upgrade path, and also runs the container smoke checks.
+
+Container boot contract:
+
+```bash
+docker compose up -d --build
+```
+
+Compose already includes `db-init`, so the containerized path does not need an extra host-side `db:migrate` invocation.
+
+`db:migrate` is safe for both fresh databases and legacy non-empty databases that were previously bootstrapped with `db:push`: it only auto-marks the checked-in baseline as applied when `_prisma_migrations` is missing and the live database still matches the checked-in Prisma schema, then runs `prisma migrate deploy`.
+
+The checked-in migrations ensure the default admin catalog rows, canonical ingestion sources, and canonical selected public price snapshots exist for fresh stacks; they do not rewrite existing runtime rows that already diverged.
+For legacy databases that already contain customized source or snapshot rows, the migrations add the canonical baseline rows alongside those existing rows instead of trying to reconcile semantic duplicates.
 
 `pnpm verify` runs the repeatable workspace contract:
 
@@ -71,7 +82,7 @@ docker compose up -d --build
 
 Compose now includes:
 
-- `db-init` to apply the Prisma schema and seed baseline data
+- `db-init` to apply checked-in Prisma migrations
 - `api` with `/v1/health` and `/v1/ready`
 - `web` with `/health` and `/ready`
 - `admin` with `/health` and `/ready`
@@ -96,16 +107,21 @@ If you want to run only Postgres and Redis locally instead of the full app stack
 docker compose up -d postgres redis
 ```
 
-Apply the Prisma schema and seed the baseline data:
+Apply the checked-in Prisma migrations:
 
 ```bash
-pnpm --filter @aussie-deal-hub/db db:push
-pnpm --filter @aussie-deal-hub/db seed
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
+pnpm --filter @aussie-deal-hub/db db:migrate
 ```
+
+For existing non-empty databases that were previously managed with `db:push`, the wrapper behind `db:migrate` automatically marks `20260425000000_baseline` as applied once before running `prisma migrate deploy` only when `_prisma_migrations` is missing and the live database still matches the checked-in Prisma schema.
+
+Those checked-in migrations also ensure the canonical admin catalogs, runtime sources, and selected public deal snapshots exist for a fresh stack without rewriting already-customized runtime rows.
 
 Then run the DB-backed persistence suite:
 
 ```bash
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
 pnpm test:db
 ```
 

@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@aussie-deal-hub/db/client";
-import { listSources, updateSource } from "@aussie-deal-hub/db/repositories/sources";
+import {
+  listEnabledSourcesForIngestion,
+  listSources,
+  updateSource,
+} from "@aussie-deal-hub/db/repositories/sources";
 import { buildApp } from "../src/app";
 import { dispatchRequest } from "./httpHarness";
 
@@ -188,6 +192,55 @@ describe("admin sources API contract", () => {
 });
 
 describeDb("admin sources persistence", () => {
+  it("keeps migrated source baselines available for admin and worker flows", async () => {
+    expect(await listSources()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Choice Deals",
+          sourceType: "publisher",
+          baseUrl: "https://www.choice.com.au/",
+          fetchMethod: "html",
+          pollIntervalMinutes: 360,
+          trustScore: 70,
+          language: "en",
+          enabled: false,
+        }),
+        expect.objectContaining({
+          name: "OzBargain",
+          sourceType: "community",
+          baseUrl: "https://www.ozbargain.com.au/deals",
+          fetchMethod: "html",
+          pollIntervalMinutes: 60,
+          trustScore: 65,
+          language: "en",
+          enabled: true,
+        }),
+        expect.objectContaining({
+          name: "SMZDM",
+          sourceType: "community",
+          baseUrl: "https://www.smzdm.com",
+          fetchMethod: "html",
+          pollIntervalMinutes: 720,
+          trustScore: 60,
+          language: "zh",
+          enabled: false,
+        }),
+      ]),
+    );
+
+    expect(await listEnabledSourcesForIngestion()).toEqual([
+      expect.objectContaining({
+        name: "OzBargain",
+        sourceType: "community",
+        baseUrl: "https://www.ozbargain.com.au/deals",
+        fetchMethod: "html",
+        pollIntervalMinutes: 60,
+        trustScore: 65,
+        language: "en",
+      }),
+    ]);
+  });
+
   it("creates a source with deterministic defaults", async () => {
     const suffix = randomUUID();
     const payload = {

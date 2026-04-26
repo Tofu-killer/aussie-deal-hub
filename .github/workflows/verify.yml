@@ -46,12 +46,44 @@ jobs:
       - name: Verify workspace
         run: pnpm verify
 
+      - name: Create shadow database for migration drift check
+        env:
+          PGPASSWORD: postgres
+        run: psql postgresql://postgres:postgres@127.0.0.1:5433/postgres -c "CREATE DATABASE aussie_deals_hub_shadow"
+
+      - name: Check migration drift against schema
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub_shadow
+        run: >
+          pnpm --filter @aussie-deal-hub/db exec prisma migrate diff --exit-code
+          --from-migrations prisma/migrations
+          --to-schema-datamodel prisma/schema.prisma
+          --shadow-database-url "$SHADOW_DATABASE_URL"
+
+      - name: Create legacy verification database
+        env:
+          PGPASSWORD: postgres
+        run: psql postgresql://postgres:postgres@127.0.0.1:5433/postgres -c "CREATE DATABASE aussie_deals_hub_legacy_verify"
+
+      - name: Verify legacy db:push upgrade path
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub_legacy_verify
+        run: |
+          pnpm --filter @aussie-deal-hub/db db:push
+          pnpm --filter @aussie-deal-hub/db db:migrate
+          test "$(psql "$DATABASE_URL" -tAc "SELECT COUNT(*) FROM _prisma_migrations WHERE migration_name IN ('20260425000000_baseline', '20260426000000_admin_catalog_topic_baselines', '20260426010000_source_and_price_snapshot_baselines')")" = "3"
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "MerchantCatalog"')" = "3"
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "TagCatalog"')" = "3"
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "TopicCatalog"')" = "3"
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "Source"')" = "3"
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "PriceSnapshot"')" = "2"
+
       - name: Prepare database for DB-backed tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub
         run: |
-          pnpm --filter @aussie-deal-hub/db db:push
-          pnpm --filter @aussie-deal-hub/db seed
+          pnpm --filter @aussie-deal-hub/db db:migrate
 
       - name: Run DB-backed tests
         env:
