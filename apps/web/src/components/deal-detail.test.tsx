@@ -494,7 +494,7 @@ describe("public deal surfaces", () => {
     chineseDetail.unmount();
   });
 
-  it("renders a live-only API deal with fallback detail modules", async () => {
+  it("renders a live-only API deal with shopper-facing detail modules", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -545,7 +545,25 @@ describe("public deal surfaces", () => {
     expect(detail.getByText("Live catalog deal loaded from the public API.")).toBeTruthy();
     expect(detail.getAllByText("A$499.00").length).toBeGreaterThanOrEqual(2);
     expect(within(detail.getByRole("region", { name: "Merchant" })).getByText("The Good Guys")).toBeTruthy();
+    expect(detail.getByText("Published on 2026-04-23")).toBeTruthy();
+    expect(detail.getByText("This deal is currently listed at A$499.00 by The Good Guys.")).toBeTruthy();
+
+    const highlights = detail.getByRole("region", { name: "Deal highlights" });
+    expect(within(highlights).getByText("Current listed price: A$499.00.")).toBeTruthy();
+    expect(within(highlights).getByText("Category: Deals.")).toBeTruthy();
+
+    const howToGetIt = detail.getByRole("region", { name: "How to get it" });
+    expect(within(howToGetIt).getByText("Open the merchant page from the deal link.")).toBeTruthy();
+    expect(within(howToGetIt).getByText("Confirm the final checkout price and stock before you buy.")).toBeTruthy();
+
+    const terms = detail.getByRole("region", { name: "Terms and warnings" });
+    expect(
+      within(terms).getByText("Shipping, account limits, and campaign exclusions are set by the merchant."),
+    ).toBeTruthy();
+
     expect(detail.getByRole("heading", { name: "Deal highlights" })).toBeTruthy();
+    expect(detail.queryByText("This live deal was published from the admin catalog.")).toBeNull();
+    expect(detail.queryByText("Loaded from the live public deals API.")).toBeNull();
     detail.unmount();
   });
 

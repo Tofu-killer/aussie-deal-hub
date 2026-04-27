@@ -492,6 +492,35 @@ function normalizeLiveCategory(category: string): PublicDealCategory {
   return "deals";
 }
 
+function getLiveCategoryDescriptor(
+  category: PublicDealCategory,
+  locale: SupportedLocale,
+) {
+  if (locale === "zh") {
+    switch (category) {
+      case "historical-lows":
+        return "历史低价";
+      case "freebies":
+        return "免费领取";
+      case "gift-card-offers":
+        return "礼品卡优惠";
+      default:
+        return "优惠";
+    }
+  }
+
+  switch (category) {
+    case "historical-lows":
+      return "historical low";
+    case "freebies":
+      return "freebie";
+    case "gift-card-offers":
+      return "gift card offer";
+    default:
+      return "deal";
+  }
+}
+
 function formatLivePrice(value: string | undefined) {
   if (!value) {
     return "A$0";
@@ -505,6 +534,12 @@ function getLiveDealDetail(
 ): PublicDealDetailMetadata {
   const validFrom = input.publishedAt?.slice(0, 10) || "2026-04-23";
   const merchant = input.merchant || "Unknown merchant";
+  const category = normalizeLiveCategory(input.category);
+  const currentPrice = formatLivePrice(input.currentPrice);
+  const categoryLabelEn = PUBLIC_DEAL_CATEGORY_LABELS[category].en;
+  const categoryLabelZh = PUBLIC_DEAL_CATEGORY_LABELS[category].zh;
+  const categoryDescriptorEn = getLiveCategoryDescriptor(category, "en");
+  const categoryDescriptorZh = getLiveCategoryDescriptor(category, "zh");
 
   return {
     couponCode: null,
@@ -514,29 +549,32 @@ function getLiveDealDetail(
     validFrom,
     locales: {
       en: {
-        validity: `Published ${validFrom}`,
-        whyWorthIt: "This live deal was published from the admin catalog.",
+        validity: `Published on ${validFrom}`,
+        whyWorthIt: `This ${categoryDescriptorEn} is currently listed at ${currentPrice} by ${merchant}.`,
         highlights: [
-          `Listed by ${merchant}.`,
-          "Loaded from the live public deals API.",
+          `Current listed price: ${currentPrice}.`,
+          `Category: ${categoryLabelEn}.`,
         ],
-        howToGetIt: ["Open the merchant deal page.", "Check the final price before checkout."],
+        howToGetIt: [
+          "Open the merchant page from the deal link.",
+          "Confirm the final checkout price and stock before you buy.",
+        ],
         termsAndWarnings: [
-          "Live catalog details may change after publication.",
-          "Confirm stock, delivery, and final checkout terms with the merchant.",
+          "Published deal details can change without notice.",
+          "Shipping, account limits, and campaign exclusions are set by the merchant.",
         ],
       },
       zh: {
         validity: `发布于 ${validFrom}`,
-        whyWorthIt: "该实时优惠来自管理员发布目录。",
+        whyWorthIt: `这条${categoryDescriptorZh}目前由 ${merchant} 以 ${currentPrice} 在售。`,
         highlights: [
-          `商家：${merchant}。`,
-          "优惠来自实时 public deals API。",
+          `当前标价：${currentPrice}。`,
+          `分类：${categoryLabelZh}。`,
         ],
-        howToGetIt: ["打开商家优惠页面。", "结账前确认最终价格。"],
+        howToGetIt: ["通过优惠链接打开商家页面。", "下单前确认最终价格、库存和活动条件。"],
         termsAndWarnings: [
-          "实时目录详情可能在发布后变化。",
-          "请在商家页面确认库存、配送和最终结账条款。",
+          "已发布的优惠细节可能随时变动。",
+          "配送、账号限制和活动排除项以商家页面为准。",
         ],
       },
     },
@@ -556,7 +594,7 @@ export function normalizeLivePublicDeal(
     categories: [category],
     currentPrice,
     originalPrice: currentPrice,
-    discountLabel: "Live deal",
+    discountLabel: PUBLIC_DEAL_CATEGORY_LABELS[category][activeLocale],
     dealUrl: input.affiliateUrl || "#",
     detail: getLiveDealDetail(input),
     merchant: {
@@ -705,19 +743,42 @@ function mapHomeSectionToCategory(sectionId: HomeSectionDefinition["id"]): Publi
 export function getHomeSections(
   locale: SupportedLocale,
   deals: PublicDealRecord[] = getDefaultPublicDeals(),
+  priorityDeals: PublicDealRecord[] = [],
 ): PublicHomeSection[] {
-  try {
-    return getHomeSectionsFromDefinitions(locale, HOME_SECTIONS, deals);
-  } catch {
-    return HOME_SECTIONS.map((section) => ({
-      id: section.id,
-      title: section.locales[locale],
-      deals: deals
-        .filter((deal) => deal.categories.includes(mapHomeSectionToCategory(section.id)))
+  return HOME_SECTIONS.map((section) => {
+    const category = mapHomeSectionToCategory(section.id);
+    const prioritizedMatches = [...priorityDeals]
+      .filter((deal) => deal.categories.includes(category))
+      .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
+      .slice(0, 1);
+
+    if (prioritizedMatches.length > 0) {
+      return {
+        id: section.id,
+        title: section.locales[locale],
+        deals: prioritizedMatches,
+      };
+    }
+
+    try {
+      return getHomeSectionsFromDefinitions(locale, [section], deals)[0];
+    } catch {
+      const categoryMatches = [...deals]
+        .filter((deal) => deal.categories.includes(category))
         .sort((left, right) => toTimestamp(right.publishedAt) - toTimestamp(left.publishedAt))
-        .slice(0, 1),
-    })).filter((section) => section.deals.length > 0);
-  }
+        .slice(0, 1);
+
+      if (categoryMatches.length === 0) {
+        return null;
+      }
+
+      return {
+        id: section.id,
+        title: section.locales[locale],
+        deals: categoryMatches,
+      };
+    }
+  }).filter((section): section is PublicHomeSection => section !== null);
 }
 
 export function buildLocaleHref(locale: SupportedLocale, path: string) {

@@ -117,7 +117,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
     normalizeLivePublicDeal(deal, activeLocale),
   );
   const publicDeals = mergePublicDeals(liveDeals);
-  const sections = getHomeSections(activeLocale, publicDeals);
+  const sections = getHomeSections(activeLocale, publicDeals, liveDeals);
   const latestDeals = getLatestDeals(4, publicDeals);
   const trendingMerchants = getTrendingMerchants(4, publicDeals);
   const resolvedSearchParams = await searchParams;

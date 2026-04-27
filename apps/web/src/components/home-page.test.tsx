@@ -12,26 +12,38 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function stubLiveDealsResponse() {
+function stubLiveDealsResponse(
+  items: Array<{
+    affiliateUrl: string;
+    category: string;
+    currentPrice: string;
+    locale: string;
+    merchant: string;
+    publishedAt: string;
+    slug: string;
+    summary: string;
+    title: string;
+  }> = [
+    {
+      locale: "en",
+      slug: "breville-barista-express-for-a-499",
+      title: "Breville Barista Express for A$499",
+      summary: "Live catalog deal loaded from the public API.",
+      category: "Deals",
+      merchant: "The Good Guys",
+      currentPrice: "499.00",
+      affiliateUrl: "https://www.thegoodguys.com.au/deal",
+      publishedAt: "2026-04-23T01:00:00.000Z",
+    },
+  ],
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request) => {
       if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
         return new Response(
           JSON.stringify({
-            items: [
-              {
-                locale: "en",
-                slug: "breville-barista-express-for-a-499",
-                title: "Breville Barista Express for A$499",
-                summary: "Live catalog deal loaded from the public API.",
-                category: "Deals",
-                merchant: "The Good Guys",
-                currentPrice: "499.00",
-                affiliateUrl: "https://www.thegoodguys.com.au/deal",
-                publishedAt: "2026-04-23T01:00:00.000Z",
-              },
-            ],
+            items,
           }),
           {
             status: 200,
@@ -161,13 +173,65 @@ describe("home page curated sections", () => {
   });
 
   it("merges live API deals into latest deals and trending merchants", async () => {
-    stubLiveDealsResponse();
+    stubLiveDealsResponse([
+      {
+        locale: "en",
+        slug: "breville-barista-express-for-a-499",
+        title: "Breville Barista Express for A$499",
+        summary: "Live catalog deal loaded from the public API.",
+        category: "Deals",
+        merchant: "The Good Guys",
+        currentPrice: "499.00",
+        affiliateUrl: "https://www.thegoodguys.com.au/deal",
+        publishedAt: "2026-04-23T01:00:00.000Z",
+      },
+      {
+        locale: "en",
+        slug: "audible-30-day-trial-now-a-0",
+        title: "Audible 30-day trial now A$0",
+        summary: "Live free trial with one included audiobook credit.",
+        category: "Freebies",
+        merchant: "Audible AU",
+        currentPrice: "0",
+        affiliateUrl: "https://www.audible.com.au/deal",
+        publishedAt: "2026-04-24T05:00:00.000Z",
+      },
+    ]);
 
     render(
       await LocaleHomePage({
         params: Promise.resolve({ locale: "en" }),
       }),
     );
+
+    const featuredSection = screen.getByRole("region", { name: "Featured deals" });
+    expect(
+      within(featuredSection)
+        .getByRole("link", { name: "Breville Barista Express for A$499" })
+        .getAttribute("href"),
+    ).toBe("https://www.thegoodguys.com.au/deal");
+    expect(
+      within(featuredSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href"),
+    ).toBe("/en/deals/breville-barista-express-for-a-499");
+
+    const freebiesSection = screen.getByRole("region", { name: "Freebies" });
+    expect(
+      within(freebiesSection)
+        .getByRole("link", { name: "Audible 30-day trial now A$0" })
+        .getAttribute("href"),
+    ).toBe("https://www.audible.com.au/deal");
+    expect(
+      within(freebiesSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href"),
+    ).toBe("/en/deals/audible-30-day-trial-now-a-0");
+
+    const historicalLowsSection = screen.getByRole("region", { name: "Historical lows" });
+    expect(
+      within(historicalLowsSection)
+        .getByRole("link", {
+          name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
+        })
+        .getAttribute("href"),
+    ).toBe("https://www.costco.com.au/deal");
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
     expect(
@@ -177,13 +241,12 @@ describe("home page curated sections", () => {
     ).toBe(
       "https://www.thegoodguys.com.au/deal",
     );
-    expect(within(latestDealsSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
-      "/en/deals/breville-barista-express-for-a-499",
-    );
     expect(within(latestDealsSection).getByText("The Good Guys")).toBeTruthy();
+    expect(within(latestDealsSection).getByText("Audible AU")).toBeTruthy();
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
     expect(within(trendingMerchantsSection).getByText("The Good Guys")).toBeTruthy();
+    expect(within(trendingMerchantsSection).getByText("Audible AU")).toBeTruthy();
   });
 
   it("throws when a curated section references a missing deal slug", () => {
