@@ -15,6 +15,7 @@ import {
 
 import { runWorkerCycle } from "./runtime";
 import { writeWorkerState } from "./state";
+import { createWorkerLeadStore } from "./workerConfig";
 
 function readPositiveIntegerEnv(name: string, fallbackValue: number) {
   const rawValue = process.env[name];
@@ -151,17 +152,7 @@ async function executeWorkerPass() {
     }
 
     const summary = await runWorkerCycle({
-      leadStore: reviewEnabled
-        ? leadStore
-        : {
-            async createLeadIfNew() {
-              return { created: false };
-            },
-            async listLeadRecords() {
-              return (await leadStore.listLeadRecords()).filter((record) => record.review !== null);
-            },
-            saveLeadReviewDraft: leadStore.saveLeadReviewDraft,
-          },
+      leadStore: createWorkerLeadStore(leadStore, reviewEnabled),
       publishedDealStore: publishEnabled
         ? publishedDealStore
         : {

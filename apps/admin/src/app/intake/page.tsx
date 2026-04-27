@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import {
   buildIntakeRedirectTarget,
   buildLeadHandoffInput,
+  canPreviewLead,
   canCreateLead,
+  resolveLeadHandoffInput,
   submitLeadHandoffFromForm,
 } from "../../lib/intakeHandoff";
 
@@ -12,6 +14,7 @@ interface IntakeSearchParams {
   originalTitle?: string | string[];
   originalUrl?: string | string[];
   snippet?: string | string[];
+  sourceSnapshot?: string | string[];
   status?: string | string[];
 }
 
@@ -45,9 +48,19 @@ function readSearchParam(value?: string | string[]) {
 
 async function loadReviewPreview(
   originalTitle: string,
+  originalUrl: string,
   snippet: string,
+  sourceSnapshot: string,
 ): Promise<ReviewPreviewResult> {
-  if (!originalTitle) {
+  const previewInput = {
+    sourceId: "",
+    originalTitle,
+    originalUrl,
+    snippet,
+    sourceSnapshot,
+  };
+
+  if (!canPreviewLead(previewInput)) {
     return {
       review: null,
       error: null,
@@ -62,7 +75,9 @@ async function loadReviewPreview(
       },
       body: JSON.stringify({
         originalTitle,
+        originalUrl,
         snippet,
+        sourceSnapshot,
       }),
       cache: "no-store",
     });
@@ -98,14 +113,22 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
   const originalTitle = readSearchParam(resolvedSearchParams.originalTitle);
   const originalUrl = readSearchParam(resolvedSearchParams.originalUrl);
   const snippet = readSearchParam(resolvedSearchParams.snippet);
+  const sourceSnapshot = readSearchParam(resolvedSearchParams.sourceSnapshot);
   const status = readSearchParam(resolvedSearchParams.status);
-  const { review, error } = await loadReviewPreview(originalTitle, snippet);
+  const { review, error } = await loadReviewPreview(
+    originalTitle,
+    originalUrl,
+    snippet,
+    sourceSnapshot,
+  );
   const handoffInput = {
     sourceId,
     originalTitle,
     originalUrl,
     snippet,
+    sourceSnapshot,
   };
+  const resolvedHandoffInput = resolveLeadHandoffInput(handoffInput);
   const canHandOffLead = review !== null && canCreateLead(handoffInput);
   const feedbackMessage = status === "handoff_error" ? "Failed to create lead." : null;
 
@@ -126,6 +149,7 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
         originalTitle: input.originalTitle,
         originalUrl: input.originalUrl,
         snippet: input.snippet,
+        sourceSnapshot: input.sourceSnapshot,
       }),
     );
   }
@@ -162,6 +186,15 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
           <br />
           <textarea id="snippet" name="snippet" defaultValue={snippet} />
         </p>
+        <p>
+          <label htmlFor="sourceSnapshot">Source snapshot</label>
+          <br />
+          <textarea
+            id="sourceSnapshot"
+            name="sourceSnapshot"
+            defaultValue={sourceSnapshot}
+          />
+        </p>
         <button type="submit">Preview AI review</button>
       </form>
 
@@ -172,13 +205,13 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
           <h2>Raw evidence</h2>
           <dl>
             <dt>Original title</dt>
-            <dd>{originalTitle || "No original title provided."}</dd>
+            <dd>{resolvedHandoffInput.originalTitle || "No original title provided."}</dd>
             <dt>Original URL</dt>
-            <dd>{originalUrl || "No original URL provided."}</dd>
+            <dd>{resolvedHandoffInput.originalUrl || "No original URL provided."}</dd>
             <dt>Snippet</dt>
-            <dd>{snippet || "No snippet provided."}</dd>
+            <dd>{resolvedHandoffInput.snippet || "No snippet provided."}</dd>
             <dt>Source snapshot</dt>
-            <dd>No source snapshot captured yet.</dd>
+            <dd>{sourceSnapshot || "No source snapshot captured yet."}</dd>
           </dl>
           <h2>AI review preview</h2>
           <dl>
@@ -211,9 +244,18 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
           {canHandOffLead ? (
             <form action={handleCreateLead}>
               <input name="sourceId" type="hidden" value={sourceId} />
-              <input name="originalTitle" type="hidden" value={originalTitle} />
-              <input name="originalUrl" type="hidden" value={originalUrl} />
-              <input name="snippet" type="hidden" value={snippet} />
+              <input
+                name="originalTitle"
+                type="hidden"
+                value={resolvedHandoffInput.originalTitle}
+              />
+              <input
+                name="originalUrl"
+                type="hidden"
+                value={resolvedHandoffInput.originalUrl}
+              />
+              <input name="snippet" type="hidden" value={resolvedHandoffInput.snippet} />
+              <input name="sourceSnapshot" type="hidden" value={sourceSnapshot} />
               <button type="submit">Create lead</button>
             </form>
           ) : (
@@ -221,7 +263,7 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
           )}
         </section>
       ) : (
-        <p>Submit an original title and snippet to load the intake preview.</p>
+        <p>Submit raw evidence or a source snapshot to load the intake preview.</p>
       )}
     </main>
   );

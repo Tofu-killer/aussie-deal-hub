@@ -70,6 +70,104 @@ describe("admin preview routes", () => {
     });
   });
 
+  it("uses source snapshot evidence when the manual snippet is blank", async () => {
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/review-preview",
+      body: {
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        snippet: "",
+        sourceSnapshot: JSON.stringify({
+          candidate: {
+            title: "Amazon AU Nintendo Switch OLED A$399",
+            snippet: "Coupon GAME20 expires tonight.",
+            url: "https://www.amazon.com.au/deal",
+          },
+        }),
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      category: "Deals",
+      confidence: 88,
+      riskLabels: [],
+      locales: {
+        en: {
+          title: "Nintendo Switch OLED for A$399 at Amazon AU",
+          summary: "Coupon GAME20 expires tonight.",
+        },
+        zh: {
+          title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+          summary: "优惠码 GAME20 今晚到期。",
+        },
+      },
+    });
+  });
+
+  it("uses source snapshot evidence when the manual title is blank", async () => {
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/review-preview",
+      body: {
+        originalTitle: "",
+        snippet: "",
+        sourceSnapshot: JSON.stringify({
+          candidate: {
+            title: "Amazon AU Nintendo Switch OLED A$399",
+            snippet: "Coupon GAME20 expires tonight.",
+            url: "https://www.amazon.com.au/deal",
+          },
+        }),
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      category: "Deals",
+      confidence: 88,
+      riskLabels: [],
+      locales: {
+        en: {
+          title: "Nintendo Switch OLED for A$399 at Amazon AU",
+          summary: "Coupon GAME20 expires tonight.",
+        },
+        zh: {
+          title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+          summary: "优惠码 GAME20 今晚到期。",
+        },
+      },
+    });
+  });
+
+  it("rejects review preview payloads when source snapshot cannot recover a title", async () => {
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/review-preview",
+      body: {
+        originalTitle: "",
+        snippet: "",
+        sourceSnapshot: JSON.stringify({
+          candidate: {
+            url: "https://www.amazon.com.au/deal",
+            snippet: "Coupon GAME20 expires tonight.",
+          },
+        }),
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: "Lead payload is invalid.",
+    });
+  });
+
   it("returns a deterministic bilingual digest preview payload", async () => {
     const app = buildApp();
 

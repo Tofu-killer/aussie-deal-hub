@@ -247,6 +247,7 @@ export function createAdminLeadRepository() {
       originalTitle: string;
       originalUrl: string;
       snippet: string;
+      sourceSnapshot?: string | null;
     }): Promise<LeadRecord> {
       await ensureSourceExists(input.sourceId);
 
@@ -259,7 +260,7 @@ export function createAdminLeadRepository() {
           canonicalUrl: input.originalUrl,
           snippet: input.snippet,
           sourceScore: null,
-          sourceSnapshot: null,
+          sourceSnapshot: input.sourceSnapshot ?? null,
           riskLabels: [],
           localizedHints: [],
         },

@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { reviewLead } from "@aussie-deal-hub/ai/reviewLead";
 import { buildDailyDigest } from "../../../../packages/email/src/buildDailyDigest.ts";
+import { resolveLeadReviewInput } from "./adminLeads.ts";
 import type { PublishedDealListReader } from "./publicDeals.ts";
 
 interface ReviewPreviewInput {
   originalTitle: string;
   snippet: string;
+  sourceSnapshot?: string | null;
 }
 
 type DigestLocale = "en" | "zh";
@@ -85,7 +87,13 @@ function isReviewPreviewInput(value: unknown): value is ReviewPreviewInput {
 
   const candidate = value as Record<string, unknown>;
 
-  return isNonEmptyString(candidate.originalTitle) && typeof candidate.snippet === "string";
+  return (
+    typeof candidate.originalTitle === "string" &&
+    typeof candidate.snippet === "string" &&
+    (candidate.sourceSnapshot === undefined ||
+      candidate.sourceSnapshot === null ||
+      typeof candidate.sourceSnapshot === "string")
+  );
 }
 
 function escapeHtml(value: string) {
@@ -159,12 +167,14 @@ export function createAdminPreviewRouter(
       return;
     }
 
-    response.json(
-      reviewLead({
-        originalTitle: input.originalTitle,
-        snippet: input.snippet,
-      }),
-    );
+    const reviewInput = resolveLeadReviewInput(input);
+
+    if (!isNonEmptyString(reviewInput.originalTitle)) {
+      response.status(400).json({ message: "Lead payload is invalid." });
+      return;
+    }
+
+    response.json(reviewLead(reviewInput));
   });
 
   router.get("/digest-preview", async (_request, response) => {

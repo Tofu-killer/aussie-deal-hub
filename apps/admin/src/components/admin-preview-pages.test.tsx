@@ -42,6 +42,12 @@ describe("admin preview pages", () => {
 
   it("renders the intake form and previewed AI review content", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const sourceSnapshot = JSON.stringify({
+      source: "manual-intake",
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+      },
+    });
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({
         category: "Deals",
@@ -64,7 +70,9 @@ describe("admin preview pages", () => {
     const page = await IntakePage({
       searchParams: Promise.resolve({
         originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
         snippet: "Coupon GAME20 expires tonight.",
+        sourceSnapshot,
       }),
     });
 
@@ -77,6 +85,9 @@ describe("admin preview pages", () => {
     expect(
       (screen.getByLabelText("Snippet") as HTMLTextAreaElement).value,
     ).toBe("Coupon GAME20 expires tonight.");
+    expect(
+      (screen.getByLabelText("Source snapshot") as HTMLTextAreaElement).value,
+    ).toBe(sourceSnapshot);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://preview-api.test/v1/admin/review-preview",
       {
@@ -86,7 +97,9 @@ describe("admin preview pages", () => {
         },
         body: JSON.stringify({
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+          originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
+          sourceSnapshot,
         }),
         cache: "no-store",
       },
@@ -96,12 +109,19 @@ describe("admin preview pages", () => {
     expect(
       screen.getByText("Nintendo Switch OLED for A$399 at Amazon AU"),
     ).toBeTruthy();
+    expect(screen.getAllByText(sourceSnapshot)).toHaveLength(2);
     expect(screen.getByText("亚马逊澳洲 Nintendo Switch OLED 到手 A$399")).toBeTruthy();
     expect(screen.getByText("优惠码 GAME20 今晚到期。")).toBeTruthy();
   });
 
   it("renders intake handoff controls and failure feedback after previewing a lead", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const sourceSnapshot = JSON.stringify({
+      source: "manual-intake",
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+      },
+    });
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({
         category: "Deals",
@@ -127,6 +147,7 @@ describe("admin preview pages", () => {
         originalTitle: "Amazon AU Nintendo Switch OLED A$399",
         originalUrl: "https://www.amazon.com.au/deal",
         snippet: "Coupon GAME20 expires tonight.",
+        sourceSnapshot,
         status: "handoff_error",
       }),
     });
@@ -137,7 +158,70 @@ describe("admin preview pages", () => {
     expect((screen.getByLabelText("Original URL") as HTMLInputElement).value).toBe(
       "https://www.amazon.com.au/deal",
     );
+    expect((screen.getByLabelText("Source snapshot") as HTMLTextAreaElement).value).toBe(
+      sourceSnapshot,
+    );
     expect(screen.getByText("Failed to create lead.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create lead" })).toBeTruthy();
+  });
+
+  it("loads preview and enables handoff when the source snapshot supplies the missing raw evidence", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const sourceSnapshot = JSON.stringify({
+      source: "manual-intake",
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      createJsonResponse({
+        category: "Deals",
+        confidence: 88,
+        riskLabels: [],
+        locales: {
+          en: {
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+            summary: "Coupon GAME20 expires tonight.",
+          },
+          zh: {
+            title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+            summary: "优惠码 GAME20 今晚到期。",
+          },
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await IntakePage({
+      searchParams: Promise.resolve({
+        sourceId: "src_amazon",
+        originalTitle: "",
+        originalUrl: "",
+        snippet: "",
+        sourceSnapshot,
+      }),
+    });
+
+    render(page);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://preview-api.test/v1/admin/review-preview",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          originalTitle: "",
+          originalUrl: "",
+          snippet: "",
+          sourceSnapshot,
+        }),
+        cache: "no-store",
+      },
+    );
     expect(screen.getByRole("button", { name: "Create lead" })).toBeTruthy();
   });
 
@@ -155,6 +239,7 @@ describe("admin preview pages", () => {
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
+          sourceSnapshot: "{\"source\":\"manual-intake\"}",
         }),
       );
 
@@ -183,6 +268,67 @@ describe("admin preview pages", () => {
     formData.set("originalTitle", "Amazon AU Nintendo Switch OLED A$399");
     formData.set("originalUrl", "https://www.amazon.com.au/deal");
     formData.set("snippet", "Coupon GAME20 expires tonight.");
+    formData.set("sourceSnapshot", "{\"source\":\"manual-intake\"}");
+
+    await expect(intakeModule.submitLeadHandoffFromForm!(formData)).resolves.toEqual({
+      status: "success",
+      leadId: "lead_42",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits snapshot-backed intake data even when the raw title, url, and snippet are blank", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const sourceSnapshot = JSON.stringify({
+      source: "manual-intake",
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      expect(String(input)).toBe("http://preview-api.test/v1/admin/leads");
+      expect(init?.method).toBe("POST");
+      expect(init?.headers).toMatchObject({
+        "Content-Type": "application/json",
+      });
+      expect(init?.body).toBe(
+        JSON.stringify({
+          sourceId: "src_amazon",
+          originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+          originalUrl: "https://www.amazon.com.au/deal",
+          snippet: "Coupon GAME20 expires tonight.",
+          sourceSnapshot,
+        }),
+      );
+
+      return new Response(
+        JSON.stringify({
+          id: "lead_42",
+        }),
+        {
+          status: 201,
+          headers: {
+            "content-type": "application/json",
+          },
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const intakeModule = (await import("../lib/intakeHandoff")) as {
+      submitLeadHandoffFromForm?: (formData: FormData) => Promise<unknown>;
+    };
+
+    expect(intakeModule.submitLeadHandoffFromForm).toBeTypeOf("function");
+
+    const formData = new FormData();
+    formData.set("sourceId", "src_amazon");
+    formData.set("originalTitle", "");
+    formData.set("originalUrl", "");
+    formData.set("snippet", "");
+    formData.set("sourceSnapshot", sourceSnapshot);
 
     await expect(intakeModule.submitLeadHandoffFromForm!(formData)).resolves.toEqual({
       status: "success",

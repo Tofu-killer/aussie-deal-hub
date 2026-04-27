@@ -230,6 +230,72 @@ describe("sendDailyDigests", () => {
     });
   });
 
+  it("skips favorite-backed deals with missing categories instead of crashing the digest worker", async () => {
+    const sendDigest = vi.fn().mockResolvedValue(undefined);
+    const markSent = vi.fn().mockResolvedValue(undefined);
+    const sentAt = new Date("2026-04-26T08:00:00.000Z");
+
+    const summary = await sendDailyDigests(
+      {
+        async listEligibleSubscriptions() {
+          return [
+            {
+              email: "shopper@example.com",
+              locale: "en",
+              frequency: "daily",
+              categories: ["deals"],
+              lastSentAt: null,
+            },
+          ];
+        },
+        markSent,
+      },
+      {
+        async listByEmail() {
+          return [{ dealId: "switch-en" }];
+        },
+      },
+      {
+        async listDigestDeals() {
+          return [
+            {
+              id: "deal_switch",
+              merchant: "Amazon AU",
+              status: "published",
+              category: undefined as unknown as string,
+              locales: {
+                en: {
+                  slug: "switch-en",
+                  title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                  merchant: "Amazon AU",
+                },
+                zh: {
+                  slug: "switch-zh",
+                  title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                  merchant: "亚马逊澳洲",
+                },
+              },
+            },
+          ];
+        },
+      },
+      {
+        sendDigest,
+      },
+      {
+        now: sentAt,
+      },
+    );
+
+    expect(sendDigest).not.toHaveBeenCalled();
+    expect(markSent).not.toHaveBeenCalled();
+    expect(summary).toEqual({
+      sentCount: 0,
+      skippedCount: 1,
+      sentEmails: [],
+    });
+  });
+
   it("skips subscriptions already sent today or without live favorite deals", async () => {
     const sendDigest = vi.fn();
     const markSent = vi.fn();

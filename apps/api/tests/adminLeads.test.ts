@@ -156,6 +156,182 @@ describe("admin lead pipeline", () => {
     });
   });
 
+  it("stores provided source snapshots for leads that were manually created", async () => {
+    const app = buildApp();
+    const sourceSnapshot = JSON.stringify({
+      source: {
+        id: "src_amazon",
+        name: "Amazon AU Feed",
+      },
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+        originalUrl: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+        sourceSnapshot,
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+    expect(leadResponse.body).toMatchObject({
+      sourceScore: null,
+      sourceSnapshot,
+    });
+
+    const detailResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: `/v1/admin/leads/${String((leadResponse.body as { id: string }).id)}`,
+    });
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).toEqual(
+      expect.objectContaining({
+        ...leadResponse.body,
+        sourceSnapshot,
+      }),
+    );
+  });
+
+  it("creates manual leads from source snapshot evidence when the raw title, url, and snippet are blank", async () => {
+    const app = buildApp();
+    const sourceSnapshot = JSON.stringify({
+      source: {
+        id: "src_amazon",
+        name: "Amazon AU Feed",
+      },
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "",
+        originalUrl: "",
+        snippet: "",
+        sourceSnapshot,
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+    expect(leadResponse.body).toMatchObject({
+      sourceId: "src_amazon",
+      originalTitle: "Amazon AU Nintendo Switch OLED A$399",
+      originalUrl: "https://www.amazon.com.au/deal",
+      snippet: "Coupon GAME20 expires tonight.",
+      sourceSnapshot,
+    });
+
+    const detailResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: `/v1/admin/leads/${String((leadResponse.body as { id: string }).id)}`,
+    });
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).toEqual(
+      expect.objectContaining({
+        ...leadResponse.body,
+        sourceSnapshot,
+      }),
+    );
+  });
+
+  it("reviews snapshot-backed manual leads after they are stored", async () => {
+    const app = buildApp();
+    const sourceSnapshot = JSON.stringify({
+      source: {
+        id: "src_amazon",
+        name: "Amazon AU Feed",
+      },
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+    });
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "",
+        originalUrl: "",
+        snippet: "",
+        sourceSnapshot,
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const reviewResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: `/v1/admin/leads/${String((leadResponse.body as { id: string }).id)}/review`,
+    });
+
+    expect(reviewResponse.status).toBe(200);
+    expect(reviewResponse.body).toEqual({
+      category: "Deals",
+      confidence: 88,
+      riskLabels: [],
+      locales: {
+        en: {
+          title: "Nintendo Switch OLED for A$399 at Amazon AU",
+          summary: "Coupon GAME20 expires tonight.",
+        },
+        zh: {
+          title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+          summary: "优惠码 GAME20 今晚到期。",
+        },
+      },
+    });
+  });
+
+  it("rejects manual leads when source snapshot evidence still misses required fields", async () => {
+    const app = buildApp();
+    const sourceSnapshot = JSON.stringify({
+      source: {
+        id: "src_amazon",
+        name: "Amazon AU Feed",
+      },
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+      },
+    });
+
+    const response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_amazon",
+        originalTitle: "",
+        originalUrl: "",
+        snippet: "",
+        sourceSnapshot,
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message: "Lead payload is invalid.",
+    });
+  });
+
   it("returns 404 when the admin detail read endpoint cannot find the lead", async () => {
     const app = buildApp();
 
@@ -970,6 +1146,69 @@ describeDb("admin lead persistence", () => {
           id: created.lead.id,
           sourceScore: 84,
           sourceSnapshot: expect.stringContaining("\"candidate\""),
+        }),
+      );
+    } finally {
+      await prisma.lead.deleteMany({
+        where: {
+          sourceId,
+        },
+      });
+      await prisma.source.deleteMany({
+        where: {
+          id: sourceId,
+        },
+      });
+    }
+  });
+
+  it("persists manual source snapshots across app rebuilds", async () => {
+    const sourceId = `src_admin_${randomUUID()}`;
+    const sourceSnapshot = JSON.stringify({
+      source: {
+        id: sourceId,
+        name: "Manual intake",
+      },
+      candidate: {
+        title: "JB Hi-Fi AU Dyson V8 A$349",
+        url: `https://www.jbhifi.com.au/deal/${sourceId}`,
+        snippet: "Bonus tools bundle included.",
+      },
+    });
+    const app = await buildDbApp();
+
+    try {
+      const createResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/leads",
+        body: {
+          sourceId,
+          originalTitle: "JB Hi-Fi AU Dyson V8 A$349",
+          originalUrl: `https://www.jbhifi.com.au/deal/${sourceId}`,
+          snippet: "Bonus tools bundle included.",
+          sourceSnapshot,
+        },
+      });
+
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body).toEqual(
+        expect.objectContaining({
+          sourceSnapshot,
+        }),
+      );
+
+      const leadId = String((createResponse.body as { id: string }).id);
+      const rebuiltApp = await buildDbApp();
+      const detailResponse = await dispatchRequest(rebuiltApp, {
+        method: "GET",
+        path: `/v1/admin/leads/${leadId}`,
+      });
+
+      expect(detailResponse.status).toBe(200);
+      expect(detailResponse.body).toEqual(
+        expect.objectContaining({
+          ...createResponse.body,
+          sourceSnapshot,
         }),
       );
     } finally {

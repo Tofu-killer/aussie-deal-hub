@@ -369,6 +369,7 @@ describe("worker runtime helpers", () => {
               id: "deal_switch",
               merchant: "Amazon AU",
               status: "published",
+              category: "Deals",
               locales: {
                 en: {
                   slug: "switch-en",

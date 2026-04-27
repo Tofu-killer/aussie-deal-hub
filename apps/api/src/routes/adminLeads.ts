@@ -19,6 +19,14 @@ export interface CreateLeadInput {
   originalTitle: string;
   originalUrl: string;
   snippet: string;
+  sourceSnapshot?: string | null;
+}
+
+interface LeadSourceInput {
+  originalTitle: string;
+  originalUrl: string;
+  snippet: string;
+  sourceSnapshot?: string | null;
 }
 
 export interface LeadReviewLocaleDraft {
@@ -92,8 +100,92 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
+function isOptionalNullableString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === "string";
+}
+
 function isInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readNonEmptyTrimmedString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function parseSourceSnapshot(sourceSnapshot?: string | null) {
+  if (!sourceSnapshot) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(sourceSnapshot) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractEvidenceField(value: unknown, fieldNames: string[]) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const fieldName of fieldNames) {
+    const candidate = readNonEmptyTrimmedString(value[fieldName]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+export function resolveLeadReviewInput(input: {
+  originalTitle: string;
+  snippet: string;
+  sourceSnapshot?: string | null;
+}) {
+  const resolved = resolveLeadSourceInput({
+    ...input,
+    originalUrl: "",
+  });
+
+  return {
+    originalTitle: resolved.originalTitle,
+    snippet: resolved.snippet,
+  };
+}
+
+export function resolveLeadSourceInput<T extends LeadSourceInput>(input: T): T {
+  const snapshot = parseSourceSnapshot(input.sourceSnapshot);
+  const snapshotCandidate = isRecord(snapshot?.candidate) ? snapshot.candidate : null;
+  const snapshotEvidence = isRecord(snapshot?.rawEvidence) ? snapshot.rawEvidence : null;
+  const originalTitle =
+    readNonEmptyTrimmedString(input.originalTitle) ??
+    extractEvidenceField(snapshotCandidate, ["title", "originalTitle"]) ??
+    extractEvidenceField(snapshotEvidence, ["originalTitle", "title"]) ??
+    "";
+  const snippet =
+    readNonEmptyTrimmedString(input.snippet) ??
+    extractEvidenceField(snapshotCandidate, ["snippet", "summary", "description", "excerpt"]) ??
+    extractEvidenceField(snapshotEvidence, ["snippet", "summary", "description", "excerpt"]) ??
+    "";
+  const originalUrl =
+    readNonEmptyTrimmedString(input.originalUrl) ??
+    extractEvidenceField(snapshotCandidate, ["originalUrl", "url", "canonicalUrl"]) ??
+    extractEvidenceField(snapshotEvidence, ["originalUrl", "url", "canonicalUrl"]) ??
+    "";
+
+  return {
+    ...input,
+    originalTitle,
+    originalUrl,
+    snippet,
+  };
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -131,9 +223,10 @@ export function isCreateLeadInput(value: unknown): value is CreateLeadInput {
 
   return (
     isNonEmptyString(candidate.sourceId) &&
-    isNonEmptyString(candidate.originalTitle) &&
-    isNonEmptyString(candidate.originalUrl) &&
-    isNonEmptyString(candidate.snippet)
+    isString(candidate.originalTitle) &&
+    isString(candidate.originalUrl) &&
+    isString(candidate.snippet) &&
+    isOptionalNullableString(candidate.sourceSnapshot)
   );
 }
 
@@ -175,7 +268,7 @@ export function createLead(
     originalUrl: input.originalUrl,
     snippet: input.snippet,
     sourceScore: null,
-    sourceSnapshot: null,
+    sourceSnapshot: input.sourceSnapshot ?? null,
     createdAt: new Date().toISOString(),
   };
 
@@ -185,7 +278,7 @@ export function createLead(
 }
 
 export function reviewStoredLead(lead: LeadRecord): LeadReview {
-  return reviewLead(lead);
+  return reviewLead(resolveLeadReviewInput(lead));
 }
 
 export function saveLeadReviewDraft(
@@ -326,7 +419,18 @@ export function createAdminLeadsRouter(
       return;
     }
 
-    response.status(201).json(await store.createLead(input));
+    const resolvedInput = resolveLeadSourceInput(input);
+
+    if (
+      !isNonEmptyString(resolvedInput.originalTitle) ||
+      !isNonEmptyString(resolvedInput.originalUrl) ||
+      !isNonEmptyString(resolvedInput.snippet)
+    ) {
+      response.status(400).json({ message: "Lead payload is invalid." });
+      return;
+    }
+
+    response.status(201).json(await store.createLead(resolvedInput));
   });
 
   router.post("/leads/:leadId/review", async (request, response) => {

@@ -43,7 +43,11 @@ export interface SendDailyDigestsSummary {
 
 const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
-function normalizeDigestCategory(category: string): string | null {
+function normalizeDigestCategory(category: string | null | undefined): string | null {
+  if (typeof category !== "string") {
+    return null;
+  }
+
   switch (category.trim().toLowerCase()) {
     case "deals":
       return "deals";
