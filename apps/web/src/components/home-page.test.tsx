@@ -98,9 +98,15 @@ describe("home page curated sections", () => {
     expect(within(latestDealsSection).getByText("Amazon AU")).toBeTruthy();
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
-    const trendingMerchantItems = within(trendingMerchantsSection).getAllByRole("listitem");
-    expect(trendingMerchantItems[0]?.textContent).toBe("Amazon AU");
-    expect(trendingMerchantItems[1]?.textContent).toBe("Costco AU");
+    const trendingMerchantLinks = within(trendingMerchantsSection).getAllByRole("link");
+    expect(trendingMerchantLinks[0]?.getAttribute("href")).toBe(
+      "/en/search?q=Amazon+AU&merchant=amazon-au",
+    );
+    expect(trendingMerchantLinks[0]?.textContent).toContain("Amazon AU");
+    expect(trendingMerchantLinks[1]?.getAttribute("href")).toBe(
+      "/en/search?q=Costco+AU&merchant=costco-au",
+    );
+    expect(trendingMerchantLinks[1]?.textContent).toContain("Costco AU");
 
     expect(screen.getByRole("link", { name: "English" }).getAttribute("href")).toBe("/en");
     expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe("/zh");
@@ -113,6 +119,7 @@ describe("home page curated sections", () => {
     render(
       await LocaleHomePage({
         params: Promise.resolve({ locale: "zh" }),
+        searchParams: Promise.resolve({ sessionToken: "session_zh_123" }),
       }),
     );
 
@@ -122,6 +129,17 @@ describe("home page curated sections", () => {
     expect(screen.getByRole("heading", { name: "礼品卡优惠" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "最新优惠" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "热门商家" })).toBeTruthy();
+
+    const trendingMerchantsSection = screen.getByRole("region", { name: "热门商家" });
+    const amazonLink = within(trendingMerchantsSection).getByRole("link", { name: "Amazon AU" });
+    expect(amazonLink.getAttribute("href")).toBe(
+      "/zh/search?q=Amazon+AU&merchant=amazon-au&sessionToken=session_zh_123",
+    );
+    const merchantMetaId = amazonLink.getAttribute("aria-describedby");
+    expect(merchantMetaId).toBeTruthy();
+    const merchantMeta = merchantMetaId ? document.getElementById(merchantMetaId) : null;
+    expect(merchantMeta?.textContent).toContain("1 条优惠");
+    expect(merchantMeta?.textContent).toContain("最近 2026-04-22");
   });
 
   it("preserves session token across locale switch and favorites entry", async () => {
@@ -170,6 +188,13 @@ describe("home page curated sections", () => {
     expect(screen.getByRole("link", { name: "Open Favorites" }).getAttribute("href")).toBe(
       "/en/favorites?sessionToken=session_test_456",
     );
+
+    const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
+    expect(
+      within(trendingMerchantsSection)
+        .getByRole("link", { name: "Amazon AU" })
+        .getAttribute("href"),
+    ).toBe("/en/search?q=Amazon+AU&merchant=amazon-au&sessionToken=session_test_456");
   });
 
   it("merges live API deals into latest deals and trending merchants", async () => {
@@ -184,6 +209,17 @@ describe("home page curated sections", () => {
         currentPrice: "499.00",
         affiliateUrl: "https://www.thegoodguys.com.au/deal",
         publishedAt: "2026-04-23T01:00:00.000Z",
+      },
+      {
+        locale: "en",
+        slug: "breville-smart-grinder-pro-for-a-279",
+        title: "Breville Smart Grinder Pro for A$279",
+        summary: "Pair it with the espresso machine while the price holds.",
+        category: "Deals",
+        merchant: "The Good Guys",
+        currentPrice: "279.00",
+        affiliateUrl: "https://www.thegoodguys.com.au/grinder-deal",
+        publishedAt: "2026-04-22T05:00:00.000Z",
       },
       {
         locale: "en",
@@ -241,11 +277,16 @@ describe("home page curated sections", () => {
     ).toBe(
       "https://www.thegoodguys.com.au/deal",
     );
-    expect(within(latestDealsSection).getByText("The Good Guys")).toBeTruthy();
+    expect(within(latestDealsSection).getAllByText("The Good Guys")).toHaveLength(2);
     expect(within(latestDealsSection).getByText("Audible AU")).toBeTruthy();
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
-    expect(within(trendingMerchantsSection).getByText("The Good Guys")).toBeTruthy();
+    const goodGuysLink = within(trendingMerchantsSection).getByRole("link", { name: "The Good Guys" });
+    expect(goodGuysLink.getAttribute("href")).toBe("/en/search?q=The+Good+Guys&merchant=the-good-guys");
+    const goodGuysItem = goodGuysLink.closest("li");
+    expect(goodGuysItem).toBeTruthy();
+    expect(within(goodGuysItem as HTMLLIElement).getByText("2 deals")).toBeTruthy();
+    expect(within(goodGuysItem as HTMLLIElement).getByText("Latest 2026-04-23")).toBeTruthy();
     expect(within(trendingMerchantsSection).getByText("Audible AU")).toBeTruthy();
   });
 

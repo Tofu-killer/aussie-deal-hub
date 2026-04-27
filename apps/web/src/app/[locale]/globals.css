@@ -326,8 +326,7 @@ main a {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.web-deal-list span,
-.web-merchant-list li {
+.web-deal-list span {
   background: var(--web-accent-soft);
   border-radius: 999px;
   color: var(--web-accent-strong);
@@ -338,10 +337,51 @@ main a {
   padding: 0.35rem 0.7rem;
 }
 
+.web-merchant-link {
+  background: var(--web-accent-soft);
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  color: var(--web-accent-strong);
+  display: grid;
+  gap: 0.18rem;
+  justify-items: start;
+  min-width: 12rem;
+  padding: 0.6rem 0.85rem;
+  text-decoration: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.web-merchant-link:hover,
+.web-merchant-link:focus-visible {
+  border-color: rgba(13, 122, 116, 0.28);
+  box-shadow: 0 10px 24px rgba(13, 122, 116, 0.12);
+  transform: translateY(-1px);
+}
+
 .web-merchant-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.web-merchant-list li {
+  display: flex;
+}
+
+.web-merchant-link__name {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.web-merchant-link__meta {
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  gap: 0.45rem;
+  opacity: 0.86;
 }
 
 .web-page,

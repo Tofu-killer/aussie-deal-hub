@@ -6,6 +6,7 @@ import DealDiscoveryCard from "../../components/DealDiscoveryCard";
 import { LocaleSwitch } from "../../lib/ui";
 import { listPublicDeals } from "../../lib/serverApi";
 import {
+  appendQueryParams,
   appendSessionToken,
   buildHomePageMetadata,
   buildLocaleHref,
@@ -17,6 +18,7 @@ import {
   isSupportedLocale,
   mergePublicDeals,
   normalizeLivePublicDeal,
+  type TrendingMerchantRecord,
 } from "../../lib/publicDeals";
 import { resolveSessionTokens } from "../../lib/session";
 
@@ -91,6 +93,36 @@ function getAccountQuickLinks(
           },
     ],
   };
+}
+
+function getTrendingMerchantHref(
+  locale: "en" | "zh",
+  merchantId: string,
+  merchantName: string,
+  sessionToken?: string,
+) {
+  return appendQueryParams(buildLocaleHref(locale, "/search"), {
+    q: merchantName,
+    merchant: merchantId,
+    sessionToken,
+  });
+}
+
+function getTrendingMerchantMeta(
+  merchant: TrendingMerchantRecord,
+  locale: "en" | "zh",
+) {
+  const publishedDate = merchant.latestPublishedAt.slice(0, 10);
+
+  return locale === "en"
+    ? {
+        dealCountLabel: `${merchant.dealCount} ${merchant.dealCount === 1 ? "deal" : "deals"}`,
+        latestLabel: `Latest ${publishedDate}`,
+      }
+    : {
+        dealCountLabel: `${merchant.dealCount} 条优惠`,
+        latestLabel: `最近 ${publishedDate}`,
+      };
 }
 
 export async function generateMetadata({
@@ -245,11 +277,32 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
           <p>{activeLocale === "en" ? "Merchant momentum based on recent publishing." : "按最近发布节奏展示商家热度。"}</p>
         </div>
         <ul className="web-merchant-list">
-          {trendingMerchants.map((merchant) => (
-            <li key={`merchant-${merchant.id}`}>
-              {merchant.name}
-            </li>
-          ))}
+          {trendingMerchants.map((merchant) => {
+            const merchantMeta = getTrendingMerchantMeta(merchant, activeLocale);
+            const merchantMetaId = `merchant-meta-${merchant.id}`;
+
+            return (
+              <li key={`merchant-${merchant.id}`}>
+                <a
+                  aria-label={merchant.name}
+                  aria-describedby={merchantMetaId}
+                  className="web-merchant-link"
+                  href={getTrendingMerchantHref(
+                    activeLocale,
+                    merchant.id,
+                    merchant.name,
+                    urlSessionToken,
+                  )}
+                >
+                  <span className="web-merchant-link__name">{merchant.name}</span>
+                  <span className="web-merchant-link__meta" id={merchantMetaId}>
+                    <span>{merchantMeta.dealCountLabel}</span>
+                    <time dateTime={merchant.latestPublishedAt}>{merchantMeta.latestLabel}</time>
+                  </span>
+                </a>
+              </li>
+            );
+          })}
         </ul>
       </section>
       <a
