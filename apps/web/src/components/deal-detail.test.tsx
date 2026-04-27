@@ -544,19 +544,23 @@ describe("public deal surfaces", () => {
     ).toBeTruthy();
     expect(detail.getByText("Live catalog deal loaded from the public API.")).toBeTruthy();
     expect(detail.getAllByText("A$499.00").length).toBeGreaterThanOrEqual(2);
+    expect(detail.queryByText("Original price")).toBeNull();
     expect(within(detail.getByRole("region", { name: "Merchant" })).getByText("The Good Guys")).toBeTruthy();
     expect(detail.getByText("Published on 2026-04-23")).toBeTruthy();
-    expect(detail.getByText("This deal is currently listed at A$499.00 by The Good Guys.")).toBeTruthy();
+    expect(
+      detail.getByText("The current listed price is A$499.00 at The Good Guys."),
+    ).toBeTruthy();
 
     const highlights = detail.getByRole("region", { name: "Deal highlights" });
     expect(within(highlights).getByText("Current listed price: A$499.00.")).toBeTruthy();
-    expect(within(highlights).getByText("Category: Deals.")).toBeTruthy();
+    expect(within(highlights).getByText("Published by The Good Guys on 2026-04-23.")).toBeTruthy();
 
     const howToGetIt = detail.getByRole("region", { name: "How to get it" });
     expect(within(howToGetIt).getByText("Open the merchant page from the deal link.")).toBeTruthy();
     expect(within(howToGetIt).getByText("Confirm the final checkout price and stock before you buy.")).toBeTruthy();
 
     const terms = detail.getByRole("region", { name: "Terms and warnings" });
+    expect(within(terms).getByText("No tracked price comparison is available for this deal yet.")).toBeTruthy();
     expect(
       within(terms).getByText("Shipping, account limits, and campaign exclusions are set by the merchant."),
     ).toBeTruthy();
@@ -564,6 +568,154 @@ describe("public deal surfaces", () => {
     expect(detail.getByRole("heading", { name: "Deal highlights" })).toBeTruthy();
     expect(detail.queryByText("This live deal was published from the admin catalog.")).toBeNull();
     expect(detail.queryByText("Loaded from the live public deals API.")).toBeNull();
+    detail.unmount();
+  });
+
+  it("uses tracked price snapshots to enrich a live-only API deal", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/en/breville-barista-express-tracked-low"
+        ) {
+          return new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "breville-barista-express-tracked-low",
+              title: "Breville Barista Express for A$499",
+              summary: "Fresh live catalog deal with tracked price history.",
+              category: "Historical Lows",
+              merchant: "The Good Guys",
+              currentPrice: "499.00",
+              affiliateUrl: "https://www.thegoodguys.com.au/deal",
+              publishedAt: "2026-04-23T01:00:00.000Z",
+              priceContext: {
+                snapshots: [
+                  {
+                    label: "Previous promo",
+                    merchant: "The Good Guys",
+                    observedAt: "2026-04-10T01:00:00.000Z",
+                    price: "559.00",
+                  },
+                  {
+                    label: "Current public deal",
+                    merchant: "The Good Guys",
+                    observedAt: "2026-04-23T01:00:00.000Z",
+                    price: "499.00",
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }) as typeof fetch,
+    );
+
+    const detail = render(
+      await DealDetailPage({
+        params: Promise.resolve({
+          locale: "en",
+          slug: "breville-barista-express-tracked-low",
+        }),
+      }),
+    );
+
+    expect(detail.getByText("Original price")).toBeTruthy();
+    expect(
+      within(detail.getByRole("region", { name: "Current price" })).getByText("A$559.00"),
+    ).toBeTruthy();
+    expect(
+      within(detail.getByRole("region", { name: "Current price" })).getByText(
+        "11% below tracked high",
+      ),
+    ).toBeTruthy();
+    expect(
+      detail.getByText("Current A$499.00 is A$60.00 below the tracked high of A$559.00."),
+    ).toBeTruthy();
+
+    const highlights = detail.getByRole("region", { name: "Deal highlights" });
+    expect(within(highlights).getByText("Tracked range: A$499.00 to A$559.00.")).toBeTruthy();
+    expect(within(highlights).getByText("Published by The Good Guys on 2026-04-23.")).toBeTruthy();
+    detail.unmount();
+  });
+
+  it("does not present a lower tracked snapshot as the original price", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/en/breville-barista-express-price-up"
+        ) {
+          return new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "breville-barista-express-price-up",
+              title: "Breville Barista Express for A$499",
+              summary: "Live catalog deal loaded from the public API.",
+              category: "deals",
+              merchant: "The Good Guys",
+              currentPrice: "499.00",
+              affiliateUrl: "https://www.thegoodguys.com.au/deal",
+              publishedAt: "2026-04-23T01:00:00.000Z",
+              priceContext: {
+                snapshots: [
+                  {
+                    label: "Earlier tracked price",
+                    merchant: "The Good Guys",
+                    observedAt: "2026-04-10T01:00:00.000Z",
+                    price: "479.00",
+                  },
+                  {
+                    label: "Older tracked price",
+                    merchant: "The Good Guys",
+                    observedAt: "2026-04-01T01:00:00.000Z",
+                    price: "459.00",
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }) as typeof fetch,
+    );
+
+    const detail = render(
+      await DealDetailPage({
+        params: Promise.resolve({
+          locale: "en",
+          slug: "breville-barista-express-price-up",
+        }),
+      }),
+    );
+
+    expect(detail.queryByText("Original price")).toBeNull();
+    expect(
+      within(detail.getByRole("region", { name: "Current price" })).queryByText(
+        "11% below tracked high",
+      ),
+    ).toBeNull();
+    expect(
+      detail.getByText("The current listed price is A$499.00 at The Good Guys."),
+    ).toBeTruthy();
+    expect(detail.queryByText("Current A$499.00 is A$20.00 below the tracked high of A$479.00.")).toBeNull();
     detail.unmount();
   });
 

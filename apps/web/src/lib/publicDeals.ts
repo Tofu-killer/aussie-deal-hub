@@ -109,6 +109,14 @@ export interface LivePublicDealInput {
   currentPrice?: string;
   locale: SupportedLocale | string;
   merchant?: string;
+  priceContext?: {
+    snapshots?: Array<{
+      label: string;
+      merchant: string;
+      observedAt: string;
+      price: string;
+    }>;
+  };
   publishedAt?: string;
   slug: string;
   summary: string;
@@ -492,35 +500,6 @@ function normalizeLiveCategory(category: string): PublicDealCategory {
   return "deals";
 }
 
-function getLiveCategoryDescriptor(
-  category: PublicDealCategory,
-  locale: SupportedLocale,
-) {
-  if (locale === "zh") {
-    switch (category) {
-      case "historical-lows":
-        return "历史低价";
-      case "freebies":
-        return "免费领取";
-      case "gift-card-offers":
-        return "礼品卡优惠";
-      default:
-        return "优惠";
-    }
-  }
-
-  switch (category) {
-    case "historical-lows":
-      return "historical low";
-    case "freebies":
-      return "freebie";
-    case "gift-card-offers":
-      return "gift card offer";
-    default:
-      return "deal";
-  }
-}
-
 function formatLivePrice(value: string | undefined) {
   if (!value) {
     return "A$0";
@@ -529,17 +508,107 @@ function formatLivePrice(value: string | undefined) {
   return value.trim().startsWith("A$") ? value.trim() : `A$${value.trim()}`;
 }
 
+interface LiveDealPriceEvidence {
+  amountBelowRecentHigh: string | null;
+  currentPriceDisplay: string;
+  highestTrackedPrice: string | null;
+  lowestTrackedPrice: string | null;
+  percentBelowRecentHigh: number | null;
+}
+
+function parseOptionalMoneyAmount(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const amount = Number.parseFloat(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function formatTrackedMoneyAmount(amount: number) {
+  return `A$${amount.toFixed(2)}`;
+}
+
+function getLiveDealPriceEvidence(
+  input: LivePublicDealInput,
+  currentPrice: string,
+): LiveDealPriceEvidence {
+  const currentAmount = parseOptionalMoneyAmount(currentPrice);
+  const currentPriceDisplay =
+    currentAmount === null ? currentPrice : formatTrackedMoneyAmount(currentAmount);
+  const trackedAmounts = (input.priceContext?.snapshots ?? [])
+    .map((snapshot) => parseOptionalMoneyAmount(snapshot.price))
+    .filter((amount): amount is number => amount !== null);
+
+  if (trackedAmounts.length === 0 || currentAmount === null) {
+    return {
+      amountBelowRecentHigh: null,
+      currentPriceDisplay,
+      highestTrackedPrice: null,
+      lowestTrackedPrice: null,
+      percentBelowRecentHigh: null,
+    };
+  }
+
+  const highestTrackedAmount = Math.max(...trackedAmounts);
+  const lowestTrackedAmount = Math.min(...trackedAmounts);
+  const amountBelowRecentHigh = highestTrackedAmount - currentAmount;
+  const hasMeaningfulDiscount = amountBelowRecentHigh > 0.009;
+
+  return {
+    amountBelowRecentHigh: hasMeaningfulDiscount
+      ? formatTrackedMoneyAmount(amountBelowRecentHigh)
+      : null,
+    currentPriceDisplay,
+    highestTrackedPrice: formatTrackedMoneyAmount(highestTrackedAmount),
+    lowestTrackedPrice: formatTrackedMoneyAmount(lowestTrackedAmount),
+    percentBelowRecentHigh: hasMeaningfulDiscount
+      ? Math.round((amountBelowRecentHigh / highestTrackedAmount) * 100)
+      : null,
+  };
+}
+
+function getLiveDealDiscountLabel(
+  category: PublicDealCategory,
+  activeLocale: SupportedLocale,
+  priceEvidence: LiveDealPriceEvidence,
+) {
+  if (priceEvidence.percentBelowRecentHigh) {
+    return activeLocale === "en"
+      ? `${priceEvidence.percentBelowRecentHigh}% below tracked high`
+      : `比监测高位低 ${priceEvidence.percentBelowRecentHigh}%`;
+  }
+
+  return PUBLIC_DEAL_CATEGORY_LABELS[category][activeLocale];
+}
+
 function getLiveDealDetail(
   input: LivePublicDealInput,
+  priceEvidence: LiveDealPriceEvidence,
 ): PublicDealDetailMetadata {
   const validFrom = input.publishedAt?.slice(0, 10) || "2026-04-23";
   const merchant = input.merchant || "Unknown merchant";
-  const category = normalizeLiveCategory(input.category);
-  const currentPrice = formatLivePrice(input.currentPrice);
-  const categoryLabelEn = PUBLIC_DEAL_CATEGORY_LABELS[category].en;
-  const categoryLabelZh = PUBLIC_DEAL_CATEGORY_LABELS[category].zh;
-  const categoryDescriptorEn = getLiveCategoryDescriptor(category, "en");
-  const categoryDescriptorZh = getLiveCategoryDescriptor(category, "zh");
+  const hasTrackedRange =
+    priceEvidence.lowestTrackedPrice !== null && priceEvidence.highestTrackedPrice !== null;
+  const hasTrackedDiscount =
+    priceEvidence.amountBelowRecentHigh !== null && priceEvidence.highestTrackedPrice !== null;
+
+  const englishHighlights = hasTrackedRange
+    ? [
+        `Tracked range: ${priceEvidence.lowestTrackedPrice} to ${priceEvidence.highestTrackedPrice}.`,
+        `Published by ${merchant} on ${validFrom}.`,
+      ]
+    : [
+        `Current listed price: ${priceEvidence.currentPriceDisplay}.`,
+        `Published by ${merchant} on ${validFrom}.`,
+      ];
+
+  const chineseHighlights = hasTrackedRange
+    ? [
+        `监测区间：${priceEvidence.lowestTrackedPrice} 至 ${priceEvidence.highestTrackedPrice}。`,
+        `由 ${merchant} 于 ${validFrom} 发布。`,
+      ]
+    : [`当前标价：${priceEvidence.currentPriceDisplay}。`, `由 ${merchant} 于 ${validFrom} 发布。`];
 
   return {
     couponCode: null,
@@ -550,30 +619,30 @@ function getLiveDealDetail(
     locales: {
       en: {
         validity: `Published on ${validFrom}`,
-        whyWorthIt: `This ${categoryDescriptorEn} is currently listed at ${currentPrice} by ${merchant}.`,
-        highlights: [
-          `Current listed price: ${currentPrice}.`,
-          `Category: ${categoryLabelEn}.`,
-        ],
+        whyWorthIt: hasTrackedDiscount
+          ? `Current ${priceEvidence.currentPriceDisplay} is ${priceEvidence.amountBelowRecentHigh} below the tracked high of ${priceEvidence.highestTrackedPrice}.`
+          : `The current listed price is ${priceEvidence.currentPriceDisplay} at ${merchant}.`,
+        highlights: englishHighlights,
         howToGetIt: [
           "Open the merchant page from the deal link.",
           "Confirm the final checkout price and stock before you buy.",
         ],
         termsAndWarnings: [
-          "Published deal details can change without notice.",
+          hasTrackedRange
+            ? "Price comparisons only use the tracked snapshots shown on this page."
+            : "No tracked price comparison is available for this deal yet.",
           "Shipping, account limits, and campaign exclusions are set by the merchant.",
         ],
       },
       zh: {
         validity: `发布于 ${validFrom}`,
-        whyWorthIt: `这条${categoryDescriptorZh}目前由 ${merchant} 以 ${currentPrice} 在售。`,
-        highlights: [
-          `当前标价：${currentPrice}。`,
-          `分类：${categoryLabelZh}。`,
-        ],
+        whyWorthIt: hasTrackedDiscount
+          ? `当前价 ${priceEvidence.currentPriceDisplay} 比监测高位 ${priceEvidence.highestTrackedPrice} 低 ${priceEvidence.amountBelowRecentHigh}。`
+          : `当前标价是 ${priceEvidence.currentPriceDisplay}，商家是 ${merchant}。`,
+        highlights: chineseHighlights,
         howToGetIt: ["通过优惠链接打开商家页面。", "下单前确认最终价格、库存和活动条件。"],
         termsAndWarnings: [
-          "已发布的优惠细节可能随时变动。",
+          hasTrackedRange ? "价格对比仅基于本页展示的监测快照。" : "这条优惠暂时没有可用的价格对比。",
           "配送、账号限制和活动排除项以商家页面为准。",
         ],
       },
@@ -588,15 +657,20 @@ export function normalizeLivePublicDeal(
   const category = normalizeLiveCategory(input.category);
   const merchantName = input.merchant || "Unknown merchant";
   const currentPrice = formatLivePrice(input.currentPrice);
+  const priceEvidence = getLiveDealPriceEvidence(input, currentPrice);
+  const originalPrice =
+    priceEvidence.amountBelowRecentHigh !== null && priceEvidence.highestTrackedPrice
+      ? priceEvidence.highestTrackedPrice
+      : currentPrice;
 
   return {
     slug: input.slug,
     categories: [category],
     currentPrice,
-    originalPrice: currentPrice,
-    discountLabel: PUBLIC_DEAL_CATEGORY_LABELS[category][activeLocale],
+    originalPrice,
+    discountLabel: getLiveDealDiscountLabel(category, activeLocale, priceEvidence),
     dealUrl: input.affiliateUrl || "#",
-    detail: getLiveDealDetail(input),
+    detail: getLiveDealDetail(input, priceEvidence),
     merchant: {
       id: slugifyIdentifier(merchantName) || "unknown-merchant",
       name: merchantName,

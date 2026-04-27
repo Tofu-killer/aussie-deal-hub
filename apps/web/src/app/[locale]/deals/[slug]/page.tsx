@@ -237,8 +237,10 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
           <PriceCard
             currentPrice={deal.currentPrice}
             currentPriceLabel={copy.currentPriceLabel}
-            originalPrice={deal.originalPrice}
-            originalPriceLabel={copy.originalPriceLabel}
+            originalPrice={deal.originalPrice !== deal.currentPrice ? deal.originalPrice : undefined}
+            originalPriceLabel={
+              deal.originalPrice !== deal.currentPrice ? copy.originalPriceLabel : undefined
+            }
             discountLabel={deal.discountLabel}
             ctaLabel={copy.ctaLabel}
             ctaHref={deal.dealUrl}
