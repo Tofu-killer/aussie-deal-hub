@@ -38,6 +38,7 @@ export interface PublishDealResult {
 }
 
 export interface PublishedDigestDealRecord {
+  category: string;
   id: string;
   merchant: string;
   status: string;
@@ -273,6 +274,7 @@ export function createPublishedDealRepository() {
           updatedAt: "desc",
         },
         select: {
+          category: true,
           id: true,
           merchant: true,
           status: true,
@@ -301,6 +303,7 @@ export function createPublishedDealRepository() {
 
         return [
           {
+            category: deal.category,
             id: deal.id,
             merchant: deal.merchant,
             status: deal.status,

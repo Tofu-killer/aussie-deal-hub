@@ -216,6 +216,26 @@ export default async function EmailPreferencesPage({
             />
             {copy.categoryHistoricalLows}
           </label>
+          <label htmlFor="category-freebies">
+            <input
+              defaultChecked={preferences.categories.includes("freebies")}
+              id="category-freebies"
+              name="categories"
+              type="checkbox"
+              value="freebies"
+            />
+            {copy.categoryFreebies}
+          </label>
+          <label htmlFor="category-gift-card-offers">
+            <input
+              defaultChecked={preferences.categories.includes("gift-card-offers")}
+              id="category-gift-card-offers"
+              name="categories"
+              type="checkbox"
+              value="gift-card-offers"
+            />
+            {copy.categoryGiftCardOffers}
+          </label>
         </fieldset>
 
         <button type="submit">{copy.saveCtaLabel}</button>

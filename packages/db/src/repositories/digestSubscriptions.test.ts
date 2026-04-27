@@ -22,7 +22,7 @@ describe("digestSubscriptions", () => {
     findMany.mockReset();
   });
 
-  it("lists due deal subscriptions for both daily and weekly cadences", async () => {
+  it("lists due digest subscriptions for all supported categories across both cadences", async () => {
     const now = new Date("2026-04-29T08:00:00.000Z");
 
     findMany.mockResolvedValue([
@@ -37,7 +37,7 @@ describe("digestSubscriptions", () => {
         normalizedEmail: "weekly@example.com",
         locale: "zh",
         frequency: "weekly",
-        categories: ["deals", "historical-lows"],
+        categories: ["freebies", "gift-card-offers"],
         lastSentAt: new Date("2026-04-22T08:00:00.000Z"),
       },
     ]);
@@ -54,7 +54,7 @@ describe("digestSubscriptions", () => {
         email: "weekly@example.com",
         locale: "zh",
         frequency: "weekly",
-        categories: ["deals", "historical-lows"],
+        categories: ["freebies", "gift-card-offers"],
         lastSentAt: "2026-04-22T08:00:00.000Z",
       },
     ]);
@@ -62,7 +62,7 @@ describe("digestSubscriptions", () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         categories: {
-          has: "deals",
+          hasSome: ["deals", "historical-lows", "freebies", "gift-card-offers"],
         },
         OR: [
           {

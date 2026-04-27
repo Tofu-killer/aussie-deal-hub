@@ -26,7 +26,12 @@ describe("email preferences page", () => {
           JSON.stringify({
             locale: "zh",
             frequency: "weekly",
-            categories: ["deals", "historical-lows"],
+            categories: [
+              "deals",
+              "historical-lows",
+              "freebies",
+              "gift-card-offers",
+            ],
           }),
           {
             status: 200,
@@ -52,6 +57,10 @@ describe("email preferences page", () => {
     );
     expect((screen.getByLabelText("Deals") as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText("Historical lows") as HTMLInputElement).checked).toBe(
+      true,
+    );
+    expect((screen.getByLabelText("Freebies") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Gift card offers") as HTMLInputElement).checked).toBe(
       true,
     );
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
@@ -127,7 +136,12 @@ describe("email preferences page", () => {
         JSON.stringify({
           locale: "zh",
           frequency: "weekly",
-          categories: ["deals", "historical-lows"],
+          categories: [
+            "deals",
+            "historical-lows",
+            "freebies",
+            "gift-card-offers",
+          ],
         }),
       );
 
@@ -135,7 +149,12 @@ describe("email preferences page", () => {
         JSON.stringify({
           locale: "zh",
           frequency: "weekly",
-          categories: ["deals", "historical-lows"],
+          categories: [
+            "deals",
+            "historical-lows",
+            "freebies",
+            "gift-card-offers",
+          ],
         }),
         {
           status: 200,
@@ -154,6 +173,9 @@ describe("email preferences page", () => {
     formData.append("categories", "deals");
     formData.append("categories", "deals");
     formData.append("categories", "historical-lows");
+    formData.append("categories", "freebies");
+    formData.append("categories", "gift-card-offers");
+    formData.append("categories", "unknown");
 
     await expect(
       submitDigestPreferencesFromForm({

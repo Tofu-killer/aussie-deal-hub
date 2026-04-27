@@ -1,6 +1,12 @@
 import { prisma } from "../client.ts";
 
 const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+const supportedDigestCategories = [
+  "deals",
+  "historical-lows",
+  "freebies",
+  "gift-card-offers",
+] as const;
 
 export type DigestFrequency = "daily" | "weekly";
 
@@ -107,7 +113,7 @@ export async function listEligibleDigestSubscriptions(
   const rows = await prisma.emailDigestSubscription.findMany({
     where: {
       categories: {
-        has: "deals",
+        hasSome: [...supportedDigestCategories],
       },
       OR: [
         {

@@ -43,6 +43,23 @@ export interface SendDailyDigestsSummary {
 
 const WEEKLY_DIGEST_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
+function normalizeDigestCategory(category: string): string | null {
+  switch (category.trim().toLowerCase()) {
+    case "deals":
+      return "deals";
+    case "historical lows":
+    case "historical-lows":
+      return "historical-lows";
+    case "freebies":
+      return "freebies";
+    case "gift card offers":
+    case "gift-card-offers":
+      return "gift-card-offers";
+    default:
+      return null;
+  }
+}
+
 function getStartOfUtcDay(now: Date) {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
@@ -105,11 +122,21 @@ export async function sendDailyDigests(
 
     const favorites = await favoriteStore.listByEmail(subscription.email);
     const favoriteDealIds = new Set(favorites.map((favorite) => favorite.dealId));
+    const selectedCategories = new Set(
+      subscription.categories
+        .map((category) => normalizeDigestCategory(category))
+        .filter((category): category is string => category !== null),
+    );
     const matchingDeals = digestDeals.filter((deal) => {
       const englishSlug = deal.locales.en.slug ?? "";
       const chineseSlug = deal.locales.zh.slug ?? "";
+      const normalizedDealCategory = normalizeDigestCategory(deal.category);
 
-      return favoriteDealIds.has(englishSlug) || favoriteDealIds.has(chineseSlug);
+      return (
+        normalizedDealCategory !== null &&
+        selectedCategories.has(normalizedDealCategory) &&
+        (favoriteDealIds.has(englishSlug) || favoriteDealIds.has(chineseSlug))
+      );
     });
 
     if (matchingDeals.length === 0) {

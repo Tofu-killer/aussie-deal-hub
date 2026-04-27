@@ -14,6 +14,8 @@ export interface SubmitDigestPreferencesFromFormResult {
 export interface EmailPreferencesCopy {
   categoriesLegend: string;
   categoryDeals: string;
+  categoryFreebies: string;
+  categoryGiftCardOffers: string;
   categoryHistoricalLows: string;
   digestFrequencyLabel: string;
   digestLocaleLabel: string;
@@ -34,6 +36,8 @@ export function getEmailPreferencesCopy(locale: "en" | "zh"): EmailPreferencesCo
       digestFrequencyLabel: "摘要频率",
       categoriesLegend: "订阅分类",
       categoryDeals: "优惠",
+      categoryFreebies: "免费福利",
+      categoryGiftCardOffers: "礼品卡优惠",
       categoryHistoricalLows: "历史低价",
       frequencyDaily: "每天",
       frequencyWeekly: "每周",
@@ -50,6 +54,8 @@ export function getEmailPreferencesCopy(locale: "en" | "zh"): EmailPreferencesCo
     digestFrequencyLabel: "Digest frequency",
     categoriesLegend: "Digest categories",
     categoryDeals: "Deals",
+    categoryFreebies: "Freebies",
+    categoryGiftCardOffers: "Gift card offers",
     categoryHistoricalLows: "Historical lows",
     frequencyDaily: "Daily",
     frequencyWeekly: "Weekly",
@@ -68,13 +74,20 @@ function toDigestFrequency(value: FormDataEntryValue | null) {
   return value === "weekly" ? "weekly" : "daily";
 }
 
+const supportedDigestCategories = new Set([
+  "deals",
+  "historical-lows",
+  "freebies",
+  "gift-card-offers",
+]);
+
 function toDigestCategories(formData: FormData) {
   return Array.from(
     new Set(
       formData
         .getAll("categories")
         .map((entry) => String(entry))
-        .filter((entry) => entry === "deals" || entry === "historical-lows"),
+        .filter((entry) => supportedDigestCategories.has(entry)),
     ),
   );
 }

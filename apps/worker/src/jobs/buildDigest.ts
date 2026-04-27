@@ -12,6 +12,7 @@ export interface DigestLocaleContent {
 }
 
 export interface DigestDealRecord {
+  category: string;
   id: string;
   slug?: string;
   merchant: string;
