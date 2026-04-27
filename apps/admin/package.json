@@ -6,9 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "pnpm exec vitest run --environment jsdom src/components/lead-review-form.test.tsx"
+    "test": "pnpm exec vitest run --environment jsdom src/components/lead-review-form.test.tsx src/components/admin-preview-pages.test.tsx"
   },
   "dependencies": {
+    "@aussie-deal-hub/config": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

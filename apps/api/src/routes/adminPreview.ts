@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { reviewLead } from "@aussie-deal-hub/ai/reviewLead";
+import { resolveLeadReviewEvidence } from "@aussie-deal-hub/config/leadSourceEvidence";
 import { buildDailyDigest } from "../../../../packages/email/src/buildDailyDigest.ts";
-import { resolveLeadReviewInput } from "./adminLeads.ts";
 import type { PublishedDealListReader } from "./publicDeals.ts";
 
 interface ReviewPreviewInput {
@@ -167,7 +167,7 @@ export function createAdminPreviewRouter(
       return;
     }
 
-    const reviewInput = resolveLeadReviewInput(input);
+    const reviewInput = resolveLeadReviewEvidence(input);
 
     if (!isNonEmptyString(reviewInput.originalTitle)) {
       response.status(400).json({ message: "Lead payload is invalid." });

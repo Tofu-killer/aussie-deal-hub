@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { reviewLead, type LeadReview } from "@aussie-deal-hub/ai/reviewLead";
+import {
+  resolveLeadReviewEvidence,
+  resolveLeadSourceEvidence,
+} from "@aussie-deal-hub/config/leadSourceEvidence";
 import type { PublishedDealSlugLookup } from "./publicDeals.ts";
 
 export interface LeadRecord {
@@ -108,84 +112,16 @@ function isInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readNonEmptyTrimmedString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function parseSourceSnapshot(sourceSnapshot?: string | null) {
-  if (!sourceSnapshot) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(sourceSnapshot) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractEvidenceField(value: unknown, fieldNames: string[]) {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  for (const fieldName of fieldNames) {
-    const candidate = readNonEmptyTrimmedString(value[fieldName]);
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
 export function resolveLeadReviewInput(input: {
   originalTitle: string;
   snippet: string;
   sourceSnapshot?: string | null;
 }) {
-  const resolved = resolveLeadSourceInput({
-    ...input,
-    originalUrl: "",
-  });
-
-  return {
-    originalTitle: resolved.originalTitle,
-    snippet: resolved.snippet,
-  };
+  return resolveLeadReviewEvidence(input);
 }
 
 export function resolveLeadSourceInput<T extends LeadSourceInput>(input: T): T {
-  const snapshot = parseSourceSnapshot(input.sourceSnapshot);
-  const snapshotCandidate = isRecord(snapshot?.candidate) ? snapshot.candidate : null;
-  const snapshotEvidence = isRecord(snapshot?.rawEvidence) ? snapshot.rawEvidence : null;
-  const originalTitle =
-    readNonEmptyTrimmedString(input.originalTitle) ??
-    extractEvidenceField(snapshotCandidate, ["title", "originalTitle"]) ??
-    extractEvidenceField(snapshotEvidence, ["originalTitle", "title"]) ??
-    "";
-  const snippet =
-    readNonEmptyTrimmedString(input.snippet) ??
-    extractEvidenceField(snapshotCandidate, ["snippet", "summary", "description", "excerpt"]) ??
-    extractEvidenceField(snapshotEvidence, ["snippet", "summary", "description", "excerpt"]) ??
-    "";
-  const originalUrl =
-    readNonEmptyTrimmedString(input.originalUrl) ??
-    extractEvidenceField(snapshotCandidate, ["originalUrl", "url", "canonicalUrl"]) ??
-    extractEvidenceField(snapshotEvidence, ["originalUrl", "url", "canonicalUrl"]) ??
-    "";
-
-  return {
-    ...input,
-    originalTitle,
-    originalUrl,
-    snippet,
-  };
+  return resolveLeadSourceEvidence(input);
 }
 
 function isStringArray(value: unknown): value is string[] {

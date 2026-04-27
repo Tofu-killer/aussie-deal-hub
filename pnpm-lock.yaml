@@ -23,6 +23,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@aussie-deal-hub/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       next:
         specifier: ^15.0.0
         version: 15.5.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -51,6 +54,9 @@ importers:
       '@aussie-deal-hub/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@aussie-deal-hub/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@aussie-deal-hub/db':
         specifier: workspace:*
         version: link:../../packages/db

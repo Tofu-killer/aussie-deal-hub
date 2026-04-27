@@ -1,5 +1,6 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -41,7 +42,6 @@ describe("admin preview pages", () => {
   });
 
   it("renders the intake form and previewed AI review content", async () => {
-    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const sourceSnapshot = JSON.stringify({
       source: "manual-intake",
       candidate: {
@@ -88,8 +88,12 @@ describe("admin preview pages", () => {
     expect(
       (screen.getByLabelText("Source snapshot") as HTMLTextAreaElement).value,
     ).toBe(sourceSnapshot);
+    expect(
+      screen.getByRole("button", { name: "Preview AI review" }).closest("form")?.getAttribute("method"),
+    ).not.toBe("get");
+    expect(await screen.findByText("Deals")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://preview-api.test/v1/admin/review-preview",
+      "/v1/admin/review-preview",
       {
         method: "POST",
         headers: {
@@ -104,7 +108,6 @@ describe("admin preview pages", () => {
         cache: "no-store",
       },
     );
-    expect(screen.getByText("Deals")).toBeTruthy();
     expect(screen.getByText("88")).toBeTruthy();
     expect(
       screen.getByText("Nintendo Switch OLED for A$399 at Amazon AU"),
@@ -115,7 +118,6 @@ describe("admin preview pages", () => {
   });
 
   it("renders intake handoff controls and failure feedback after previewing a lead", async () => {
-    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const sourceSnapshot = JSON.stringify({
       source: "manual-intake",
       candidate: {
@@ -162,11 +164,67 @@ describe("admin preview pages", () => {
       sourceSnapshot,
     );
     expect(screen.getByText("Failed to create lead.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Create lead" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Create lead" })).toBeTruthy();
+  });
+
+  it("keeps a large source snapshot in local state when create lead fails", async () => {
+    const user = userEvent.setup();
+    const sourceSnapshot = JSON.stringify({
+      source: "manual-intake",
+      candidate: {
+        title: "Amazon AU Nintendo Switch OLED A$399",
+        url: "https://www.amazon.com.au/deal",
+        snippet: "Coupon GAME20 expires tonight.",
+      },
+      rawEvidence: {
+        oversized: "x".repeat(12_000),
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          category: "Deals",
+          confidence: 88,
+          riskLabels: [],
+          locales: {
+            en: {
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+              summary: "Coupon GAME20 expires tonight.",
+            },
+            zh: {
+              title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+              summary: "优惠码 GAME20 今晚到期。",
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ message: "boom" }, false));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const page = await IntakePage({
+      searchParams: Promise.resolve({
+        sourceId: "src_amazon",
+        originalTitle: "",
+        originalUrl: "",
+        snippet: "",
+        sourceSnapshot,
+      }),
+    });
+
+    render(page);
+
+    await screen.findByRole("button", { name: "Create lead" });
+    await user.click(screen.getByRole("button", { name: "Create lead" }));
+
+    expect(await screen.findByText("Failed to create lead.")).toBeTruthy();
+    expect((screen.getByLabelText("Source snapshot") as HTMLTextAreaElement).value).toBe(
+      sourceSnapshot,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("loads preview and enables handoff when the source snapshot supplies the missing raw evidence", async () => {
-    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const sourceSnapshot = JSON.stringify({
       source: "manual-intake",
       candidate: {
@@ -206,8 +264,9 @@ describe("admin preview pages", () => {
 
     render(page);
 
+    expect(await screen.findByRole("button", { name: "Create lead" })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://preview-api.test/v1/admin/review-preview",
+      "/v1/admin/review-preview",
       {
         method: "POST",
         headers: {
@@ -222,7 +281,6 @@ describe("admin preview pages", () => {
         cache: "no-store",
       },
     );
-    expect(screen.getByRole("button", { name: "Create lead" })).toBeTruthy();
   });
 
   it("submits reviewed intake data to the admin leads API", async () => {

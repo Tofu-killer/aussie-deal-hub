@@ -6,7 +6,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "exports": {
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./leadSourceEvidence": "./src/leadSourceEvidence.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"

@@ -1,9 +1,36 @@
+import { resolveLeadSourceEvidence } from "@aussie-deal-hub/config/leadSourceEvidence";
+
 export interface LeadHandoffInput {
   sourceId: string;
   originalTitle: string;
   originalUrl: string;
   snippet: string;
   sourceSnapshot?: string;
+}
+
+interface ReviewLocalePreview {
+  title?: string;
+  summary?: string;
+}
+
+export interface ReviewPreview {
+  category?: string;
+  confidence?: number;
+  riskLabels?: string[];
+  locales?: {
+    en?: ReviewLocalePreview;
+    zh?: ReviewLocalePreview;
+  };
+}
+
+interface ReviewPreviewSuccess {
+  review: ReviewPreview;
+  error: null;
+}
+
+interface ReviewPreviewError {
+  review: null;
+  error: string | null;
 }
 
 interface LeadHandoffSuccess {
@@ -23,40 +50,12 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readNonEmptyTrimmedString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function parseSourceSnapshot(sourceSnapshot?: string) {
-  if (!sourceSnapshot) {
-    return null;
+function buildAdminApiUrl(path: string, apiBaseUrl?: string) {
+  if (!apiBaseUrl) {
+    return path;
   }
 
-  try {
-    const parsed = JSON.parse(sourceSnapshot) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function extractEvidenceField(value: unknown, fieldNames: string[]) {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  for (const fieldName of fieldNames) {
-    const candidate = readNonEmptyTrimmedString(value[fieldName]);
-    if (candidate) {
-      return candidate;
-    }
-  }
-
-  return null;
+  return `${apiBaseUrl.replace(/\/+$/, "")}${path}`;
 }
 
 function readFormValue(formData: FormData, fieldName: keyof LeadHandoffInput) {
@@ -75,28 +74,7 @@ export function buildLeadHandoffInput(formData: FormData): LeadHandoffInput {
 }
 
 export function resolveLeadHandoffInput<T extends LeadHandoffInput>(input: T): T {
-  const snapshot = parseSourceSnapshot(input.sourceSnapshot);
-  const snapshotCandidate = isRecord(snapshot?.candidate) ? snapshot.candidate : null;
-  const snapshotEvidence = isRecord(snapshot?.rawEvidence) ? snapshot.rawEvidence : null;
-
-  return {
-    ...input,
-    originalTitle:
-      readNonEmptyTrimmedString(input.originalTitle) ??
-      extractEvidenceField(snapshotCandidate, ["title", "originalTitle"]) ??
-      extractEvidenceField(snapshotEvidence, ["originalTitle", "title"]) ??
-      "",
-    originalUrl:
-      readNonEmptyTrimmedString(input.originalUrl) ??
-      extractEvidenceField(snapshotCandidate, ["originalUrl", "url", "canonicalUrl"]) ??
-      extractEvidenceField(snapshotEvidence, ["originalUrl", "url", "canonicalUrl"]) ??
-      "",
-    snippet:
-      readNonEmptyTrimmedString(input.snippet) ??
-      extractEvidenceField(snapshotCandidate, ["snippet", "summary", "description", "excerpt"]) ??
-      extractEvidenceField(snapshotEvidence, ["snippet", "summary", "description", "excerpt"]) ??
-      "",
-  };
+  return resolveLeadSourceEvidence(input);
 }
 
 export function canPreviewLead(input: LeadHandoffInput) {
@@ -114,70 +92,80 @@ export function canCreateLead(input: LeadHandoffInput) {
   );
 }
 
-export function buildIntakeRedirectTarget({
-  status,
-  sourceId,
-  originalTitle,
-  originalUrl,
-  snippet,
-  sourceSnapshot,
-}: {
-  status?: string;
-  sourceId?: string;
-  originalTitle?: string;
-  originalUrl?: string;
-  snippet?: string;
-  sourceSnapshot?: string;
-}) {
-  const searchParams = new URLSearchParams();
-
-  if (status) {
-    searchParams.set("status", status);
+export async function loadLeadReviewPreview(
+  input: LeadHandoffInput,
+  options?: {
+    apiBaseUrl?: string;
+    fetchImpl?: typeof fetch;
+  },
+): Promise<ReviewPreviewSuccess | ReviewPreviewError> {
+  if (!canPreviewLead(input)) {
+    return {
+      review: null,
+      error: null,
+    };
   }
 
-  if (sourceId) {
-    searchParams.set("sourceId", sourceId);
+  const fetchImpl = options?.fetchImpl ?? fetch;
+
+  try {
+    const response = await fetchImpl(buildAdminApiUrl("/v1/admin/review-preview", options?.apiBaseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        originalTitle: input.originalTitle,
+        originalUrl: input.originalUrl,
+        snippet: input.snippet,
+        sourceSnapshot: input.sourceSnapshot ?? "",
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return {
+        review: null,
+        error: "Failed to load intake preview.",
+      };
+    }
+
+    return {
+      review: (await response.json()) as ReviewPreview,
+      error: null,
+    };
+  } catch {
+    return {
+      review: null,
+      error: "Failed to load intake preview.",
+    };
   }
-
-  if (originalTitle) {
-    searchParams.set("originalTitle", originalTitle);
-  }
-
-  if (originalUrl) {
-    searchParams.set("originalUrl", originalUrl);
-  }
-
-  if (snippet) {
-    searchParams.set("snippet", snippet);
-  }
-
-  if (sourceSnapshot) {
-    searchParams.set("sourceSnapshot", sourceSnapshot);
-  }
-
-  const query = searchParams.toString();
-
-  return query ? `/intake?${query}` : "/intake";
 }
 
-export async function submitLeadHandoffFromForm(
-  formData: FormData,
+export async function submitLeadHandoff(
+  input: LeadHandoffInput,
+  options?: {
+    apiBaseUrl?: string;
+    fetchImpl?: typeof fetch;
+  },
 ): Promise<LeadHandoffSuccess | LeadHandoffError> {
-  const input = resolveLeadHandoffInput(buildLeadHandoffInput(formData));
+  const resolvedInput = resolveLeadHandoffInput(input);
 
-  if (!canCreateLead(input)) {
+  if (!canCreateLead(resolvedInput)) {
     return {
       status: "error",
     };
   }
 
+  const fetchImpl = options?.fetchImpl ?? fetch;
+
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/leads`, {
+    const response = await fetchImpl(buildAdminApiUrl("/v1/admin/leads", options?.apiBaseUrl), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify(resolvedInput),
     });
 
     if (!response.ok) {
@@ -203,4 +191,12 @@ export async function submitLeadHandoffFromForm(
       status: "error",
     };
   }
+}
+
+export async function submitLeadHandoffFromForm(
+  formData: FormData,
+): Promise<LeadHandoffSuccess | LeadHandoffError> {
+  return submitLeadHandoff(buildLeadHandoffInput(formData), {
+    apiBaseUrl: getAdminApiBaseUrl(),
+  });
 }
