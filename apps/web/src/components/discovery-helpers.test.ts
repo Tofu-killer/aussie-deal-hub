@@ -37,6 +37,25 @@ describe("discovery helpers", () => {
     );
   });
 
+  it("returns filtered deals even when the keyword is blank", () => {
+    expect(
+      searchDeals("   ", "en", {
+        merchant: "costco-au",
+      }).map((deal) => deal.slug),
+    ).toEqual(["airpods-pro-2-costco-au"]);
+
+    expect(
+      searchDeals("", "en", {
+        historicalLow: true,
+      }).map((deal) => deal.slug),
+    ).toEqual(
+      expect.arrayContaining([
+        "nintendo-switch-oled-amazon-au",
+        "airpods-pro-2-costco-au",
+      ]),
+    );
+  });
+
   it("only returns related deals that share a primary category, or empty when none match", () => {
     const relatedToSwitch = getRelatedDeals("nintendo-switch-oled-amazon-au", { limit: 3 });
     const relatedSlugs = relatedToSwitch.map((deal) => deal.slug);

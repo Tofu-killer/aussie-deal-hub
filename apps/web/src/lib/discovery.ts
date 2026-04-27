@@ -126,13 +126,13 @@ export function searchDeals(
   sourceDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ): PublicDealRecord[] {
   const token = toSearchToken(query);
+  const filteredDeals = sourceDeals.filter((deal) => matchesListingFilters(deal, filters));
+
   if (!token) {
-    return [];
+    return filteredDeals;
   }
 
-  return sourceDeals.filter(
-    (deal) => buildSearchCorpus(deal).includes(token) && matchesListingFilters(deal, filters),
-  );
+  return filteredDeals.filter((deal) => buildSearchCorpus(deal).includes(token));
 }
 
 export function getRelatedDeals(

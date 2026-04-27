@@ -88,6 +88,65 @@ describe("listing query-param filters", () => {
     ).toBeNull();
   });
 
+  it("renders merchant browse results without requiring a keyword", async () => {
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({
+          merchant: "costco-au",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("Showing 1 published deal from Costco AU.")).toBeTruthy();
+    expect(screen.getByText("Merchant: Costco AU")).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Enter a keyword to start searching.")).toBeNull();
+  });
+
+  it("deduplicates merchant landing copy when the keyword already matches the merchant", async () => {
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "zh" }),
+        searchParams: Promise.resolve({
+          q: "Amazon AU",
+          merchant: "amazon-au",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("展示 Amazon AU 的 1 条已发布优惠。")).toBeTruthy();
+    expect(screen.getByText("商家：Amazon AU")).toBeTruthy();
+    expect(screen.queryByText(/匹配/)).toBeNull();
+  });
+
+  it("does not widen to all deals when the merchant filter is unknown", async () => {
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({
+          merchant: "unknown-merchant",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("No deals match the current filters.")).toBeTruthy();
+    expect(
+      screen.queryByRole("link", {
+        name: "Nintendo Switch OLED for A$399 at Amazon AU",
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", {
+        name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
+      }),
+    ).toBeNull();
+  });
+
   it("filters search results to historical lows only when requested", async () => {
     render(
       await SearchPage({
