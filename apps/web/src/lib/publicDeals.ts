@@ -485,15 +485,15 @@ function slugifyIdentifier(value: string) {
 function normalizeLiveCategory(category: string): PublicDealCategory {
   const token = category.trim().toLowerCase();
 
-  if (token.includes("gift")) {
+  if (token.includes("gift") || category.includes("礼品卡")) {
     return "gift-card-offers";
   }
 
-  if (token.includes("free")) {
+  if (token.includes("free") || category.includes("免费")) {
     return "freebies";
   }
 
-  if (token.includes("historical") || token.includes("low")) {
+  if (token.includes("historical") || token.includes("low") || category.includes("历史低价")) {
     return "historical-lows";
   }
 
@@ -670,14 +670,34 @@ function getLiveFallbackTitle(
   sourceLocale: SupportedLocale,
   targetLocale: SupportedLocale,
   merchantName: string,
+  category: PublicDealCategory,
 ) {
   if (sourceLocale === targetLocale) {
     return input.title;
   }
 
+  const prefix =
+    targetLocale === "zh"
+      ? (
+          {
+            deals: "当前优惠",
+            "historical-lows": "历史低价",
+            freebies: "免费领取",
+            "gift-card-offers": "礼品卡优惠",
+          } as const
+        )[category]
+      : (
+          {
+            deals: "current deal",
+            "historical-lows": "tracked low",
+            freebies: "freebie",
+            "gift-card-offers": "gift card offer",
+          } as const
+        )[category];
+
   return targetLocale === "zh"
-    ? `${merchantName} 优惠：${input.title}`
-    : `${merchantName} deal: ${input.title}`;
+    ? `${merchantName} ${prefix}：${input.title}`
+    : `${merchantName} ${prefix}: ${input.title}`;
 }
 
 function getLiveFallbackSummary(
@@ -691,9 +711,19 @@ function getLiveFallbackSummary(
     return input.summary;
   }
 
+  const baseSummary =
+    targetLocale === "zh"
+      ? `当前标价 ${currentPriceDisplay}，商家是 ${merchantName}。`
+      : `Current listed price is ${currentPriceDisplay} at ${merchantName}.`;
+  const sourceSummary = input.summary.trim();
+
+  if (!sourceSummary) {
+    return baseSummary;
+  }
+
   return targetLocale === "zh"
-    ? `原始摘要：${input.summary} 当前标价 ${currentPriceDisplay}，商家是 ${merchantName}。`
-    : `Original summary: ${input.summary} Current listed price is ${currentPriceDisplay} at ${merchantName}.`;
+    ? `${baseSummary}商家原文：${sourceSummary}`
+    : `${baseSummary} Merchant copy: ${sourceSummary}`;
 }
 
 export function normalizeLivePublicDeal(
@@ -727,7 +757,7 @@ export function normalizeLivePublicDeal(
     publishedAt: input.publishedAt || "1970-01-01T00:00:00.000Z",
     locales: {
       en: {
-        title: getLiveFallbackTitle(input, sourceLocale, "en", englishFallbackMerchant),
+        title: getLiveFallbackTitle(input, sourceLocale, "en", englishFallbackMerchant, category),
         summary: getLiveFallbackSummary(
           input,
           sourceLocale,
@@ -737,7 +767,7 @@ export function normalizeLivePublicDeal(
         ),
       },
       zh: {
-        title: getLiveFallbackTitle(input, sourceLocale, "zh", chineseFallbackMerchant),
+        title: getLiveFallbackTitle(input, sourceLocale, "zh", chineseFallbackMerchant, category),
         summary: getLiveFallbackSummary(
           input,
           sourceLocale,

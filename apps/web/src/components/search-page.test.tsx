@@ -214,12 +214,12 @@ describe("home hero search and search results page", () => {
     expect(searchDeals).toHaveBeenCalledWith("breville", "zh", undefined, expect.any(Array));
     expect(
       screen.getByRole("link", {
-        name: "The Good Guys 优惠：Breville Barista Express for A$499",
+        name: "The Good Guys 当前优惠：Breville Barista Express for A$499",
       }).getAttribute("href"),
     ).toBe("https://www.thegoodguys.com.au/deal");
     expect(
       screen.getByText(
-        "原始摘要：Live catalog deal loaded from the public API. 当前标价 A$499.00，商家是 The Good Guys。",
+        "当前标价 A$499.00，商家是 The Good Guys。商家原文：Live catalog deal loaded from the public API.",
       ),
     ).toBeTruthy();
   });

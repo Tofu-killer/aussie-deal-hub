@@ -618,12 +618,12 @@ describe("public deal surfaces", () => {
 
     expect(
       detail.getByRole("heading", {
-        name: "The Good Guys 优惠：Breville Barista Express for A$499",
+        name: "The Good Guys 当前优惠：Breville Barista Express for A$499",
       }),
     ).toBeTruthy();
     expect(
       detail.getByText(
-        "原始摘要：Live catalog deal loaded from the public API. 当前标价 A$499.00，商家是 The Good Guys。",
+        "当前标价 A$499.00，商家是 The Good Guys。商家原文：Live catalog deal loaded from the public API.",
       ),
     ).toBeTruthy();
     expect(detail.getByText("当前标价是 A$499.00，商家是 The Good Guys。")).toBeTruthy();
