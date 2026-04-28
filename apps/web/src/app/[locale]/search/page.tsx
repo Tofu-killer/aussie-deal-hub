@@ -42,13 +42,27 @@ function toSingleSearchParam(value?: string | string[]) {
   return value ?? "";
 }
 
-function getMerchantOptions(deals: PublicDealRecord[]) {
+function getUnknownMerchantLabel(locale: SupportedLocale, merchantId: string) {
+  return locale === "en"
+    ? `Unknown merchant (${merchantId})`
+    : `未知商家（${merchantId}）`;
+}
+
+function getMerchantOptions(
+  locale: SupportedLocale,
+  deals: PublicDealRecord[],
+  activeMerchantId?: string,
+) {
   const merchants = new Map<string, string>();
 
   for (const deal of deals) {
     if (!merchants.has(deal.merchant.id)) {
       merchants.set(deal.merchant.id, deal.merchant.name);
     }
+  }
+
+  if (activeMerchantId && !merchants.has(activeMerchantId)) {
+    merchants.set(activeMerchantId, getUnknownMerchantLabel(locale, activeMerchantId));
   }
 
   return [...merchants.entries()]
@@ -60,12 +74,19 @@ function normalizeSearchToken(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getMerchantName(merchantId: string | undefined, deals: PublicDealRecord[]) {
+function getMerchantName(
+  locale: SupportedLocale,
+  merchantId: string | undefined,
+  deals: PublicDealRecord[],
+) {
   if (!merchantId) {
     return null;
   }
 
-  return deals.find((deal) => deal.merchant.id === merchantId)?.merchant.name ?? null;
+  return (
+    deals.find((deal) => deal.merchant.id === merchantId)?.merchant.name
+    ?? getUnknownMerchantLabel(locale, merchantId)
+  );
 }
 
 function getFilterCopy(locale: SupportedLocale) {
@@ -268,8 +289,8 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
     normalizeLivePublicDeal(deal, activeLocale),
   );
   const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
-  const merchantOptions = getMerchantOptions(publicDeals);
-  const merchantName = getMerchantName(filters.merchant, publicDeals);
+  const merchantOptions = getMerchantOptions(activeLocale, publicDeals, filters.merchant);
+  const merchantName = getMerchantName(activeLocale, filters.merchant, publicDeals);
   const hasSearchState = normalizedQuery.length > 0 || hasFilters;
   const results = hasSearchState
     ? searchDeals(normalizedQuery, activeLocale, hasFilters ? filters : undefined, publicDeals)

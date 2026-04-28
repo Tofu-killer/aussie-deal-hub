@@ -134,7 +134,6 @@ describe("listing query-param filters", () => {
       }),
     );
 
-    expect(screen.getByText("No deals match the current filters.")).toBeTruthy();
     expect(
       screen.queryByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
@@ -145,6 +144,30 @@ describe("listing query-param filters", () => {
         name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
       }),
     ).toBeNull();
+  });
+
+  it("keeps unknown merchant filters visible on the search page", async () => {
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({
+          merchant: "unknown-merchant",
+        }),
+      }),
+    );
+
+    const merchantSelect = screen.getByRole("combobox", {
+      name: "Merchant",
+    }) as HTMLSelectElement;
+
+    expect(merchantSelect.value).toBe("unknown-merchant");
+    expect(screen.getByText("Merchant: Unknown merchant (unknown-merchant)")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "No published deals found for Unknown merchant (unknown-merchant) with the current filters.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("No deals match the current filters.")).toBeNull();
   });
 
   it("filters search results to historical lows only when requested", async () => {
