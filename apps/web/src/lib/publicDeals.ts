@@ -177,7 +177,7 @@ export const DEFAULT_DEAL: PublicDealRecord = {
         validity: "Valid until 2026-04-30",
         whyWorthIt: "It undercuts the usual A$469 shelf price by A$70 before shipping.",
         highlights: [
-          "A$399 is the seeded tracked low for this model.",
+          "A$399 is the tracked low shown for this model.",
           "Sold by Amazon AU with local checkout.",
         ],
         howToGetIt: ["Open the Amazon AU deal page.", "Apply GAME20 at checkout."],
@@ -189,7 +189,7 @@ export const DEFAULT_DEAL: PublicDealRecord = {
       zh: {
         validity: "有效期至 2026-04-30",
         whyWorthIt: "相比常见 A$469 标价低 A$70，运费另计。",
-        highlights: ["A$399 是该机型的 seeded 监测低价。", "由 Amazon AU 销售并走本地结账。"],
+        highlights: ["A$399 是该机型当前展示的监测低价。", "由 Amazon AU 销售并走本地结账。"],
         howToGetIt: ["打开 Amazon AU 优惠页面。", "结账时输入 GAME20。"],
         termsAndWarnings: ["优惠码可能随时失效。", "下单前请确认配送费用。"],
       },
@@ -230,7 +230,7 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
       locales: {
         en: {
           validity: "Valid until 2026-04-28",
-          whyWorthIt: "The seeded price is A$100 below the reference A$399 ticket.",
+          whyWorthIt: "This tracked price is A$100 below the A$399 reference ticket.",
           highlights: [
             "Warehouse promotion targets a tracked low for AirPods Pro.",
             "Useful for buyers with Costco access.",
@@ -243,7 +243,7 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
         },
         zh: {
           validity: "有效期至 2026-04-28",
-          whyWorthIt: "seeded 价格比参考 A$399 低 A$100。",
+          whyWorthIt: "当前监测价比参考 A$399 低 A$100。",
           highlights: ["仓储促销把 AirPods Pro 压到监测低价。", "适合已有 Costco 资格的买家。"],
           howToGetIt: ["打开 Costco AU 优惠页面。", "如结账提示，输入 WAREHOUSE25。"],
           termsAndWarnings: ["可能需要 Costco 会员资格。", "库存和仓配时效可能变化。"],
@@ -334,7 +334,7 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
       locales: {
         en: {
           validity: "Valid until 2026-04-26",
-          whyWorthIt: "The seeded offer gives A$100 card value for A$90 spend.",
+          whyWorthIt: "This offer gives A$100 card value for A$90 spend.",
           highlights: [
             "Best suited to planned spend at eligible brands.",
             "Bonus value is clearer than a delayed cashback.",
@@ -347,7 +347,7 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
         },
         zh: {
           validity: "有效期至 2026-04-26",
-          whyWorthIt: "seeded 活动用 A$90 换 A$100 礼品卡价值。",
+          whyWorthIt: "这档活动用 A$90 换 A$100 礼品卡价值。",
           highlights: ["更适合已有指定品牌消费计划的用户。", "额外面值比延迟返现更直观。"],
           howToGetIt: ["打开 Coles 优惠页面。", "选择符合条件的礼品卡并使用 BONUS10。"],
           termsAndWarnings: ["适用品牌可能有限。", "礼品卡可能有使用和过期条件。"],

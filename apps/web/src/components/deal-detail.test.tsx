@@ -214,7 +214,7 @@ describe("public deal surfaces", () => {
     ).toBeTruthy();
 
     const highlights = detail.getByRole("region", { name: "Deal highlights" });
-    expect(within(highlights).getByText("A$399 is the seeded tracked low for this model.")).toBeTruthy();
+    expect(within(highlights).getByText("A$399 is the tracked low shown for this model.")).toBeTruthy();
     expect(within(highlights).getByText("Sold by Amazon AU with local checkout.")).toBeTruthy();
 
     const howToGetIt = detail.getByRole("region", { name: "How to get it" });

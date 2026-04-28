@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeLivePublicDeal } from "./publicDeals";
+import { getSeededPublicDeals, normalizeLivePublicDeal } from "./publicDeals";
 
 describe("normalizeLivePublicDeal", () => {
   it("keeps source-language live copy intact and builds Chinese fallback copy for English payloads", () => {
@@ -83,5 +83,28 @@ describe("normalizeLivePublicDeal", () => {
     expect(deal.locales.zh.summary).toContain("商家是 未知商家");
     expect(deal.detail.locales.zh.whyWorthIt).toContain("商家是 未知商家");
     expect(deal.detail.locales.en.whyWorthIt).toContain("Unknown merchant");
+  });
+
+  it("keeps seeded fallback copy free of internal implementation wording", () => {
+    const userVisibleCopy = getSeededPublicDeals()
+      .flatMap((deal) => [
+        deal.locales.en.title,
+        deal.locales.en.summary,
+        deal.locales.zh.title,
+        deal.locales.zh.summary,
+        deal.detail.locales.en.validity,
+        deal.detail.locales.en.whyWorthIt,
+        ...deal.detail.locales.en.highlights,
+        ...deal.detail.locales.en.howToGetIt,
+        ...deal.detail.locales.en.termsAndWarnings,
+        deal.detail.locales.zh.validity,
+        deal.detail.locales.zh.whyWorthIt,
+        ...deal.detail.locales.zh.highlights,
+        ...deal.detail.locales.zh.howToGetIt,
+        ...deal.detail.locales.zh.termsAndWarnings,
+      ])
+      .join(" ");
+
+    expect(userVisibleCopy).not.toMatch(/seeded/i);
   });
 });
