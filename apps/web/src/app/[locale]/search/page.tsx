@@ -1,13 +1,17 @@
 import React from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import { searchDeals } from "../../../lib/discovery";
 import { listPublicDeals } from "../../../lib/serverApi";
 import {
+  appendQueryParams,
   appendSessionToken,
   buildLocaleHref,
+  buildPublicUrl,
   getDefaultPublicDeals,
+  getListingFilterQueryParams,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
   hasActiveListingFilters,
@@ -74,6 +78,12 @@ function normalizeSearchToken(value: string) {
   return value.trim().toLowerCase();
 }
 
+function isQueryMatchingMerchant(normalizedQuery: string, merchantName: string | null) {
+  return (
+    merchantName !== null && normalizeSearchToken(normalizedQuery) === normalizeSearchToken(merchantName)
+  );
+}
+
 function getMerchantName(
   locale: SupportedLocale,
   merchantId: string | undefined,
@@ -127,6 +137,14 @@ function getResultCountLabel(locale: SupportedLocale, count: number) {
     : `${count} 条已发布优惠`;
 }
 
+function getSearchPageTitle(locale: SupportedLocale, merchantName: string | null) {
+  if (!merchantName) {
+    return locale === "en" ? "Search results" : "搜索结果";
+  }
+
+  return locale === "en" ? `${merchantName} deals` : `${merchantName} 优惠`;
+}
+
 function getSearchSummary(
   locale: SupportedLocale,
   normalizedQuery: string,
@@ -135,8 +153,7 @@ function getSearchSummary(
   resultCount: number,
 ) {
   const resultCountLabel = getResultCountLabel(locale, resultCount);
-  const queryMatchesMerchant =
-    merchantName !== null && normalizeSearchToken(normalizedQuery) === normalizeSearchToken(merchantName);
+  const queryMatchesMerchant = isQueryMatchingMerchant(normalizedQuery, merchantName);
 
   if (merchantName && (!normalizedQuery || queryMatchesMerchant)) {
     return locale === "en"
@@ -173,8 +190,7 @@ function getNoResultText(
   hasFilters: boolean,
   merchantName: string | null,
 ) {
-  const queryMatchesMerchant =
-    merchantName !== null && normalizeSearchToken(normalizedQuery) === normalizeSearchToken(merchantName);
+  const queryMatchesMerchant = isQueryMatchingMerchant(normalizedQuery, merchantName);
 
   if (merchantName && (!normalizedQuery || queryMatchesMerchant)) {
     return locale === "en"
@@ -234,8 +250,7 @@ function getActiveFilterChips(
   resultCount: number,
 ) {
   const chips = [getResultCountLabel(locale, resultCount)];
-  const queryMatchesMerchant =
-    merchantName !== null && normalizeSearchToken(normalizedQuery) === normalizeSearchToken(merchantName);
+  const queryMatchesMerchant = isQueryMatchingMerchant(normalizedQuery, merchantName);
 
   if (merchantName) {
     chips.push(locale === "en" ? `Merchant: ${merchantName}` : `商家：${merchantName}`);
@@ -270,6 +285,92 @@ function getActiveFilterChips(
   return chips;
 }
 
+function getSearchMetadataDescription(
+  locale: SupportedLocale,
+  normalizedQuery: string,
+  merchantName: string | null,
+) {
+  const queryMatchesMerchant = isQueryMatchingMerchant(normalizedQuery, merchantName);
+
+  if (merchantName && (!normalizedQuery || queryMatchesMerchant)) {
+    return locale === "en"
+      ? `Browse published deals from ${merchantName} with merchant-aware filters and bilingual summaries.`
+      : `浏览 ${merchantName} 的已发布优惠，并可继续按筛选收紧列表。`;
+  }
+
+  if (merchantName && normalizedQuery) {
+    return locale === "en"
+      ? `Browse published deals from ${merchantName} matching "${normalizedQuery}".`
+      : `浏览 ${merchantName} 中与“${normalizedQuery}”匹配的已发布优惠。`;
+  }
+
+  if (normalizedQuery) {
+    return locale === "en"
+      ? `Search the published Australian deal feed for "${normalizedQuery}".`
+      : `搜索与“${normalizedQuery}”匹配的已发布澳洲优惠。`;
+  }
+
+  return locale === "en"
+    ? "Search the published Australian deal feed with merchant and price filters."
+    : "按商家和价格筛选搜索已发布的澳洲优惠。";
+}
+
+function buildSearchMetadataPath(
+  locale: SupportedLocale,
+  normalizedQuery: string,
+  filters: ReturnType<typeof getListingFiltersFromSearchParams>,
+  merchantName: string | null,
+) {
+  const queryMatchesMerchant = isQueryMatchingMerchant(normalizedQuery, merchantName);
+
+  return appendQueryParams(buildLocaleHref(locale, "/search"), {
+    ...getListingFilterQueryParams(filters),
+    q: normalizedQuery && !queryMatchesMerchant ? normalizedQuery : undefined,
+  });
+}
+
+async function getSearchPageDeals(locale: SupportedLocale) {
+  const liveDeals = (await listPublicDeals(locale)).map((deal) => normalizeLivePublicDeal(deal, locale));
+  return mergePublicDeals(liveDeals, getDefaultPublicDeals());
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: Pick<SearchPageProps, "params" | "searchParams">): Promise<Metadata> {
+  const { locale } = await params;
+
+  if (!isSupportedLocale(locale)) {
+    notFound();
+  }
+
+  const resolvedSearchParams = await searchParams;
+  const query = toSingleSearchParam(resolvedSearchParams?.q);
+  const normalizedQuery = query.trim();
+  const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
+  const publicDeals = await getSearchPageDeals(locale);
+  const merchantName = getMerchantName(locale, filters.merchant, publicDeals);
+  const title = getSearchPageTitle(locale, merchantName);
+
+  return {
+    title: `${title} | Aussie Deal Hub`,
+    description: getSearchMetadataDescription(locale, normalizedQuery, merchantName),
+    alternates: {
+      canonical: buildPublicUrl(
+        buildSearchMetadataPath(locale, normalizedQuery, filters, merchantName),
+      ),
+      languages: {
+        en: buildPublicUrl(
+          buildSearchMetadataPath("en", normalizedQuery, filters, merchantName),
+        ),
+        zh: buildPublicUrl(
+          buildSearchMetadataPath("zh", normalizedQuery, filters, merchantName),
+        ),
+      },
+    },
+  };
+}
+
 export default async function SearchPage({ params, searchParams }: SearchPageProps) {
   const { locale } = await params;
   if (!isSupportedLocale(locale)) {
@@ -285,10 +386,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
   const hasFilters = hasActiveListingFilters(filters);
   const normalizedQuery = query.trim();
   const filterCopy = getFilterCopy(activeLocale);
-  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
-    normalizeLivePublicDeal(deal, activeLocale),
-  );
-  const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
+  const publicDeals = await getSearchPageDeals(activeLocale);
   const merchantOptions = getMerchantOptions(activeLocale, publicDeals, filters.merchant);
   const merchantName = getMerchantName(activeLocale, filters.merchant, publicDeals);
   const hasSearchState = normalizedQuery.length > 0 || hasFilters;
@@ -317,7 +415,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePro
       )
     : [];
 
-  const title = activeLocale === "en" ? "Search results" : "搜索结果";
+  const title = getSearchPageTitle(activeLocale, merchantName);
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
   return (

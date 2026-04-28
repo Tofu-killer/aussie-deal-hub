@@ -98,6 +98,83 @@ describe("public SEO metadata and discovery files", () => {
     expect(dealsMetadata.title).toBe("优惠 | Aussie Deal Hub");
   });
 
+  it("returns merchant-aware search metadata, keeps content-shaping filters, and strips session noise from canonical URLs", async () => {
+    const searchModule = await import("../app/[locale]/search/page");
+
+    expect(searchModule.generateMetadata).toBeTypeOf("function");
+
+    const metadata = await searchModule.generateMetadata({
+      params: Promise.resolve({ locale: "en" }),
+      searchParams: Promise.resolve({
+        q: "Amazon AU",
+        merchant: "amazon-au",
+        "discount-band": "20-plus",
+        sessionToken: "session_123",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "Amazon AU deals | Aussie Deal Hub",
+      description:
+        "Browse published deals from Amazon AU with merchant-aware filters and bilingual summaries.",
+      alternates: {
+        canonical: `${SITE_URL}/en/search?merchant=amazon-au&discount-band=20-plus`,
+        languages: {
+          en: `${SITE_URL}/en/search?merchant=amazon-au&discount-band=20-plus`,
+          zh: `${SITE_URL}/zh/search?merchant=amazon-au&discount-band=20-plus`,
+        },
+      },
+    });
+  });
+
+  it("keeps distinct merchant search keywords in localized canonical URLs", async () => {
+    const searchModule = await import("../app/[locale]/search/page");
+
+    const metadata = await searchModule.generateMetadata({
+      params: Promise.resolve({ locale: "en" }),
+      searchParams: Promise.resolve({
+        q: "switch",
+        merchant: "amazon-au",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "Amazon AU deals | Aussie Deal Hub",
+      description: 'Browse published deals from Amazon AU matching "switch".',
+      alternates: {
+        canonical: `${SITE_URL}/en/search?merchant=amazon-au&q=switch`,
+        languages: {
+          en: `${SITE_URL}/en/search?merchant=amazon-au&q=switch`,
+          zh: `${SITE_URL}/zh/search?merchant=amazon-au&q=switch`,
+        },
+      },
+    });
+  });
+
+  it("keeps unknown merchant search metadata stable across locale alternates", async () => {
+    const searchModule = await import("../app/[locale]/search/page");
+
+    const metadata = await searchModule.generateMetadata({
+      params: Promise.resolve({ locale: "en" }),
+      searchParams: Promise.resolve({
+        merchant: "unknown-merchant",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "Unknown merchant (unknown-merchant) deals | Aussie Deal Hub",
+      description:
+        "Browse published deals from Unknown merchant (unknown-merchant) with merchant-aware filters and bilingual summaries.",
+      alternates: {
+        canonical: `${SITE_URL}/en/search?merchant=unknown-merchant`,
+        languages: {
+          en: `${SITE_URL}/en/search?merchant=unknown-merchant`,
+          zh: `${SITE_URL}/zh/search?merchant=unknown-merchant`,
+        },
+      },
+    });
+  });
+
   it("returns localized detail metadata with canonical and en/zh alternates", async () => {
     const detailModule = await import("../app/[locale]/deals/[slug]/page");
 

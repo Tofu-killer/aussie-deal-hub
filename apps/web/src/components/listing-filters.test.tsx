@@ -98,6 +98,8 @@ describe("listing query-param filters", () => {
       }),
     );
 
+    expect(screen.getByRole("heading", { level: 1, name: "Costco AU deals" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Costco AU deals" })).toBeTruthy();
     expect(screen.getByText("Showing 1 published deal from Costco AU.")).toBeTruthy();
     expect(screen.getByText("Merchant: Costco AU")).toBeTruthy();
     expect(
@@ -119,6 +121,8 @@ describe("listing query-param filters", () => {
       }),
     );
 
+    expect(screen.getByRole("heading", { level: 1, name: "Amazon AU 优惠" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Amazon AU 优惠" })).toBeTruthy();
     expect(screen.getByText("展示 Amazon AU 的 1 条已发布优惠。")).toBeTruthy();
     expect(screen.getByText("商家：Amazon AU")).toBeTruthy();
     expect(screen.queryByText(/匹配/)).toBeNull();
