@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { sendDailyDigests } from "./sendDailyDigests";
 
 describe("sendDailyDigests", () => {
-  it("filters favorite-backed digest deals by the subscriber categories across all supported lanes", async () => {
+  it("filters digest deals by the subscriber categories across all supported lanes without requiring favorites", async () => {
     const sendDigest = vi.fn().mockResolvedValue(undefined);
     const markSent = vi.fn().mockResolvedValue(undefined);
     const sentAt = new Date("2026-04-26T08:00:00.000Z");
@@ -22,18 +22,6 @@ describe("sendDailyDigests", () => {
           ];
         },
         markSent,
-      },
-      {
-        async listByEmail(email) {
-          expect(email).toBe("freebie@example.com");
-
-          return [
-            { dealId: "deal-switch-en" },
-            { dealId: "deal-freebie-en" },
-            { dealId: "deal-giftcard-en" },
-            { dealId: "deal-historical-en" },
-          ];
-        },
       },
       {
         async listDigestDeals() {
@@ -168,16 +156,6 @@ describe("sendDailyDigests", () => {
         markSent,
       },
       {
-        async listByEmail(email) {
-          expect(email).toBe("shopper@example.com");
-
-          return [
-            { dealId: "switch-en" },
-            { dealId: "missing-deal" },
-          ];
-        },
-      },
-      {
         async listDigestDeals() {
           return [
             {
@@ -230,7 +208,7 @@ describe("sendDailyDigests", () => {
     });
   });
 
-  it("skips favorite-backed deals with missing categories instead of crashing the digest worker", async () => {
+  it("skips deals with missing categories instead of crashing the digest worker", async () => {
     const sendDigest = vi.fn().mockResolvedValue(undefined);
     const markSent = vi.fn().mockResolvedValue(undefined);
     const sentAt = new Date("2026-04-26T08:00:00.000Z");
@@ -249,11 +227,6 @@ describe("sendDailyDigests", () => {
           ];
         },
         markSent,
-      },
-      {
-        async listByEmail() {
-          return [{ dealId: "switch-en" }];
-        },
       },
       {
         async listDigestDeals() {
@@ -296,7 +269,92 @@ describe("sendDailyDigests", () => {
     });
   });
 
-  it("skips subscriptions already sent today or without live favorite deals", async () => {
+  it("skips subscriptions with empty or unknown categories instead of broadening the digest scope", async () => {
+    const sendDigest = vi.fn().mockResolvedValue(undefined);
+    const markSent = vi.fn().mockResolvedValue(undefined);
+
+    const summary = await sendDailyDigests(
+      {
+        async listEligibleSubscriptions() {
+          return [
+            {
+              email: "empty@example.com",
+              locale: "en",
+              frequency: "daily",
+              categories: [],
+              lastSentAt: null,
+            },
+            {
+              email: "unknown@example.com",
+              locale: "zh",
+              frequency: "weekly",
+              categories: ["mystery-boxes"],
+              lastSentAt: null,
+            },
+          ];
+        },
+        markSent,
+      },
+      {
+        async listDigestDeals() {
+          return [
+            {
+              id: "deal_switch",
+              merchant: "Amazon AU",
+              status: "published",
+              category: "Deals",
+              locales: {
+                en: {
+                  slug: "switch-en",
+                  title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                  merchant: "Amazon AU",
+                },
+                zh: {
+                  slug: "switch-zh",
+                  title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                  merchant: "亚马逊澳洲",
+                },
+              },
+            },
+            {
+              id: "deal_freebie",
+              merchant: "Epic Games",
+              status: "published",
+              category: "Freebies",
+              locales: {
+                en: {
+                  slug: "freebie-en",
+                  title: "Epic weekly freebie now A$0",
+                  merchant: "Epic Games",
+                },
+                zh: {
+                  slug: "freebie-zh",
+                  title: "Epic 本周免费游戏现为 A$0",
+                  merchant: "Epic Games",
+                },
+              },
+            },
+          ];
+        },
+      },
+      {
+        sendDigest,
+      },
+      {
+        now: new Date("2026-04-29T08:00:00.000Z"),
+      },
+    );
+
+    expect(sendDigest).not.toHaveBeenCalled();
+    expect(markSent).not.toHaveBeenCalled();
+    expect(summary).toEqual({
+      sentCount: 0,
+      skippedCount: 2,
+      sentEmails: [],
+    });
+  });
+
+  it("skips subscriptions already sent today or without live deals in the selected categories", async () => {
     const sendDigest = vi.fn();
     const markSent = vi.fn();
 
@@ -315,21 +373,12 @@ describe("sendDailyDigests", () => {
               email: "empty@example.com",
               locale: "en",
               frequency: "daily",
-              categories: ["deals"],
+              categories: ["freebies"],
               lastSentAt: null,
             },
           ];
         },
         markSent,
-      },
-      {
-        async listByEmail(email) {
-          if (email === "empty@example.com") {
-            return [{ dealId: "missing-deal" }];
-          }
-
-          return [{ dealId: "switch-en" }];
-        },
       },
       {
         async listDigestDeals() {
@@ -391,13 +440,6 @@ describe("sendDailyDigests", () => {
           ];
         },
         markSent,
-      },
-      {
-        async listByEmail(email) {
-          expect(email).toBe("weekly@example.com");
-
-          return [{ dealId: "switch-en" }];
-        },
       },
       {
         async listDigestDeals() {
@@ -470,11 +512,6 @@ describe("sendDailyDigests", () => {
           ];
         },
         markSent,
-      },
-      {
-        async listByEmail() {
-          return [{ dealId: "switch-en" }];
-        },
       },
       {
         async listDigestDeals() {

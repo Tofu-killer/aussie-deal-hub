@@ -360,9 +360,6 @@ describe("worker runtime helpers", () => {
           ]),
           markSent,
         },
-        favoriteStore: {
-          listByEmail: vi.fn().mockResolvedValue([{ dealId: "switch-en" }]),
-        },
         dealStore: {
           listDigestDeals: vi.fn().mockResolvedValue([
             {

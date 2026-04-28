@@ -10,7 +10,6 @@ import { reviewPendingLeads, type ReviewedLeadRecord } from "./jobs/reviewPendin
 import {
   sendDailyDigests,
   type DigestDealStore,
-  type DigestFavoriteStore,
   type DigestSender,
   type DigestSubscriptionStore,
 } from "./jobs/sendDailyDigests";
@@ -58,7 +57,6 @@ export interface WorkerCycleSummary {
 
 interface DigestDeliveryDependencies {
   dealStore: DigestDealStore;
-  favoriteStore: DigestFavoriteStore;
   sender: DigestSender;
   subscriptionStore: DigestSubscriptionStore;
 }
@@ -175,7 +173,6 @@ export async function runWorkerCycle({
   const digestSummary = digestDelivery
     ? await sendDailyDigests(
         digestDelivery.subscriptionStore,
-        digestDelivery.favoriteStore,
         digestDelivery.dealStore,
         digestDelivery.sender,
       )

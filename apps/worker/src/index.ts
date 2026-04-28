@@ -4,7 +4,6 @@ import {
   listEligibleDigestSubscriptions,
   markDigestSent,
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
-import { listFavoritesByEmail } from "@aussie-deal-hub/db/repositories/favorites";
 import { createAdminLeadRepository } from "@aussie-deal-hub/db/repositories/leads";
 import { listEnabledSourcesForIngestion, recordSourcePoll } from "@aussie-deal-hub/db/repositories/sources";
 import {
@@ -191,9 +190,6 @@ async function executeWorkerPass() {
             subscriptionStore: {
               listEligibleSubscriptions: listEligibleDigestSubscriptions,
               markSent: markDigestSent,
-            },
-            favoriteStore: {
-              listByEmail: listFavoritesByEmail,
             },
             dealStore: {
               listDigestDeals: publishedDealStore.listPublishedDealsForDigest,

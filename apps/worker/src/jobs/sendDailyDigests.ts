@@ -13,10 +13,6 @@ export interface DigestSubscriptionStore {
   markSent(email: string, sentAt: Date): Promise<void>;
 }
 
-export interface DigestFavoriteStore {
-  listByEmail(email: string): Promise<Array<{ dealId: string }>>;
-}
-
 export interface DigestDealStore {
   listDigestDeals(): Promise<DigestDealRecord[]>;
 }
@@ -98,7 +94,6 @@ function wasSentInCurrentDigestWindow(
 
 export async function sendDailyDigests(
   subscriptionStore: DigestSubscriptionStore,
-  favoriteStore: DigestFavoriteStore,
   dealStore: DigestDealStore,
   digestSender: DigestSender,
   options: SendDailyDigestsOptions = {},
@@ -124,22 +119,17 @@ export async function sendDailyDigests(
       continue;
     }
 
-    const favorites = await favoriteStore.listByEmail(subscription.email);
-    const favoriteDealIds = new Set(favorites.map((favorite) => favorite.dealId));
     const selectedCategories = new Set(
       subscription.categories
         .map((category) => normalizeDigestCategory(category))
         .filter((category): category is string => category !== null),
     );
     const matchingDeals = digestDeals.filter((deal) => {
-      const englishSlug = deal.locales.en.slug ?? "";
-      const chineseSlug = deal.locales.zh.slug ?? "";
       const normalizedDealCategory = normalizeDigestCategory(deal.category);
 
       return (
         normalizedDealCategory !== null &&
-        selectedCategories.has(normalizedDealCategory) &&
-        (favoriteDealIds.has(englishSlug) || favoriteDealIds.has(chineseSlug))
+        selectedCategories.has(normalizedDealCategory)
       );
     });
 
