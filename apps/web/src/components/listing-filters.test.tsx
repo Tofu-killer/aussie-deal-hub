@@ -293,4 +293,49 @@ describe("listing query-param filters", () => {
       "session_filter_789",
     );
   });
+
+  it("renders merchant-filtered category results as a landing state", async () => {
+    render(
+      await CategoryPage({
+        params: Promise.resolve({ locale: "zh", category: "deals" }),
+        searchParams: Promise.resolve({
+          merchant: "amazon-au",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("展示 Amazon AU 在优惠中的 1 条已发布优惠。")).toBeTruthy();
+    expect(screen.getByText("商家：Amazon AU")).toBeTruthy();
+    expect(screen.getByText("1 条已发布优惠")).toBeTruthy();
+    expect(
+      screen.getByRole("link", {
+        name: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("该分类暂无优惠。")).toBeNull();
+  });
+
+  it("distinguishes filtered category empty states from categories with no deals yet", async () => {
+    render(
+      await CategoryPage({
+        params: Promise.resolve({ locale: "en", category: "historical-lows" }),
+        searchParams: Promise.resolve({
+          merchant: "unknown-merchant",
+        }),
+      }),
+    );
+
+    const merchantSelect = screen.getByRole("combobox", {
+      name: "Merchant",
+    }) as HTMLSelectElement;
+
+    expect(merchantSelect.value).toBe("unknown-merchant");
+    expect(screen.getByText("Merchant: Unknown merchant (unknown-merchant)")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "No published deals from Unknown merchant (unknown-merchant) in Historical lows match the current filters.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("No deals in this category yet.")).toBeNull();
+  });
 });

@@ -54,7 +54,17 @@ function toSingleSearchParam(value?: string | string[]) {
   return value ?? "";
 }
 
-function getMerchantOptions(deals: PublicDealRecord[]) {
+function getUnknownMerchantLabel(locale: SupportedLocale, merchantId: string) {
+  return locale === "en"
+    ? `Unknown merchant (${merchantId})`
+    : `未知商家（${merchantId}）`;
+}
+
+function getMerchantOptions(
+  locale: SupportedLocale,
+  deals: PublicDealRecord[],
+  activeMerchantId?: string,
+) {
   const merchants = new Map<string, string>();
 
   for (const deal of deals) {
@@ -63,9 +73,141 @@ function getMerchantOptions(deals: PublicDealRecord[]) {
     }
   }
 
+  if (activeMerchantId && !merchants.has(activeMerchantId)) {
+    merchants.set(activeMerchantId, getUnknownMerchantLabel(locale, activeMerchantId));
+  }
+
   return [...merchants.entries()]
     .map(([id, name]) => ({ id, name }))
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function getMerchantName(
+  locale: SupportedLocale,
+  merchantId: string | undefined,
+  deals: PublicDealRecord[],
+) {
+  if (!merchantId) {
+    return null;
+  }
+
+  return (
+    deals.find((deal) => deal.merchant.id === merchantId)?.merchant.name
+    ?? getUnknownMerchantLabel(locale, merchantId)
+  );
+}
+
+function getResultCountLabel(locale: SupportedLocale, count: number) {
+  return locale === "en"
+    ? `${count} published ${count === 1 ? "deal" : "deals"}`
+    : `${count} 条已发布优惠`;
+}
+
+function getCategorySummary(
+  locale: SupportedLocale,
+  categoryTitle: string,
+  hasFilters: boolean,
+  merchantName: string | null,
+  resultCount: number,
+) {
+  const resultCountLabel = getResultCountLabel(locale, resultCount);
+
+  if (merchantName) {
+    return locale === "en"
+      ? `Showing ${resultCountLabel} from ${merchantName} in ${categoryTitle}.`
+      : `展示 ${merchantName} 在${categoryTitle}中的 ${resultCountLabel}。`;
+  }
+
+  if (hasFilters) {
+    return locale === "en"
+      ? `Showing ${resultCountLabel} in ${categoryTitle} with active filters.`
+      : `展示 ${categoryTitle}中符合当前筛选的 ${resultCountLabel}。`;
+  }
+
+  return locale === "en"
+    ? "Filtered category lanes tuned for fast merchant jumps and in-site verification."
+    : "按分类聚合优惠，主点击可直接前往商家页面，同时保留站内核对入口。";
+}
+
+function getCategoryNoResultText(
+  locale: SupportedLocale,
+  categoryTitle: string,
+  hasFilters: boolean,
+  merchantName: string | null,
+) {
+  if (merchantName) {
+    return locale === "en"
+      ? `No published deals from ${merchantName} in ${categoryTitle} match the current filters.`
+      : `当前筛选下没有找到 ${merchantName} 在${categoryTitle}中的已发布优惠。`;
+  }
+
+  if (hasFilters) {
+    return locale === "en"
+      ? `No published deals in ${categoryTitle} match the current filters.`
+      : `当前筛选下没有找到 ${categoryTitle}中的已发布优惠。`;
+  }
+
+  return locale === "en" ? "No deals in this category yet." : "该分类暂无优惠。";
+}
+
+function getCategoryNote(
+  locale: SupportedLocale,
+  merchantName: string | null,
+  hasFilters: boolean,
+) {
+  if (merchantName) {
+    return locale === "en"
+      ? "Merchant landing keeps this category scoped to one retailer while the sidebar narrows the list further."
+      : "这是商家分类落地页，左侧筛选会继续收紧该商家在当前分类下的已发布优惠。";
+  }
+
+  if (hasFilters) {
+    return locale === "en"
+      ? "Primary clicks open the retailer page. Active filters stay visible while you refine the category lane."
+      : "主点击直接打开商家商品页，当前筛选会保持可见，便于继续收紧这个分类列表。";
+  }
+
+  return locale === "en"
+    ? "Use filters to compress the feed down to the most actionable price moves."
+    : "使用筛选器压缩列表，只保留真正值得点开的价格变化。";
+}
+
+function getActiveFilterChips(
+  locale: SupportedLocale,
+  filters: ReturnType<typeof getListingFiltersFromSearchParams>,
+  filterCopy: ReturnType<typeof getFilterCopy>,
+  merchantName: string | null,
+  resultCount: number,
+) {
+  const chips = [getResultCountLabel(locale, resultCount)];
+
+  if (merchantName) {
+    chips.push(locale === "en" ? `Merchant: ${merchantName}` : `商家：${merchantName}`);
+  }
+
+  if (filters.discountBand) {
+    const discountLabel =
+      filters.discountBand === "under-20"
+        ? filterCopy.discountBandUnder20Label
+        : filters.discountBand === "20-plus"
+          ? filterCopy.discountBand20PlusLabel
+          : filterCopy.discountBandFreeLabel;
+    chips.push(locale === "en" ? `Discount: ${discountLabel}` : `折扣：${discountLabel}`);
+  }
+
+  if (filters.freeShipping) {
+    chips.push(filterCopy.freeShippingLabel);
+  }
+
+  if (filters.endingSoon) {
+    chips.push(filterCopy.endingSoonLabel);
+  }
+
+  if (filters.historicalLow) {
+    chips.push(filterCopy.historicalLowLabel);
+  }
+
+  return chips;
 }
 
 function getFilterCopy(locale: SupportedLocale) {
@@ -117,6 +259,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   }
 
   const activeLocale = locale;
+  const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
   const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
   const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
@@ -126,7 +269,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     normalizeLivePublicDeal(deal, activeLocale),
   );
   const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
-  const merchantOptions = getMerchantOptions(publicDeals);
+  const merchantOptions = getMerchantOptions(activeLocale, publicDeals, filters.merchant);
   const categoryGroups = hasFilters
     ? getCategoryDealGroups(activeLocale, filters, publicDeals)
     : getCategoryDealGroups(activeLocale, undefined, publicDeals);
@@ -134,8 +277,25 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     (group) => group.category === category,
   );
   const categoryDeals = categoryGroup?.deals ?? [];
-  const emptyStateLabel =
-    activeLocale === "en" ? "No deals in this category yet." : "该分类暂无优惠。";
+  const categoryTitle = getPublicCategoryTitle(activeLocale, category);
+  const merchantName = getMerchantName(activeLocale, filters.merchant, publicDeals);
+  const heroSummary = getCategorySummary(
+    activeLocale,
+    categoryTitle,
+    hasFilters,
+    merchantName,
+    categoryDeals.length,
+  );
+  const resultSummary = getCategoryNote(activeLocale, merchantName, hasFilters);
+  const stateChips = hasFilters
+    ? getActiveFilterChips(activeLocale, filters, filterCopy, merchantName, categoryDeals.length)
+    : [];
+  const emptyStateLabel = getCategoryNoResultText(
+    activeLocale,
+    categoryTitle,
+    hasFilters,
+    merchantName,
+  );
   const categoryDealsTitle =
     activeLocale === "en" ? "Available deals" : "当前优惠";
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
@@ -157,18 +317,10 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <div>
           <LocaleSwitch currentLocale={activeLocale} locales={switchLinks} />
           <p className="web-kicker">{activeLocale === "en" ? "Category view" : "分类浏览"}</p>
-          <h1>{getPublicCategoryTitle(activeLocale, category)}</h1>
-          <p className="web-page__summary">
-            {activeLocale === "en"
-              ? "Filtered category lanes tuned for fast merchant jumps and in-site verification."
-              : "按分类聚合优惠，主点击可直接前往商家页面，同时保留站内核对入口。"}
-          </p>
+          <h1>{categoryTitle}</h1>
+          <p className="web-page__summary">{heroSummary}</p>
         </div>
-        <p className="web-page__note">
-          {activeLocale === "en"
-            ? "Use filters to compress the feed down to the most actionable price moves."
-            : "使用筛选器压缩列表，只保留真正值得点开的价格变化。"}
-        </p>
+        <p className="web-page__note">{resultSummary}</p>
       </section>
       <div className="web-page__content">
         <aside className="web-page__sidebar">
@@ -234,35 +386,49 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         <button type="submit">{filterCopy.submitLabel}</button>
       </form>
         </aside>
-        {categoryDeals.length > 0 ? (
-          <section aria-labelledby="category-deals-title" className="web-results-panel">
-            <div className="web-panel__header">
-              <h2 id="category-deals-title">{categoryDealsTitle}</h2>
+        <section
+          aria-labelledby="category-deals-title"
+          className="web-results-panel"
+        >
+          <div className="web-panel__header">
+            <h2 id="category-deals-title">{categoryDealsTitle}</h2>
+            {stateChips.length > 0 ? (
+              <div
+                className="web-badge-row"
+                aria-label={activeLocale === "en" ? "Active category state" : "当前分类状态"}
+              >
+                {stateChips.map((chip) => (
+                  <p className="web-query-chip" key={chip}>
+                    {chip}
+                  </p>
+                ))}
+              </div>
+            ) : (
               <p>
                 {activeLocale === "en"
                   ? "Primary actions open the merchant page. Secondary actions stay in-app."
                   : "主动作直达商家页，次级动作保留站内详情。"}
               </p>
-            </div>
+            )}
+          </div>
+          {categoryDeals.length > 0 ? (
             <ul className="web-card-list web-card-list--split">
               {categoryDeals.map((deal) => (
                 <li key={deal.slug}>
                   <DealDiscoveryCard
                     deal={deal}
                     locale={activeLocale}
-                    primaryActionLabel={getLocaleCopy(activeLocale).ctaLabel}
+                    primaryActionLabel={copy.ctaLabel}
                     secondaryActionLabel={detailActionLabel}
                     sessionToken={urlSessionToken}
                   />
                 </li>
               ))}
             </ul>
-          </section>
-        ) : (
-          <section className="web-results-panel">
+          ) : (
             <p>{emptyStateLabel}</p>
-          </section>
-        )}
+          )}
+        </section>
       </div>
     </main>
   );
