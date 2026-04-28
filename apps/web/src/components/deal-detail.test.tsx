@@ -571,6 +571,115 @@ describe("public deal surfaces", () => {
     detail.unmount();
   });
 
+  it("renders localized fallback copy when a Chinese live detail page receives English-only content", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/zh/breville-barista-express-for-a-499"
+        ) {
+          return new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "breville-barista-express-for-a-499",
+              title: "Breville Barista Express for A$499",
+              summary: "Live catalog deal loaded from the public API.",
+              category: "Deals",
+              merchant: "The Good Guys",
+              currentPrice: "499.00",
+              affiliateUrl: "https://www.thegoodguys.com.au/deal",
+              publishedAt: "2026-04-23T01:00:00.000Z",
+              priceContext: {
+                snapshots: [],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }) as typeof fetch,
+    );
+
+    const detail = render(
+      await DealDetailPage({
+        params: Promise.resolve({
+          locale: "zh",
+          slug: "breville-barista-express-for-a-499",
+        }),
+      }),
+    );
+
+    expect(
+      detail.getByRole("heading", {
+        name: "The Good Guys 优惠：Breville Barista Express for A$499",
+      }),
+    ).toBeTruthy();
+    expect(
+      detail.getByText(
+        "原始摘要：Live catalog deal loaded from the public API. 当前标价 A$499.00，商家是 The Good Guys。",
+      ),
+    ).toBeTruthy();
+    expect(detail.getByText("当前标价是 A$499.00，商家是 The Good Guys。")).toBeTruthy();
+    expect(detail.getByRole("heading", { name: "优惠亮点" })).toBeTruthy();
+    detail.unmount();
+  });
+
+  it("localizes unknown merchant labels on a Chinese live detail page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/zh/breville-barista-express-for-a-499"
+        ) {
+          return new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "breville-barista-express-for-a-499",
+              title: "Breville Barista Express for A$499",
+              summary: "Live catalog deal loaded from the public API.",
+              category: "Deals",
+              currentPrice: "499.00",
+              affiliateUrl: "https://www.thegoodguys.com.au/deal",
+              publishedAt: "2026-04-23T01:00:00.000Z",
+              priceContext: {
+                snapshots: [],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }) as typeof fetch,
+    );
+
+    const detail = render(
+      await DealDetailPage({
+        params: Promise.resolve({
+          locale: "zh",
+          slug: "breville-barista-express-for-a-499",
+        }),
+      }),
+    );
+
+    expect(detail.getAllByText("未知商家").length).toBeGreaterThanOrEqual(2);
+    expect(detail.queryByText("Unknown merchant")).toBeNull();
+    detail.unmount();
+  });
+
   it("uses tracked price snapshots to enrich a live-only API deal", async () => {
     vi.stubGlobal(
       "fetch",

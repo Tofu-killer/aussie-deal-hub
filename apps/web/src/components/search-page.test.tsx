@@ -18,11 +18,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function stubLiveDealsResponse() {
+function stubLiveDealsResponse(routeLocale = "en") {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request) => {
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+      if (String(input) === `http://127.0.0.1:3001/v1/public/deals/${routeLocale}`) {
         return new Response(
           JSON.stringify({
             items: [
@@ -195,6 +195,33 @@ describe("home hero search and search results page", () => {
         name: "Breville Barista Express for A$499",
       }).getAttribute("href"),
     ).toBe("https://www.thegoodguys.com.au/deal");
+  });
+
+  it("renders localized fallback copy on Chinese search results for English-only live deals", async () => {
+    stubLiveDealsResponse("zh");
+    const actualDiscovery = await vi.importActual<typeof import("../lib/discovery")>(
+      "../lib/discovery",
+    );
+    vi.mocked(searchDeals).mockImplementationOnce(actualDiscovery.searchDeals);
+
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "zh" }),
+        searchParams: Promise.resolve({ q: "breville" }),
+      }),
+    );
+
+    expect(searchDeals).toHaveBeenCalledWith("breville", "zh", undefined, expect.any(Array));
+    expect(
+      screen.getByRole("link", {
+        name: "The Good Guys 优惠：Breville Barista Express for A$499",
+      }).getAttribute("href"),
+    ).toBe("https://www.thegoodguys.com.au/deal");
+    expect(
+      screen.getByText(
+        "原始摘要：Live catalog deal loaded from the public API. 当前标价 A$499.00，商家是 The Good Guys。",
+      ),
+    ).toBeTruthy();
   });
 
   it("renders merged live API deals for price token queries", async () => {

@@ -582,12 +582,17 @@ function getLiveDealDiscountLabel(
   return PUBLIC_DEAL_CATEGORY_LABELS[category][activeLocale];
 }
 
+function getUnknownLiveMerchantLabel(locale: SupportedLocale) {
+  return locale === "en" ? "Unknown merchant" : "未知商家";
+}
+
 function getLiveDealDetail(
   input: LivePublicDealInput,
   priceEvidence: LiveDealPriceEvidence,
 ): PublicDealDetailMetadata {
   const validFrom = input.publishedAt?.slice(0, 10) || "2026-04-23";
-  const merchant = input.merchant || "Unknown merchant";
+  const englishMerchant = input.merchant || getUnknownLiveMerchantLabel("en");
+  const chineseMerchant = input.merchant || getUnknownLiveMerchantLabel("zh");
   const hasTrackedRange =
     priceEvidence.lowestTrackedPrice !== null && priceEvidence.highestTrackedPrice !== null;
   const hasTrackedDiscount =
@@ -596,19 +601,22 @@ function getLiveDealDetail(
   const englishHighlights = hasTrackedRange
     ? [
         `Tracked range: ${priceEvidence.lowestTrackedPrice} to ${priceEvidence.highestTrackedPrice}.`,
-        `Published by ${merchant} on ${validFrom}.`,
+        `Published by ${englishMerchant} on ${validFrom}.`,
       ]
     : [
         `Current listed price: ${priceEvidence.currentPriceDisplay}.`,
-        `Published by ${merchant} on ${validFrom}.`,
+        `Published by ${englishMerchant} on ${validFrom}.`,
       ];
 
   const chineseHighlights = hasTrackedRange
     ? [
         `监测区间：${priceEvidence.lowestTrackedPrice} 至 ${priceEvidence.highestTrackedPrice}。`,
-        `由 ${merchant} 于 ${validFrom} 发布。`,
+        `由 ${chineseMerchant} 于 ${validFrom} 发布。`,
       ]
-    : [`当前标价：${priceEvidence.currentPriceDisplay}。`, `由 ${merchant} 于 ${validFrom} 发布。`];
+    : [
+        `当前标价：${priceEvidence.currentPriceDisplay}。`,
+        `由 ${chineseMerchant} 于 ${validFrom} 发布。`,
+      ];
 
   return {
     couponCode: null,
@@ -621,7 +629,7 @@ function getLiveDealDetail(
         validity: `Published on ${validFrom}`,
         whyWorthIt: hasTrackedDiscount
           ? `Current ${priceEvidence.currentPriceDisplay} is ${priceEvidence.amountBelowRecentHigh} below the tracked high of ${priceEvidence.highestTrackedPrice}.`
-          : `The current listed price is ${priceEvidence.currentPriceDisplay} at ${merchant}.`,
+          : `The current listed price is ${priceEvidence.currentPriceDisplay} at ${englishMerchant}.`,
         highlights: englishHighlights,
         howToGetIt: [
           "Open the merchant page from the deal link.",
@@ -638,7 +646,7 @@ function getLiveDealDetail(
         validity: `发布于 ${validFrom}`,
         whyWorthIt: hasTrackedDiscount
           ? `当前价 ${priceEvidence.currentPriceDisplay} 比监测高位 ${priceEvidence.highestTrackedPrice} 低 ${priceEvidence.amountBelowRecentHigh}。`
-          : `当前标价是 ${priceEvidence.currentPriceDisplay}，商家是 ${merchant}。`,
+          : `当前标价是 ${priceEvidence.currentPriceDisplay}，商家是 ${chineseMerchant}。`,
         highlights: chineseHighlights,
         howToGetIt: ["通过优惠链接打开商家页面。", "下单前确认最终价格、库存和活动条件。"],
         termsAndWarnings: [
@@ -650,14 +658,55 @@ function getLiveDealDetail(
   };
 }
 
+function resolveLiveSourceLocale(
+  inputLocale: LivePublicDealInput["locale"],
+  activeLocale: SupportedLocale,
+): SupportedLocale {
+  return isSupportedLocale(inputLocale) ? inputLocale : activeLocale;
+}
+
+function getLiveFallbackTitle(
+  input: LivePublicDealInput,
+  sourceLocale: SupportedLocale,
+  targetLocale: SupportedLocale,
+  merchantName: string,
+) {
+  if (sourceLocale === targetLocale) {
+    return input.title;
+  }
+
+  return targetLocale === "zh"
+    ? `${merchantName} 优惠：${input.title}`
+    : `${merchantName} deal: ${input.title}`;
+}
+
+function getLiveFallbackSummary(
+  input: LivePublicDealInput,
+  sourceLocale: SupportedLocale,
+  targetLocale: SupportedLocale,
+  merchantName: string,
+  currentPriceDisplay: string,
+) {
+  if (sourceLocale === targetLocale) {
+    return input.summary;
+  }
+
+  return targetLocale === "zh"
+    ? `原始摘要：${input.summary} 当前标价 ${currentPriceDisplay}，商家是 ${merchantName}。`
+    : `Original summary: ${input.summary} Current listed price is ${currentPriceDisplay} at ${merchantName}.`;
+}
+
 export function normalizeLivePublicDeal(
   input: LivePublicDealInput,
   activeLocale: SupportedLocale,
 ): PublicDealRecord {
   const category = normalizeLiveCategory(input.category);
-  const merchantName = input.merchant || "Unknown merchant";
+  const merchantName = input.merchant || getUnknownLiveMerchantLabel(activeLocale);
   const currentPrice = formatLivePrice(input.currentPrice);
   const priceEvidence = getLiveDealPriceEvidence(input, currentPrice);
+  const sourceLocale = resolveLiveSourceLocale(input.locale, activeLocale);
+  const englishFallbackMerchant = input.merchant || getUnknownLiveMerchantLabel("en");
+  const chineseFallbackMerchant = input.merchant || getUnknownLiveMerchantLabel("zh");
   const originalPrice =
     priceEvidence.amountBelowRecentHigh !== null && priceEvidence.highestTrackedPrice
       ? priceEvidence.highestTrackedPrice
@@ -678,12 +727,24 @@ export function normalizeLivePublicDeal(
     publishedAt: input.publishedAt || "1970-01-01T00:00:00.000Z",
     locales: {
       en: {
-        title: input.locale === "zh" && activeLocale === "zh" ? input.title : input.title,
-        summary: input.locale === "zh" && activeLocale === "zh" ? input.summary : input.summary,
+        title: getLiveFallbackTitle(input, sourceLocale, "en", englishFallbackMerchant),
+        summary: getLiveFallbackSummary(
+          input,
+          sourceLocale,
+          "en",
+          englishFallbackMerchant,
+          priceEvidence.currentPriceDisplay,
+        ),
       },
       zh: {
-        title: input.title,
-        summary: input.summary,
+        title: getLiveFallbackTitle(input, sourceLocale, "zh", chineseFallbackMerchant),
+        summary: getLiveFallbackSummary(
+          input,
+          sourceLocale,
+          "zh",
+          chineseFallbackMerchant,
+          priceEvidence.currentPriceDisplay,
+        ),
       },
     },
   };
