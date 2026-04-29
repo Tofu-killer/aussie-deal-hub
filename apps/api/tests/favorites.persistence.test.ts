@@ -11,6 +11,7 @@ import {
   upsertDigestSubscription,
 } from "@aussie-deal-hub/db/repositories/digestSubscriptions";
 import { listPriceSnapshotsForDeal } from "@aussie-deal-hub/db/repositories/priceSnapshots";
+import { createPublishedDealRepository } from "@aussie-deal-hub/db/repositories/deals";
 import { buildApp } from "../src/app";
 
 const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;
@@ -68,6 +69,12 @@ async function signIn(app: Express, email: string) {
   expect(verify.status).toBe(200);
 
   return (verify.body as { sessionToken: string }).sessionToken;
+}
+
+function buildDbBackedFavoritesApp() {
+  return buildApp({
+    publishedDealStore: createPublishedDealRepository(),
+  });
 }
 
 describeDb("favorites persistence", () => {
@@ -202,7 +209,7 @@ describeDb("favorites persistence", () => {
     const localizedDealId = "任天堂-switch-oled-亚马逊澳洲";
     const sourceId = `favorite-locale-source-${randomUUID()}`;
     const leadId = `favorite-locale-contract-lead-${randomUUID()}`;
-    const app = buildApp();
+    const app = buildDbBackedFavoritesApp();
 
     try {
       await prisma.source.create({
