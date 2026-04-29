@@ -138,6 +138,17 @@ If PostgreSQL is not exposed on `127.0.0.1:5432`, set `DATABASE_URL` explicitly 
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:15432/aussie_deals_hub pnpm test:db
 ```
 
+## Runtime backup
+
+Create a PostgreSQL runtime backup with:
+
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
+pnpm runtime:backup
+```
+
+The script requires `pg_dump` in `PATH`, expands `DATABASE_URL` into libpq runtime settings without placing credentials on the `pg_dump` command line, and writes a custom-format dump into `backups/` by default. Override the destination directory with `BACKUP_DIR` or the filename prefix with `BACKUP_PREFIX` when you need a different runtime layout.
+
 ## Service start commands
 
 Build the workspace once before starting the Next.js apps:

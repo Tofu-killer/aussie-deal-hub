@@ -332,6 +332,27 @@ describe("deployment artifacts", () => {
     expect(testDbScript).toContain("\"vitest\"");
   });
 
+  it("documents a runtime backup entrypoint and ignores generated dump artifacts", () => {
+    const packageJson = readRepoFile("package.json");
+    const readme = readRepoFile("README.md");
+    const gitignore = readRepoFile(".gitignore");
+    const runtimeBackupBlock = [
+      "export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+      "pnpm runtime:backup",
+    ].join("\n");
+
+    expect(packageJson).toContain("\"runtime:backup\": \"node scripts/runtime-backup.mjs\"");
+    expect(readme).toContain("## Runtime backup");
+    expect(readme).toContain(runtimeBackupBlock);
+    expect(readme).toContain("pg_dump");
+    expect(readme).toContain("backups/");
+    expect(readme).toContain("BACKUP_DIR");
+    expect(readme).toContain("BACKUP_PREFIX");
+    expect(readme).toContain("without placing credentials on the `pg_dump` command line");
+    expect(readme).toContain("custom-format dump");
+    expect(gitignore).toContain("backups");
+  });
+
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const packageJson = JSON.parse(readRepoFile("package.json")) as {
