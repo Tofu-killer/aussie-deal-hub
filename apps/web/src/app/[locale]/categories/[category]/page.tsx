@@ -8,7 +8,9 @@ import { listPublicDealsWithLocaleFallback } from "../../../../lib/serverApi";
 import {
   PUBLIC_PRIMARY_CATEGORIES,
   appendQueryParams,
+  buildCategoryMetadataPath,
   buildCategoryPageMetadata,
+  buildPublicUrl,
   buildLocaleHref,
   getDiscoveryPublicDeals,
   getListingFilterQueryParams,
@@ -126,6 +128,34 @@ function getCategorySummary(
     : "按分类聚合优惠，主点击可直接前往商家页面，同时保留站内核对入口。";
 }
 
+function getCategoryMetadataTitle(
+  locale: SupportedLocale,
+  categoryTitle: string,
+  merchantName: string | null,
+) {
+  if (!merchantName) {
+    return `${categoryTitle} | Aussie Deal Hub`;
+  }
+
+  return locale === "en"
+    ? `${merchantName} ${categoryTitle.toLowerCase()} | Aussie Deal Hub`
+    : `${merchantName} ${categoryTitle} | Aussie Deal Hub`;
+}
+
+function getCategoryMetadataDescription(
+  locale: SupportedLocale,
+  categoryTitle: string,
+  merchantName: string | null,
+) {
+  if (!merchantName) {
+    return buildCategoryPageMetadata(locale, "deals").description;
+  }
+
+  return locale === "en"
+    ? `Browse published ${categoryTitle.toLowerCase()} from ${merchantName} with merchant-aware filters and bilingual summaries.`
+    : `浏览${merchantName}的已发布${categoryTitle}，并可继续按筛选收紧列表。`;
+}
+
 function getCategoryNoResultText(
   locale: SupportedLocale,
   categoryTitle: string,
@@ -239,14 +269,36 @@ function getFilterCopy(locale: SupportedLocale) {
 
 export async function generateMetadata({
   params,
-}: Pick<CategoryPageProps, "params">): Promise<Metadata> {
+  searchParams,
+}: Pick<CategoryPageProps, "params" | "searchParams">): Promise<Metadata> {
   const { locale, category } = await params;
 
   if (!isSupportedLocale(locale) || !isPrimaryCategory(category)) {
     notFound();
   }
 
-  return buildCategoryPageMetadata(locale, category);
+  const resolvedSearchParams = await searchParams;
+  const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
+  const liveDeals = (await listPublicDealsWithLocaleFallback(locale)).map((deal) =>
+    normalizeLivePublicDeal(deal, locale),
+  );
+  const publicDeals = getDiscoveryPublicDeals(liveDeals);
+  const merchantName = getMerchantName(locale, filters.merchant, publicDeals);
+  const categoryTitle = getPublicCategoryTitle(locale, category);
+
+  return {
+    title: getCategoryMetadataTitle(locale, categoryTitle, merchantName),
+    description: merchantName
+      ? getCategoryMetadataDescription(locale, categoryTitle, merchantName)
+      : buildCategoryPageMetadata(locale, category).description,
+    alternates: {
+      canonical: buildPublicUrl(buildCategoryMetadataPath(locale, category, filters)),
+      languages: {
+        en: buildPublicUrl(buildCategoryMetadataPath("en", category, filters)),
+        zh: buildPublicUrl(buildCategoryMetadataPath("zh", category, filters)),
+      },
+    },
+  };
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {

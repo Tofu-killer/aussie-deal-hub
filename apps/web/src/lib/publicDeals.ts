@@ -1253,6 +1253,16 @@ export function buildCategoryPageMetadata(
   };
 }
 
+export function buildCategoryMetadataPath(
+  locale: SupportedLocale,
+  category: PublicDealCategory,
+  filters: PublicListingFilters,
+) {
+  return appendQueryParams(buildLocaleHref(locale, `/categories/${category}`), {
+    ...getListingFilterQueryParams(filters),
+  });
+}
+
 export function buildDealPageMetadata(
   locale: SupportedLocale,
   deal: PublicDealRecord,

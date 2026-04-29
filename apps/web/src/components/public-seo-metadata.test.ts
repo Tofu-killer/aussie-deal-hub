@@ -106,6 +106,61 @@ describe("public SEO metadata and discovery files", () => {
     expect(dealsMetadata.title).toBe("优惠 | Aussie Deal Hub");
   });
 
+  it("returns merchant-aware category metadata, keeps content-shaping filters, and strips session noise from canonical URLs", async () => {
+    const categoryModule = await import("../app/[locale]/categories/[category]/page");
+
+    expect(categoryModule.generateMetadata).toBeTypeOf("function");
+
+    const metadata = await categoryModule.generateMetadata({
+      params: Promise.resolve({ locale: "en", category: "historical-lows" }),
+      searchParams: Promise.resolve({
+        merchant: "amazon-au",
+        "discount-band": "20-plus",
+        "free-shipping": "true",
+        sessionToken: "session_123",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "Amazon AU historical lows | Aussie Deal Hub",
+      description:
+        "Browse published historical lows from Amazon AU with merchant-aware filters and bilingual summaries.",
+      alternates: {
+        canonical:
+          `${SITE_URL}/en/categories/historical-lows?merchant=amazon-au&discount-band=20-plus&free-shipping=true`,
+        languages: {
+          en:
+            `${SITE_URL}/en/categories/historical-lows?merchant=amazon-au&discount-band=20-plus&free-shipping=true`,
+          zh:
+            `${SITE_URL}/zh/categories/historical-lows?merchant=amazon-au&discount-band=20-plus&free-shipping=true`,
+        },
+      },
+    });
+  });
+
+  it("keeps unknown merchant category metadata stable across locale alternates", async () => {
+    const categoryModule = await import("../app/[locale]/categories/[category]/page");
+
+    const metadata = await categoryModule.generateMetadata({
+      params: Promise.resolve({ locale: "zh", category: "freebies" }),
+      searchParams: Promise.resolve({
+        merchant: "unknown-merchant",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "未知商家（unknown-merchant） 免费领取优惠 | Aussie Deal Hub",
+      description: "浏览未知商家（unknown-merchant）的已发布免费领取优惠，并可继续按筛选收紧列表。",
+      alternates: {
+        canonical: `${SITE_URL}/zh/categories/freebies?merchant=unknown-merchant`,
+        languages: {
+          en: `${SITE_URL}/en/categories/freebies?merchant=unknown-merchant`,
+          zh: `${SITE_URL}/zh/categories/freebies?merchant=unknown-merchant`,
+        },
+      },
+    });
+  });
+
   it("returns merchant-aware search metadata, keeps content-shaping filters, and strips session noise from canonical URLs", async () => {
     const searchModule = await import("../app/[locale]/search/page");
 
