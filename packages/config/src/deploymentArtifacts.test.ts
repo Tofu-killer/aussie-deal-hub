@@ -353,6 +353,26 @@ describe("deployment artifacts", () => {
     expect(gitignore).toContain("backups");
   });
 
+  it("documents a guarded runtime restore entrypoint", () => {
+    const packageJson = readRepoFile("package.json");
+    const readme = readRepoFile("README.md");
+    const runtimeRestoreBlock = [
+      "export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+      "BACKUP_FILE=backups/aussie-deal-hub-20260429T101112Z.dump RESTORE_CONFIRM=restore pnpm runtime:restore",
+    ].join("\n");
+
+    expect(packageJson).toContain("\"runtime:restore\": \"node scripts/runtime-restore.mjs\"");
+    expect(readme).toContain("## Runtime restore");
+    expect(readme).toContain(runtimeRestoreBlock);
+    expect(readme).toContain("pg_restore");
+    expect(readme).toContain("RESTORE_CONFIRM=restore");
+    expect(readme).toContain("destructive");
+    expect(readme).toContain("custom-format dump");
+    expect(readme).toContain("Create a fresh runtime backup with `pnpm runtime:backup` before restoring.");
+    expect(readme).toContain("Stop the api, web, admin, and worker processes before running restore.");
+    expect(readme).toContain("without placing credentials on the `pg_restore` command line");
+  });
+
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const packageJson = JSON.parse(readRepoFile("package.json")) as {

@@ -149,6 +149,19 @@ pnpm runtime:backup
 
 The script requires `pg_dump` in `PATH`, expands `DATABASE_URL` into libpq runtime settings without placing credentials on the `pg_dump` command line, and writes a custom-format dump into `backups/` by default. Override the destination directory with `BACKUP_DIR` or the filename prefix with `BACKUP_PREFIX` when you need a different runtime layout.
 
+## Runtime restore
+
+Restore a PostgreSQL runtime backup with:
+
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
+BACKUP_FILE=backups/aussie-deal-hub-20260429T101112Z.dump RESTORE_CONFIRM=restore pnpm runtime:restore
+```
+
+Create a fresh runtime backup with `pnpm runtime:backup` before restoring. Stop the api, web, admin, and worker processes before running restore.
+
+This operation is destructive because it runs `pg_restore --clean --if-exists` against the target database. The script requires `pg_restore` in `PATH`, only accepts custom-format `.dump` artifacts created by `pnpm runtime:backup`, resolves `BACKUP_FILE` from the current working directory, and expands `DATABASE_URL` into libpq runtime settings without placing credentials on the `pg_restore` command line. The explicit `RESTORE_CONFIRM=restore` gate is required on every invocation to reduce accidental restores.
+
 ## Service start commands
 
 Build the workspace once before starting the Next.js apps:
