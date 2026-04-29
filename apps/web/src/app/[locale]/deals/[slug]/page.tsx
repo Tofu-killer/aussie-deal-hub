@@ -204,7 +204,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
         <div className="web-detail-overview">
           <LocaleSwitch
             currentLocale={activeLocale}
-            locales={getLocaleSwitchLinks(activeLocale, deal.slug)}
+            locales={getLocaleSwitchLinks(deal)}
           />
           <div className="web-badge-row">
             <span className="web-chip">{deal.merchant.name}</span>

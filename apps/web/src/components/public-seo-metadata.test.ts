@@ -243,6 +243,55 @@ describe("public SEO metadata and discovery files", () => {
     });
   });
 
+  it("uses locale-specific alternate slugs and translated live copy when sibling locale content exists", async () => {
+    vi.mocked(getPublicDealFromApiWithLocaleFallback).mockResolvedValue({
+      id: "deal_live_lego_1",
+      slug: "lego-bonsai-tree-for-a-59-at-big-w",
+      title: "LEGO Bonsai Tree for A$59 at Big W",
+      summary: "Stacked voucher pricing lands the bonsai set at A$59.",
+      category: "deals",
+      locale: "en",
+      merchant: "Big W",
+      currentPrice: "59",
+      publishedAt: "2026-04-23T10:00:00.000Z",
+      locales: [
+        {
+          locale: "en",
+          slug: "lego-bonsai-tree-for-a-59-at-big-w",
+          title: "LEGO Bonsai Tree for A$59 at Big W",
+          summary: "Stacked voucher pricing lands the bonsai set at A$59.",
+        },
+        {
+          locale: "zh",
+          slug: "big-w-乐高盆景树套装-a-59",
+          title: "Big W 乐高盆景树套装 A$59",
+          summary: "叠加优惠后乐高盆景树套装到手 A$59。",
+        },
+      ],
+    });
+
+    const detailModule = await import("../app/[locale]/deals/[slug]/page");
+
+    const metadata = await detailModule.generateMetadata({
+      params: Promise.resolve({
+        locale: "zh",
+        slug: "big-w-乐高盆景树套装-a-59",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "Big W 乐高盆景树套装 A$59 | Aussie Deal Hub",
+      description: "叠加优惠后乐高盆景树套装到手 A$59。",
+      alternates: {
+        canonical: `${SITE_URL}/zh/deals/big-w-%E4%B9%90%E9%AB%98%E7%9B%86%E6%99%AF%E6%A0%91%E5%A5%97%E8%A3%85-a-59`,
+        languages: {
+          en: `${SITE_URL}/en/deals/lego-bonsai-tree-for-a-59-at-big-w`,
+          zh: `${SITE_URL}/zh/deals/big-w-%E4%B9%90%E9%AB%98%E7%9B%86%E6%99%AF%E6%A0%91%E5%A5%97%E8%A3%85-a-59`,
+        },
+      },
+    });
+  });
+
   it("publishes sitemap entries for locale homes, primary categories, and seeded deal details", async () => {
     vi.mocked(listPublicDeals).mockResolvedValue([
       {

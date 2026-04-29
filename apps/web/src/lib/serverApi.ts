@@ -17,7 +17,14 @@ export interface PublicApiDealRecord {
   affiliateUrl?: string;
   category: string;
   currentPrice?: string;
+  id?: string;
   locale: string;
+  locales?: Array<{
+    locale: string;
+    slug: string;
+    title: string;
+    summary: string;
+  }>;
   merchant?: string;
   priceContext?: {
     snapshots?: PublicPriceSnapshotRecord[];
@@ -150,11 +157,12 @@ function mergePublicApiDealRecords(
   primaryDeals: PublicApiDealRecord[],
   fallbackDeals: PublicApiDealRecord[],
 ) {
-  const primarySlugs = new Set(primaryDeals.map((deal) => deal.slug));
+  const getDealKey = (deal: PublicApiDealRecord) => deal.id ?? `${deal.locale}:${deal.slug}`;
+  const primaryKeys = new Set(primaryDeals.map(getDealKey));
 
   return [
     ...primaryDeals,
-    ...fallbackDeals.filter((deal) => !primarySlugs.has(deal.slug)),
+    ...fallbackDeals.filter((deal) => !primaryKeys.has(getDealKey(deal))),
   ];
 }
 
@@ -174,18 +182,19 @@ export async function listPublicDealsWithLocaleFallback(locale: string) {
 }
 
 export async function getPublicDealFromApiWithLocaleFallback(locale: string, slug: string) {
+  const primaryDeal = await getPublicDealFromApi(locale, slug);
+
+  if (primaryDeal) {
+    return primaryDeal;
+  }
+
   const alternateLocale = getAlternatePublicDealLocale(locale);
 
   if (!alternateLocale) {
-    return getPublicDealFromApi(locale, slug);
+    return null;
   }
 
-  const [primaryDeal, fallbackDeal] = await Promise.all([
-    getPublicDealFromApi(locale, slug),
-    getPublicDealFromApi(alternateLocale, slug),
-  ]);
-
-  return primaryDeal ?? fallbackDeal;
+  return getPublicDealFromApi(alternateLocale, slug);
 }
 
 export async function getDigestPreferences(sessionToken: string | undefined) {

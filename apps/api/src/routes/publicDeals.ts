@@ -5,6 +5,7 @@ import {
 } from "@aussie-deal-hub/db/repositories/priceSnapshots";
 
 export interface PublicDealRecord {
+  id?: string;
   locale: string;
   slug: string;
   title: string;
@@ -14,6 +15,12 @@ export interface PublicDealRecord {
   currentPrice?: string;
   affiliateUrl?: string;
   publishedAt?: string;
+  locales?: Array<{
+    locale: string;
+    slug: string;
+    title: string;
+    summary: string;
+  }>;
 }
 
 export interface PublicPriceSnapshotRecord {
@@ -82,27 +89,46 @@ const seededDealMetadata = {
   publishedAt: "2025-04-15T00:00:00.000Z",
 };
 
+const seededDealLocales = [
+  {
+    locale: "en",
+    slug: "nintendo-switch-oled-amazon-au",
+    title: "Nintendo Switch OLED for A$399 at Amazon AU",
+    summary: "Coupon GAME20 drops the OLED model to a strong Amazon AU price.",
+  },
+  {
+    locale: "zh",
+    slug: "nintendo-switch-oled-amazon-au",
+    title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+    summary: "使用优惠码 GAME20 后达到很强的澳洲站价格。",
+  },
+] satisfies NonNullable<PublicDealRecord["locales"]>;
+
 export function seedPublishedDeals() {
   return new Map<string, PublicDealRecord>([
     [
       "en:nintendo-switch-oled-amazon-au",
       {
+        id: "seed-nintendo-switch-oled-amazon-au",
         locale: "en",
         slug: "nintendo-switch-oled-amazon-au",
         title: "Nintendo Switch OLED for A$399 at Amazon AU",
         summary: "Coupon GAME20 drops the OLED model to a strong Amazon AU price.",
         category: "Deals",
+        locales: seededDealLocales,
         ...seededDealMetadata,
       },
     ],
     [
       "zh:nintendo-switch-oled-amazon-au",
       {
+        id: "seed-nintendo-switch-oled-amazon-au",
         locale: "zh",
         slug: "nintendo-switch-oled-amazon-au",
         title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
         summary: "使用优惠码 GAME20 后达到很强的澳洲站价格。",
         category: "Deals",
+        locales: seededDealLocales,
         ...seededDealMetadata,
       },
     ],
@@ -118,7 +144,12 @@ export function getPublishedDeal(
 }
 
 export function getPublishedDealIds(store: Map<string, PublicDealRecord>) {
-  return new Set(Array.from(store.values(), (deal) => deal.slug));
+  return new Set(
+    Array.from(store.values()).flatMap((deal) => [
+      deal.slug,
+      ...(deal.locales?.map((locale) => locale.slug) ?? []),
+    ]),
+  );
 }
 
 function withPublicDealDefaults(deal: PublicDealRecord): PublicDealRecord {
@@ -169,8 +200,16 @@ export function createSeedPublishedDealStore(
       return leadLocaleSlugs.get(`${leadId}:${locale}`) ?? null;
     },
     async publishDeal(input) {
+      const publishedLocales = input.locales.map((locale) => ({
+        locale: locale.locale,
+        slug: locale.slug,
+        title: locale.title,
+        summary: locale.summary,
+      }));
+
       for (const locale of input.locales) {
         store.set(`${locale.locale}:${locale.slug}`, {
+          id: input.leadId,
           locale: locale.locale,
           slug: locale.slug,
           title: locale.title,
@@ -180,6 +219,7 @@ export function createSeedPublishedDealStore(
           currentPrice: input.currentPrice,
           affiliateUrl: input.affiliateUrl,
           publishedAt: defaultPublishedAt,
+          locales: publishedLocales,
         });
         leadLocaleSlugs.set(`${input.leadId}:${locale.locale}`, locale.slug);
       }

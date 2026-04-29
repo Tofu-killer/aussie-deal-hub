@@ -68,6 +68,8 @@ export interface PublicDealRecord {
   dealUrl: string;
   detail: PublicDealDetailMetadata;
   discountLabel: string;
+  id?: string;
+  localeSlugs?: Partial<Record<SupportedLocale, string>>;
   locales: Record<SupportedLocale, LocalizedDealContent>;
   merchant: {
     id: string;
@@ -107,7 +109,14 @@ export interface LivePublicDealInput {
   affiliateUrl?: string;
   category: string;
   currentPrice?: string;
+  id?: string;
   locale: SupportedLocale | string;
+  locales?: Array<{
+    locale: string;
+    slug: string;
+    title: string;
+    summary: string;
+  }>;
   merchant?: string;
   priceContext?: {
     snapshots?: Array<{
@@ -160,12 +169,17 @@ export const PUBLIC_DEAL_CATEGORY_LABELS: Record<
 };
 
 export const DEFAULT_DEAL: PublicDealRecord = {
+  id: "seed-nintendo-switch-oled-amazon-au",
   slug: "nintendo-switch-oled-amazon-au",
   categories: ["deals", "historical-lows"],
   currentPrice: "A$399",
   originalPrice: "A$469",
   discountLabel: "15% off",
   dealUrl: "https://www.amazon.com.au/deal",
+  localeSlugs: {
+    en: "nintendo-switch-oled-amazon-au",
+    zh: "nintendo-switch-oled-amazon-au",
+  },
   detail: {
     couponCode: "GAME20",
     endingSoon: false,
@@ -215,12 +229,17 @@ export const DEFAULT_DEAL: PublicDealRecord = {
 const PUBLIC_DEALS: PublicDealRecord[] = [
   DEFAULT_DEAL,
   {
+    id: "seed-airpods-pro-2-costco-au",
     slug: "airpods-pro-2-costco-au",
     categories: ["historical-lows"],
     currentPrice: "A$299",
     originalPrice: "A$399",
     discountLabel: "25% off",
     dealUrl: "https://www.costco.com.au/deal",
+    localeSlugs: {
+      en: "airpods-pro-2-costco-au",
+      zh: "airpods-pro-2-costco-au",
+    },
     detail: {
       couponCode: "WAREHOUSE25",
       endingSoon: true,
@@ -267,12 +286,17 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
     },
   },
   {
+    id: "seed-epic-game-freebie-week",
     slug: "epic-game-freebie-week",
     categories: ["freebies"],
     currentPrice: "A$0",
     originalPrice: "A$59",
     discountLabel: "Free",
     dealUrl: "https://store.epicgames.com/deal",
+    localeSlugs: {
+      en: "epic-game-freebie-week",
+      zh: "epic-game-freebie-week",
+    },
     detail: {
       couponCode: null,
       endingSoon: false,
@@ -319,12 +343,17 @@ const PUBLIC_DEALS: PublicDealRecord[] = [
     },
   },
   {
+    id: "seed-coles-gift-card-bonus-credit",
     slug: "coles-gift-card-bonus-credit",
     categories: ["gift-card-offers"],
     currentPrice: "A$90",
     originalPrice: "A$100",
     discountLabel: "10% bonus value",
     dealUrl: "https://www.coles.com.au/deal",
+    localeSlugs: {
+      en: "coles-gift-card-bonus-credit",
+      zh: "coles-gift-card-bonus-credit",
+    },
     detail: {
       couponCode: "BONUS10",
       endingSoon: true,
@@ -726,6 +755,56 @@ function getLiveFallbackSummary(
     : `${baseSummary} Merchant copy: ${sourceSummary}`;
 }
 
+function getLocalizedLiveDealEntry(
+  input: LivePublicDealInput,
+  locale: SupportedLocale,
+) {
+  return input.locales?.find((entry) => entry.locale === locale) ?? null;
+}
+
+function getLocalizedLiveDealSlug(
+  input: LivePublicDealInput,
+  locale: SupportedLocale,
+) {
+  return getLocalizedLiveDealEntry(input, locale)?.slug;
+}
+
+function getLocalizedLiveDealTitle(
+  input: LivePublicDealInput,
+  sourceLocale: SupportedLocale,
+  targetLocale: SupportedLocale,
+  merchantName: string,
+  category: PublicDealCategory,
+) {
+  const localizedEntry = getLocalizedLiveDealEntry(input, targetLocale);
+  if (localizedEntry) {
+    return localizedEntry.title;
+  }
+
+  return getLiveFallbackTitle(input, sourceLocale, targetLocale, merchantName, category);
+}
+
+function getLocalizedLiveDealSummary(
+  input: LivePublicDealInput,
+  sourceLocale: SupportedLocale,
+  targetLocale: SupportedLocale,
+  merchantName: string,
+  currentPriceDisplay: string,
+) {
+  const localizedEntry = getLocalizedLiveDealEntry(input, targetLocale);
+  if (localizedEntry) {
+    return localizedEntry.summary;
+  }
+
+  return getLiveFallbackSummary(
+    input,
+    sourceLocale,
+    targetLocale,
+    merchantName,
+    currentPriceDisplay,
+  );
+}
+
 export function normalizeLivePublicDeal(
   input: LivePublicDealInput,
   activeLocale: SupportedLocale,
@@ -741,15 +820,22 @@ export function normalizeLivePublicDeal(
     priceEvidence.amountBelowRecentHigh !== null && priceEvidence.highestTrackedPrice
       ? priceEvidence.highestTrackedPrice
       : currentPrice;
+  const localeSlugs: Partial<Record<SupportedLocale, string>> = {
+    en: getLocalizedLiveDealSlug(input, "en") ?? (sourceLocale === "en" ? input.slug : undefined),
+    zh: getLocalizedLiveDealSlug(input, "zh") ?? (sourceLocale === "zh" ? input.slug : undefined),
+  };
+  const activeSlug = localeSlugs[activeLocale] ?? input.slug;
 
   return {
-    slug: input.slug,
+    id: input.id,
+    slug: activeSlug,
     categories: [category],
     currentPrice,
     originalPrice,
     discountLabel: getLiveDealDiscountLabel(category, activeLocale, priceEvidence),
     dealUrl: input.affiliateUrl || "#",
     detail: getLiveDealDetail(input, priceEvidence),
+    localeSlugs,
     merchant: {
       id: slugifyIdentifier(merchantName) || "unknown-merchant",
       name: merchantName,
@@ -757,8 +843,14 @@ export function normalizeLivePublicDeal(
     publishedAt: input.publishedAt || "1970-01-01T00:00:00.000Z",
     locales: {
       en: {
-        title: getLiveFallbackTitle(input, sourceLocale, "en", englishFallbackMerchant, category),
-        summary: getLiveFallbackSummary(
+        title: getLocalizedLiveDealTitle(
+          input,
+          sourceLocale,
+          "en",
+          englishFallbackMerchant,
+          category,
+        ),
+        summary: getLocalizedLiveDealSummary(
           input,
           sourceLocale,
           "en",
@@ -767,8 +859,14 @@ export function normalizeLivePublicDeal(
         ),
       },
       zh: {
-        title: getLiveFallbackTitle(input, sourceLocale, "zh", chineseFallbackMerchant, category),
-        summary: getLiveFallbackSummary(
+        title: getLocalizedLiveDealTitle(
+          input,
+          sourceLocale,
+          "zh",
+          chineseFallbackMerchant,
+          category,
+        ),
+        summary: getLocalizedLiveDealSummary(
           input,
           sourceLocale,
           "zh",
@@ -803,14 +901,15 @@ export function mergePublicDeals(
   seededDeals: PublicDealRecord[] = getDefaultPublicDeals(),
 ) {
   const merged = new Map<string, PublicDealRecord>();
+  const getDealKey = (deal: PublicDealRecord) => deal.id ?? deal.slug;
 
   for (const deal of seededDeals) {
-    merged.set(deal.slug, deal);
+    merged.set(getDealKey(deal), deal);
   }
 
   for (const deal of liveDeals) {
-    if (!merged.has(deal.slug)) {
-      merged.set(deal.slug, deal);
+    if (!merged.has(getDealKey(deal))) {
+      merged.set(getDealKey(deal), deal);
     }
   }
 
@@ -827,7 +926,13 @@ export function getDiscoveryPublicDeals(
 }
 
 export function getPublicDeal(slug: string, deals: PublicDealRecord[] = getDefaultPublicDeals()) {
-  return deals.find((deal) => deal.slug === slug) ?? null;
+  return deals.find((deal) => {
+    if (deal.slug === slug) {
+      return true;
+    }
+
+    return Object.values(deal.localeSlugs ?? {}).some((candidateSlug) => candidateSlug === slug);
+  }) ?? null;
 }
 
 export function getSeededPublicDeals(): PublicDealRecord[] {
@@ -1047,10 +1152,13 @@ export function appendQueryParams(href: string, params: Record<string, string | 
   return `${url.pathname}${url.search}`;
 }
 
-export function getLocaleSwitchLinks(locale: SupportedLocale, slug: string) {
+export function getLocaleSwitchLinks(deal: PublicDealRecord) {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
-    href: buildLocaleHref(candidateLocale, `/deals/${slug}`),
+    href: buildLocaleHref(
+      candidateLocale,
+      `/deals/${deal.localeSlugs?.[candidateLocale] ?? deal.slug}`,
+    ),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
 }
@@ -1153,7 +1261,10 @@ export function buildDealPageMetadata(
     title: buildMetadataTitle(deal.locales[locale].title),
     description: deal.locales[locale].summary,
     alternates: buildLocalizedAlternates(locale, (candidateLocale) =>
-      buildLocaleHref(candidateLocale, `/deals/${deal.slug}`),
+      buildLocaleHref(
+        candidateLocale,
+        `/deals/${deal.localeSlugs?.[candidateLocale] ?? deal.slug}`,
+      ),
     ),
   };
 }
@@ -1185,7 +1296,9 @@ export function buildPublicSitemapEntries(
   );
   const detailEntries: MetadataRoute.Sitemap = sitemapDeals.flatMap((deal) =>
     (["en", "zh"] as SupportedLocale[]).map((locale) => ({
-      url: buildPublicUrl(buildLocaleHref(locale, `/deals/${deal.slug}`)),
+      url: buildPublicUrl(
+        buildLocaleHref(locale, `/deals/${deal.localeSlugs?.[locale] ?? deal.slug}`),
+      ),
       lastModified: deal.publishedAt,
     })),
   );

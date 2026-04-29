@@ -1,6 +1,7 @@
 import { prisma } from "../client.ts";
 
 export interface PublishedDealRecord {
+  id: string;
   locale: string;
   slug: string;
   title: string;
@@ -10,6 +11,12 @@ export interface PublishedDealRecord {
   currentPrice: string;
   affiliateUrl: string;
   publishedAt: string;
+  locales: Array<{
+    locale: string;
+    slug: string;
+    title: string;
+    summary: string;
+  }>;
 }
 
 export interface PublishDealLocaleInput {
@@ -67,18 +74,43 @@ function mapDealLocaleContent(locale: PublishDealLocaleInput) {
   };
 }
 
+function mapPublishedDealLocales(
+  locales: Array<{
+    locale: string;
+    slug: string;
+    title: string;
+    summary: string;
+  }>,
+) {
+  return locales
+    .map((locale) => ({
+      locale: locale.locale,
+      slug: locale.slug,
+      title: locale.title,
+      summary: locale.summary,
+    }))
+    .sort((left, right) => left.locale.localeCompare(right.locale));
+}
+
 function mapPublishedDealRecord(row: {
   locale: string;
   slug: string;
   title: string;
   summary: string;
   deal: {
+    id: string;
     category: string;
     merchant: string;
     currentPrice: { toString(): string };
     affiliateUrl: string;
     updatedAt: Date;
     status: string;
+    locales: Array<{
+      locale: string;
+      slug: string;
+      title: string;
+      summary: string;
+    }>;
   };
 }): PublishedDealRecord | null {
   if (row.deal.status !== "published") {
@@ -86,6 +118,7 @@ function mapPublishedDealRecord(row: {
   }
 
   return {
+    id: row.deal.id,
     locale: row.locale,
     slug: row.slug,
     title: row.title,
@@ -95,6 +128,7 @@ function mapPublishedDealRecord(row: {
     currentPrice: row.deal.currentPrice.toString(),
     affiliateUrl: row.deal.affiliateUrl,
     publishedAt: row.deal.updatedAt.toISOString(),
+    locales: mapPublishedDealLocales(row.deal.locales),
   };
 }
 
@@ -178,12 +212,24 @@ export function createPublishedDealRepository() {
           summary: true,
           deal: {
             select: {
+              id: true,
               category: true,
               merchant: true,
               currentPrice: true,
               affiliateUrl: true,
               updatedAt: true,
               status: true,
+              locales: {
+                orderBy: {
+                  locale: "asc",
+                },
+                select: {
+                  locale: true,
+                  slug: true,
+                  title: true,
+                  summary: true,
+                },
+              },
             },
           },
         },
@@ -215,6 +261,7 @@ export function createPublishedDealRepository() {
           },
         ],
         select: {
+          id: true,
           category: true,
           merchant: true,
           currentPrice: true,
@@ -222,11 +269,8 @@ export function createPublishedDealRepository() {
           updatedAt: true,
           status: true,
           locales: {
-            where: {
-              locale,
-            },
             orderBy: {
-              slug: "asc",
+              locale: "asc",
             },
             select: {
               locale: true,
@@ -240,14 +284,16 @@ export function createPublishedDealRepository() {
 
       return deals
         .flatMap((deal) =>
-          deal.locales.flatMap((dealLocale) => {
+          deal.locales
+            .filter((dealLocale) => dealLocale.locale === locale)
+            .flatMap((dealLocale) => {
             const mappedDeal = mapPublishedDealRecord({
               ...dealLocale,
               deal,
             });
 
             return mappedDeal ? [mappedDeal] : [];
-          }),
+            }),
         )
         .sort((left, right) => {
           const publishedAtDiff = right.publishedAt.localeCompare(left.publishedAt);
