@@ -58,6 +58,8 @@ export interface PublishPublicDealResult {
 export interface PublishedDealReader {
   getPublishedDeal(locale: string, slug: string): Promise<PublicDealRecord | null>;
   hasPublishedDealSlug(slug: string): Promise<boolean>;
+  getCanonicalPublishedDealSlug?(slug: string): Promise<string | null>;
+  listEquivalentPublishedDealSlugs?(slug: string): Promise<string[]>;
 }
 
 export interface PublishedDealListReader {
@@ -143,12 +145,37 @@ export function getPublishedDeal(
   return store.get(`${locale}:${slug}`);
 }
 
+function listPublishedDealLocales(deal: PublicDealRecord) {
+  return deal.locales && deal.locales.length > 0
+    ? deal.locales
+    : [
+        {
+          locale: deal.locale,
+          slug: deal.slug,
+          title: deal.title,
+          summary: deal.summary,
+        },
+      ];
+}
+
+function getCanonicalPublishedDealSlugFromRecord(deal: PublicDealRecord) {
+  const locales = listPublishedDealLocales(deal);
+  return locales.find((locale) => locale.locale === "en")?.slug ?? locales[0]?.slug ?? deal.slug;
+}
+
+function listEquivalentPublishedDealSlugsFromRecord(deal: PublicDealRecord) {
+  return [...new Set(listPublishedDealLocales(deal).map((locale) => locale.slug))];
+}
+
+function getPublishedDealRecordBySlug(store: Map<string, PublicDealRecord>, slug: string) {
+  return Array.from(store.values()).find((deal) => {
+    return listEquivalentPublishedDealSlugsFromRecord(deal).includes(slug);
+  }) ?? null;
+}
+
 export function getPublishedDealIds(store: Map<string, PublicDealRecord>) {
   return new Set(
-    Array.from(store.values()).flatMap((deal) => [
-      deal.slug,
-      ...(deal.locales?.map((locale) => locale.slug) ?? []),
-    ]),
+    Array.from(store.values()).flatMap((deal) => listEquivalentPublishedDealSlugsFromRecord(deal)),
   );
 }
 
@@ -192,6 +219,15 @@ export function createSeedPublishedDealStore(
     },
     async hasPublishedDealSlug(slug) {
       return getPublishedDealIds(store).has(slug);
+    },
+    async getCanonicalPublishedDealSlug(slug) {
+      return getPublishedDealRecordBySlug(store, slug)
+        ? getCanonicalPublishedDealSlugFromRecord(getPublishedDealRecordBySlug(store, slug)!)
+        : null;
+    },
+    async listEquivalentPublishedDealSlugs(slug) {
+      const deal = getPublishedDealRecordBySlug(store, slug);
+      return deal ? listEquivalentPublishedDealSlugsFromRecord(deal) : [];
     },
     async listPublishedDeals(locale) {
       return listPublishedDeals(store, locale);

@@ -629,4 +629,97 @@ describe("auth and favorites", () => {
       dealId: persistedDealSlug,
     });
   });
+
+  it("canonicalizes sibling locale slugs so one published deal only persists once", async () => {
+    const canonicalDealSlug = "lego-bonsai-tree-for-a-59-at-big-w";
+    const localizedDealSlug = "big-w-乐高盆景树套装-a-59";
+    const { app, capture } = createAuthApp({
+      favoritesStore: createInMemoryFavoritesStore(),
+      publishedDealStore: {
+        async getPublishedDeal() {
+          return null;
+        },
+        async hasPublishedDealSlug(slug: string) {
+          return slug === canonicalDealSlug || slug === localizedDealSlug;
+        },
+        async getCanonicalPublishedDealSlug(slug: string) {
+          return slug === canonicalDealSlug || slug === localizedDealSlug ? canonicalDealSlug : null;
+        },
+        async listEquivalentPublishedDealSlugs(slug: string) {
+          return slug === canonicalDealSlug || slug === localizedDealSlug
+            ? [canonicalDealSlug, localizedDealSlug]
+            : [];
+        },
+      },
+    } as never);
+    const { sessionToken } = await createAuthenticatedSession(app, capture, "user@example.com");
+
+    const localizedFavorite = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/favorites",
+      body: {
+        dealId: localizedDealSlug,
+      },
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(localizedFavorite.status).toBe(201);
+    expect(localizedFavorite.body).toEqual({
+      dealId: canonicalDealSlug,
+    });
+
+    const canonicalFavorite = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/favorites",
+      body: {
+        dealId: canonicalDealSlug,
+      },
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(canonicalFavorite.status).toBe(201);
+    expect(canonicalFavorite.body).toEqual({
+      dealId: canonicalDealSlug,
+    });
+
+    const favorites = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/favorites",
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(favorites.status).toBe(200);
+    expect(favorites.body).toEqual({
+      items: [{ dealId: canonicalDealSlug }],
+    });
+
+    const deleted = await dispatchRequest(app, {
+      method: "DELETE",
+      path: `/v1/favorites/${encodeURIComponent(canonicalDealSlug)}`,
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(deleted.status).toBe(204);
+
+    const favoritesAfterDelete = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/favorites",
+      headers: {
+        "x-session-token": sessionToken,
+      },
+    });
+
+    expect(favoritesAfterDelete.status).toBe(200);
+    expect(favoritesAfterDelete.body).toEqual({
+      items: [],
+    });
+  });
 });

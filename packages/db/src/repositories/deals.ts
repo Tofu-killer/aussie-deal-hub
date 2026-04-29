@@ -132,6 +132,15 @@ function mapPublishedDealRecord(row: {
   };
 }
 
+function getCanonicalPublishedDealSlugFromLocales(
+  locales: Array<{
+    locale: string;
+    slug: string;
+  }>,
+) {
+  return locales.find((locale) => locale.locale === "en")?.slug ?? locales[0]?.slug ?? null;
+}
+
 export function createPublishedDealRepository() {
   return {
     async publishDeal(input: PublishDealInput): Promise<PublishDealResult> {
@@ -383,6 +392,61 @@ export function createPublishedDealRepository() {
       });
 
       return Boolean(row);
+    },
+
+    async getCanonicalPublishedDealSlug(slug: string): Promise<string | null> {
+      const row = await prisma.dealLocale.findFirst({
+        where: {
+          slug,
+          deal: {
+            status: "published",
+          },
+        },
+        select: {
+          deal: {
+            select: {
+              locales: {
+                orderBy: {
+                  locale: "asc",
+                },
+                select: {
+                  locale: true,
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return row ? getCanonicalPublishedDealSlugFromLocales(row.deal.locales) : null;
+    },
+
+    async listEquivalentPublishedDealSlugs(slug: string): Promise<string[]> {
+      const row = await prisma.dealLocale.findFirst({
+        where: {
+          slug,
+          deal: {
+            status: "published",
+          },
+        },
+        select: {
+          deal: {
+            select: {
+              locales: {
+                orderBy: {
+                  locale: "asc",
+                },
+                select: {
+                  slug: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return row ? [...new Set(row.deal.locales.map((locale) => locale.slug))] : [];
     },
 
     async getPublishedDealSlugForLead(leadId: string, locale: string): Promise<string | null> {

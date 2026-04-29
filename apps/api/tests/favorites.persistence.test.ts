@@ -195,4 +195,124 @@ describeDb("favorites persistence", () => {
       });
     }
   });
+
+  it("canonicalizes sibling locale deal slugs and removes historical duplicates", async () => {
+    const baseEmail = `shopper.${randomUUID()}@example.com`;
+    const canonicalDealId = "nintendo-switch-oled-amazon-au";
+    const localizedDealId = "任天堂-switch-oled-亚马逊澳洲";
+    const app = buildApp();
+
+    try {
+      await prisma.deal.upsert({
+        where: {
+          leadId: "favorite-locale-contract-lead",
+        },
+        create: {
+          leadId: "favorite-locale-contract-lead",
+          merchant: "Amazon AU",
+          category: "deals",
+          currentPrice: "399.00",
+          affiliateUrl: "https://www.amazon.com.au/deal",
+          status: "published",
+          locales: {
+            create: [
+              {
+                locale: "en",
+                slug: canonicalDealId,
+                title: "Nintendo Switch OLED for A$399 at Amazon AU",
+                summary: "Coupon GAME20 drops the OLED model to a strong Amazon AU price.",
+                bodyMarkdown: "English body",
+                seoTitle: "English SEO",
+                seoDescription: "English description",
+              },
+              {
+                locale: "zh",
+                slug: localizedDealId,
+                title: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+                summary: "使用优惠码 GAME20 后达到很强的澳洲站价格。",
+                bodyMarkdown: "Chinese body",
+                seoTitle: "Chinese SEO",
+                seoDescription: "Chinese description",
+              },
+            ],
+          },
+        },
+        update: {
+          status: "published",
+        },
+      });
+
+      const sessionToken = await signIn(app, baseEmail);
+
+      const localizedFavorite = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/favorites",
+        body: { dealId: localizedDealId },
+        headers: {
+          "x-session-token": sessionToken,
+        },
+      });
+
+      expect(localizedFavorite.status).toBe(201);
+      expect(localizedFavorite.body).toEqual({
+        dealId: canonicalDealId,
+      });
+
+      await prisma.favorite.create({
+        data: {
+          normalizedEmail: baseEmail.trim().toLowerCase(),
+          dealSlug: localizedDealId,
+        },
+      });
+
+      const favorites = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/favorites",
+        headers: {
+          "x-session-token": sessionToken,
+        },
+      });
+
+      expect(favorites.status).toBe(200);
+      expect(favorites.body).toEqual({
+        items: [{ dealId: canonicalDealId }],
+      });
+
+      const removedFavorite = await dispatchRequest(app, {
+        method: "DELETE",
+        path: `/v1/favorites/${canonicalDealId}`,
+        headers: {
+          "x-session-token": sessionToken,
+        },
+      });
+
+      expect(removedFavorite.status).toBe(204);
+
+      const persistedFavorites = await prisma.favorite.findMany({
+        where: {
+          normalizedEmail: baseEmail.trim().toLowerCase(),
+        },
+      });
+
+      expect(persistedFavorites).toEqual([]);
+    } finally {
+      await prisma.favorite.deleteMany({
+        where: {
+          normalizedEmail: baseEmail.trim().toLowerCase(),
+        },
+      });
+      await prisma.dealLocale.deleteMany({
+        where: {
+          slug: {
+            in: [canonicalDealId, localizedDealId],
+          },
+        },
+      });
+      await prisma.deal.deleteMany({
+        where: {
+          leadId: "favorite-locale-contract-lead",
+        },
+      });
+    }
+  });
 });
