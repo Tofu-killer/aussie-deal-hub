@@ -9,6 +9,7 @@
     "release:bundle": "node scripts/release-bundle.mjs",
     "runtime:backup": "node scripts/runtime-backup.mjs",
     "runtime:restore": "node scripts/runtime-restore.mjs",
+    "runtime:verify": "node scripts/runtime-verify.mjs",
     "smoke:container-health": "node scripts/check-compose-health.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "smoke:readiness": "node scripts/smoke-readiness.mjs",

@@ -174,6 +174,16 @@ The script stages a curated deployment bundle under `release/`, copies the check
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact`.
 
+## Runtime verify
+
+Verify a deployed or split-port runtime with one command:
+
+```bash
+RUNTIME_API_BASE_URL=http://127.0.0.1:13001 RUNTIME_WEB_BASE_URL=http://127.0.0.1:13000 RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:13002 pnpm runtime:verify
+```
+
+The script reuses the readiness and route smoke checks, derives the default endpoint URLs from `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL`, and defaults the public landing checks to the `en` locale. Override the landing locale with `RUNTIME_LOCALE`, or pass explicit `API_*`, `WEB_*`, `ADMIN_*`, or `WORKER_RUNTIME_URL` values when a deployed stack exposes different paths.
+
 ## Service start commands
 
 Build the workspace once before starting the Next.js apps:

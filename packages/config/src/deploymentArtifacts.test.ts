@@ -400,6 +400,25 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
   });
 
+  it("documents a unified runtime verification entrypoint for deployed stacks", () => {
+    const packageJson = readRepoFile("package.json");
+    const readme = readRepoFile("README.md");
+    const script = readRepoFile("scripts/runtime-verify.mjs");
+
+    expect(packageJson).toContain("\"runtime:verify\": \"node scripts/runtime-verify.mjs\"");
+    expect(readme).toContain("## Runtime verify");
+    expect(readme).toContain(
+      "RUNTIME_API_BASE_URL=http://127.0.0.1:13001 RUNTIME_WEB_BASE_URL=http://127.0.0.1:13000 RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:13002 pnpm runtime:verify",
+    );
+    expect(readme).toContain("reuses the readiness and route smoke checks");
+    expect(readme).toContain("RUNTIME_API_BASE_URL");
+    expect(readme).toContain("RUNTIME_WEB_BASE_URL");
+    expect(readme).toContain("RUNTIME_ADMIN_BASE_URL");
+    expect(readme).toContain("RUNTIME_LOCALE");
+    expect(script).toContain("resolveRuntimeVerifyEnv");
+    expect(script).toContain("runRuntimeVerifyScript");
+  });
+
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const packageJson = JSON.parse(readRepoFile("package.json")) as {
