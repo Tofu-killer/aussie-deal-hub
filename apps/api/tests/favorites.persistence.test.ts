@@ -200,15 +200,38 @@ describeDb("favorites persistence", () => {
     const baseEmail = `shopper.${randomUUID()}@example.com`;
     const canonicalDealId = "nintendo-switch-oled-amazon-au";
     const localizedDealId = "任天堂-switch-oled-亚马逊澳洲";
+    const sourceId = `favorite-locale-source-${randomUUID()}`;
+    const leadId = `favorite-locale-contract-lead-${randomUUID()}`;
     const app = buildApp();
 
     try {
+      await prisma.source.create({
+        data: {
+          id: sourceId,
+          name: "Favorite locale contract source",
+          sourceType: "manual",
+          baseUrl: `https://favorites.example.com/${sourceId}`,
+        },
+      });
+
+      await prisma.lead.create({
+        data: {
+          id: leadId,
+          sourceId,
+          originalTitle: "Nintendo Switch OLED for A$399 at Amazon AU",
+          originalUrl: "https://www.amazon.com.au/deal",
+          canonicalUrl: "https://www.amazon.com.au/deal",
+          snippet: "Coupon GAME20 expires tonight.",
+          reviewStatus: "approved",
+        },
+      });
+
       await prisma.deal.upsert({
         where: {
-          leadId: "favorite-locale-contract-lead",
+          leadId,
         },
         create: {
-          leadId: "favorite-locale-contract-lead",
+          leadId,
           merchant: "Amazon AU",
           category: "deals",
           currentPrice: "399.00",
@@ -310,7 +333,17 @@ describeDb("favorites persistence", () => {
       });
       await prisma.deal.deleteMany({
         where: {
-          leadId: "favorite-locale-contract-lead",
+          leadId,
+        },
+      });
+      await prisma.lead.deleteMany({
+        where: {
+          id: leadId,
+        },
+      });
+      await prisma.source.deleteMany({
+        where: {
+          id: sourceId,
         },
       });
     }
