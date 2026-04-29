@@ -42,6 +42,7 @@ jobs:
           name: aussie-deal-hub-release-bundle-${{ github.sha }}
           path: release/
           if-no-files-found: error
+          include-hidden-files: true
 
   rehearse:
     needs: bundle

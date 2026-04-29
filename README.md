@@ -172,7 +172,7 @@ pnpm release:bundle
 
 The script stages a curated deployment bundle under `release/`, copies the checked-in runtime files needed for deployment, keeps the checked-in `.dockerignore` so downloaded bundles can be reinstalled and rebuilt cleanly, skips generated directories such as `.next`, `coverage`, `backups`, and writes a `release-manifest.json` with the bundle timestamp and git SHA. Override the output root with `RELEASE_DIR` when you need to stage the bundle somewhere else.
 
-The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact`.
+The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact` while preserving the checked-in dotfiles that the bundle needs at runtime.
 
 The same workflow then downloads the uploaded artifact into a clean directory, reinstalls workspace dependencies there, starts the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against the downloaded bundle itself before it tears the stack back down.
 

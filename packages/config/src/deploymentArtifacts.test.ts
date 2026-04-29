@@ -401,6 +401,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain(
       "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
     );
+    expect(workflow).toContain("include-hidden-files: true");
     expect(workflow).toContain(
       "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
     );
