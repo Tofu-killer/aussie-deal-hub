@@ -54,7 +54,12 @@ Set runtime variables in your process manager or deployment platform before star
 | `DATABASE_URL` | api, db | yes | PostgreSQL connection string used by Prisma. |
 | `REDIS_URL` | api | yes | Redis connection string. |
 | `SESSION_SECRET` | api | yes | Must be at least 16 characters. |
-| `EMAIL_FROM` | api | yes | Sender address for outbound mail flows. |
+| `EMAIL_FROM` | api, worker | yes | Sender address for outbound mail flows. |
+| `SMTP_HOST` | api, worker | yes in production | SMTP server hostname. |
+| `SMTP_PORT` | api, worker | yes in production | SMTP server port. |
+| `SMTP_SECURE` | api, worker | optional | Set to `1`/`true` for implicit TLS; defaults to `0`. |
+| `SMTP_USER` | api, worker | optional | SMTP auth username; must be paired with `SMTP_PASS`. |
+| `SMTP_PASS` | api, worker | optional | SMTP auth password; must be paired with `SMTP_USER`. |
 | `API_BASE_URL` | web | yes | Server-side base URL that web uses to call the API. |
 | `NEXT_PUBLIC_SITE_URL` | web | yes | Public site origin used for canonical URLs and sitemap output. |
 | `SITE_URL` | web | optional | Legacy fallback for `NEXT_PUBLIC_SITE_URL`. |
@@ -71,6 +76,8 @@ Set runtime variables in your process manager or deployment platform before star
 | `WORKER_STATE_PATH` | api, worker | optional | Shared state file used for worker heartbeat and admin runtime visibility. |
 | `WORKER_STALE_AFTER_MS` | api, worker | optional | Maximum heartbeat age before the worker is reported stale. |
 | `RUN_DB_TESTS` | test only | optional | Only needed for direct Vitest invocations; `pnpm test:db` sets it automatically. |
+
+The compose stack keeps `SMTP_*` on local placeholders for smoke verification only. Replace those values with a real mail provider before enabling production login or digest delivery.
 
 ## Containerized stack
 

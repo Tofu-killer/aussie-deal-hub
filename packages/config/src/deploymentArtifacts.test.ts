@@ -132,10 +132,43 @@ describe("deployment artifacts", () => {
     const apiEnvironment = readComposeServiceEnvironmentBlock(compose, "api");
     const workerEnvironment = readComposeServiceEnvironmentBlock(compose, "worker");
 
+    expect(apiEnvironment).toContain("EMAIL_FROM: deals@example.com");
     expect(apiEnvironment).toContain("SMTP_HOST: smtp-placeholder");
     expect(apiEnvironment).toContain("SMTP_PORT: 1025");
+    expect(apiEnvironment).toContain("SMTP_SECURE: 0");
     expect(workerEnvironment).toContain("SMTP_HOST: smtp-placeholder");
     expect(workerEnvironment).toContain("SMTP_PORT: 1025");
+    expect(workerEnvironment).toContain("SMTP_SECURE: 0");
+    expect(workerEnvironment).toContain("EMAIL_FROM: deals@example.com");
+  });
+
+  it("documents smtp runtime variables in the production example env file", () => {
+    const exampleEnv = readRepoFile(".env.example");
+
+    expect(exampleEnv).toContain("EMAIL_FROM=deals@example.com");
+    expect(exampleEnv).toContain("SMTP_HOST=smtp.example.com");
+    expect(exampleEnv).toContain("SMTP_PORT=587");
+    expect(exampleEnv).toContain("SMTP_SECURE=0");
+    expect(exampleEnv).toContain("SMTP_USER=");
+    expect(exampleEnv).toContain("SMTP_PASS=");
+  });
+
+  it("documents smtp runtime variables in the production env reference", () => {
+    const readme = readRepoFile("README.md");
+
+    expect(readme).toContain("| `EMAIL_FROM` | api, worker | yes | Sender address for outbound mail flows. |");
+    expect(readme).toContain("| `SMTP_HOST` | api, worker | yes in production | SMTP server hostname. |");
+    expect(readme).toContain("| `SMTP_PORT` | api, worker | yes in production | SMTP server port. |");
+    expect(readme).toContain(
+      "| `SMTP_SECURE` | api, worker | optional | Set to `1`/`true` for implicit TLS; defaults to `0`. |",
+    );
+    expect(readme).toContain(
+      "| `SMTP_USER` | api, worker | optional | SMTP auth username; must be paired with `SMTP_PASS`. |",
+    );
+    expect(readme).toContain(
+      "| `SMTP_PASS` | api, worker | optional | SMTP auth password; must be paired with `SMTP_USER`. |",
+    );
+    expect(readme).toContain("The compose stack keeps `SMTP_*` on local placeholders for smoke verification only.");
   });
 
   it("keeps the postgres container bootstrap compatible with POSTGRES_DB initialization", () => {
