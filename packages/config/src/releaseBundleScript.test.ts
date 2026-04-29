@@ -19,6 +19,7 @@ async function createTempRepo() {
   tempDirs.push(tempRepoRoot);
 
   await writeFile(path.join(tempRepoRoot, ".env.example"), "NEXT_PUBLIC_SITE_URL=https://example.test\n");
+  await writeFile(path.join(tempRepoRoot, ".dockerignore"), "node_modules\n.next\n");
   await writeFile(path.join(tempRepoRoot, ".env"), "DATABASE_URL=postgresql://secret\n");
   await writeFile(path.join(tempRepoRoot, "README.md"), "# Temporary release bundle repo\n");
   await writeFile(path.join(tempRepoRoot, "Dockerfile"), "FROM node:22\n");
@@ -89,6 +90,7 @@ describe("release bundle script", () => {
     expect(manifest.gitSha).toBe("abcdef1234567890");
     expect(manifest.includedPaths).toEqual([
       ".env.example",
+      ".dockerignore",
       "README.md",
       "Dockerfile",
       "docker-compose.yml",
@@ -103,6 +105,7 @@ describe("release bundle script", () => {
     ]);
 
     await expect(access(path.join(bundleRoot, ".env.example"))).resolves.toBeUndefined();
+    await expect(access(path.join(bundleRoot, ".dockerignore"))).resolves.toBeUndefined();
     await expect(access(path.join(bundleRoot, "apps", "web", "src", "index.ts"))).resolves.toBeUndefined();
     await expect(access(path.join(bundleRoot, "packages", "config", "src", "env.ts"))).resolves.toBeUndefined();
     await expect(access(path.join(bundleRoot, "scripts", "smoke-readiness.mjs"))).resolves.toBeUndefined();

@@ -170,7 +170,7 @@ Create a curated deployment bundle from the current checkout with:
 pnpm release:bundle
 ```
 
-The script stages a curated deployment bundle under `release/`, copies the checked-in runtime files needed for deployment, skips generated directories such as `.next`, `coverage`, `backups`, and writes a `release-manifest.json` with the bundle timestamp and git SHA. Override the output root with `RELEASE_DIR` when you need to stage the bundle somewhere else.
+The script stages a curated deployment bundle under `release/`, copies the checked-in runtime files needed for deployment, keeps the checked-in `.dockerignore` so downloaded bundles can be reinstalled and rebuilt cleanly, skips generated directories such as `.next`, `coverage`, `backups`, and writes a `release-manifest.json` with the bundle timestamp and git SHA. Override the output root with `RELEASE_DIR` when you need to stage the bundle somewhere else.
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact`.
 

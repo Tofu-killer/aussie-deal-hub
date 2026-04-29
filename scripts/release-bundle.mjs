@@ -5,6 +5,7 @@ import { fail, formatTimestamp } from "./lib/postgres-runtime.mjs";
 
 const releasePaths = [
   ".env.example",
+  ".dockerignore",
   "README.md",
   "Dockerfile",
   "docker-compose.yml",
