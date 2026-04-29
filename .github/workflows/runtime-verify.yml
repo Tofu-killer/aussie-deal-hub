@@ -1,0 +1,55 @@
+name: Runtime verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      runtime_api_base_url:
+        description: Base URL for the deployed API runtime, for example https://api.example.com
+        required: true
+        type: string
+      runtime_web_base_url:
+        description: Base URL for the deployed public web runtime, for example https://www.example.com
+        required: true
+        type: string
+      runtime_admin_base_url:
+        description: Base URL for the deployed admin runtime, for example https://admin.example.com
+        required: true
+        type: string
+      runtime_locale:
+        description: Public locale to verify for landing-page route smoke
+        required: false
+        default: en
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run deployed runtime verification
+        env:
+          RUNTIME_API_BASE_URL: ${{ inputs.runtime_api_base_url }}
+          RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}
+          RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}
+          RUNTIME_LOCALE: ${{ inputs.runtime_locale }}
+        run: pnpm runtime:verify

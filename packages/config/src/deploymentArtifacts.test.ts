@@ -378,9 +378,10 @@ describe("deployment artifacts", () => {
     const readme = readRepoFile("README.md");
     const gitignore = readRepoFile(".gitignore");
     const workflow = readRepoFile(".github/workflows/release-bundle.yml");
-    const releaseBundleBlock = ["pnpm release:bundle"].join("\n");
+    const releaseBundleBlock = ["pnpm release:bundle", "pnpm release:rehearse"].join("\n");
 
     expect(packageJson).toContain("\"release:bundle\": \"node scripts/release-bundle.mjs\"");
+    expect(packageJson).toContain("\"release:rehearse\": \"node scripts/release-rehearse.mjs\"");
     expect(readme).toContain("## Release bundle");
     expect(readme).toContain(releaseBundleBlock);
     expect(readme).toContain("workflow_dispatch");
@@ -408,6 +409,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
     expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain("pnpm release:rehearse");
   });
 
   it("rehearses the uploaded release bundle from a clean artifact directory", () => {
@@ -420,12 +422,7 @@ describe("deployment artifacts", () => {
       "needs: bundle",
       "name: Download release bundle artifact",
       "name: Resolve release bundle root",
-      "name: Install bundle dependencies",
-      "name: Start bundle container stack",
-      "name: Run bundle container health smoke",
-      "name: Run bundle readiness smoke",
-      "name: Run bundle route smoke",
-      "name: Stop bundle container stack",
+      "name: Rehearse release bundle",
     ];
 
     expect(workflow).toContain('bundle_root="release-artifact"');
@@ -435,12 +432,14 @@ describe("deployment artifacts", () => {
     );
     expect(workflow).toContain("RELEASE_BUNDLE_ROOT");
     expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
-    expect(workflow).toContain("pnpm smoke:container-health");
-    expect(workflow).toContain("pnpm smoke:readiness");
-    expect(workflow).toContain("pnpm smoke:routes");
-    expect(workflow).toContain("docker compose logs postgres redis db-init api web admin worker");
-    expect(workflow).toContain("docker compose down -v");
-    expect(workflow).not.toContain("name: Start bundle container stack\n        run: docker compose up -d --build");
+    expect(workflow).toContain("RELEASE_REHEARSE_ROOT=.");
+    expect(workflow).toContain("pnpm release:rehearse");
+    expect(workflow).not.toContain("name: Install bundle dependencies");
+    expect(workflow).not.toContain("name: Start bundle container stack");
+    expect(workflow).not.toContain("name: Run bundle container health smoke");
+    expect(workflow).not.toContain("name: Run bundle readiness smoke");
+    expect(workflow).not.toContain("name: Run bundle route smoke");
+    expect(workflow).not.toContain("name: Stop bundle container stack");
 
     let previousIndex = -1;
 
@@ -456,6 +455,7 @@ describe("deployment artifacts", () => {
     const packageJson = readRepoFile("package.json");
     const readme = readRepoFile("README.md");
     const script = readRepoFile("scripts/runtime-verify.mjs");
+    const workflow = readRepoFile(".github/workflows/runtime-verify.yml");
 
     expect(packageJson).toContain("\"runtime:verify\": \"node scripts/runtime-verify.mjs\"");
     expect(readme).toContain("## Runtime verify");
@@ -467,8 +467,22 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("RUNTIME_WEB_BASE_URL");
     expect(readme).toContain("RUNTIME_ADMIN_BASE_URL");
     expect(readme).toContain("RUNTIME_LOCALE");
+    expect(readme).toContain("The `Runtime verify` GitHub Actions workflow");
     expect(script).toContain("resolveRuntimeVerifyEnv");
     expect(script).toContain("runRuntimeVerifyScript");
+    expect(workflow).toContain("name: Runtime verify");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("runtime_api_base_url:");
+    expect(workflow).toContain("required: true");
+    expect(workflow).toContain("runtime_web_base_url:");
+    expect(workflow).toContain("runtime_admin_base_url:");
+    expect(workflow).toContain("runtime_locale:");
+    expect(workflow).toContain("default: en");
+    expect(workflow).toContain("pnpm runtime:verify");
+    expect(workflow).toContain("RUNTIME_API_BASE_URL: ${{ inputs.runtime_api_base_url }}");
+    expect(workflow).toContain("RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}");
+    expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}");
+    expect(workflow).toContain("RUNTIME_LOCALE: ${{ inputs.runtime_locale }}");
   });
 
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {

@@ -74,32 +74,6 @@ jobs:
           test -n "${bundle_root}"
           echo "RELEASE_BUNDLE_ROOT=${bundle_root}" >> "${GITHUB_ENV}"
 
-      - name: Install bundle dependencies
+      - name: Rehearse release bundle
         working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: pnpm install --frozen-lockfile
-
-      - name: Start bundle container stack
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: docker compose up -d --build
-
-      - name: Run bundle container health smoke
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: pnpm smoke:container-health
-
-      - name: Run bundle readiness smoke
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: pnpm smoke:readiness
-
-      - name: Run bundle route smoke
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: pnpm smoke:routes
-
-      - name: Dump bundle container logs on failure
-        if: failure()
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: docker compose logs postgres redis db-init api web admin worker
-
-      - name: Stop bundle container stack
-        if: always()
-        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
-        run: docker compose down -v
+        run: RELEASE_REHEARSE_ROOT=. pnpm release:rehearse

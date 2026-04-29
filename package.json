@@ -7,6 +7,7 @@
     "build": "pnpm -r build",
     "dev": "vitest --config vitest.workspace.ts --watch packages/config/src/env.test.ts",
     "release:bundle": "node scripts/release-bundle.mjs",
+    "release:rehearse": "node scripts/release-rehearse.mjs",
     "runtime:backup": "node scripts/runtime-backup.mjs",
     "runtime:restore": "node scripts/runtime-restore.mjs",
     "runtime:verify": "node scripts/runtime-verify.mjs",

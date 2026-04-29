@@ -168,13 +168,16 @@ Create a curated deployment bundle from the current checkout with:
 
 ```bash
 pnpm release:bundle
+pnpm release:rehearse
 ```
 
 The script stages a curated deployment bundle under `release/`, copies the checked-in runtime files needed for deployment, keeps the checked-in `.dockerignore` so downloaded bundles can be reinstalled and rebuilt cleanly, skips generated directories such as `.next`, `coverage`, `backups`, and writes a `release-manifest.json` with the bundle timestamp and git SHA. Override the output root with `RELEASE_DIR` when you need to stage the bundle somewhere else.
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact` while preserving the checked-in dotfiles that the bundle needs at runtime.
 
-The same workflow then downloads the uploaded artifact into a clean directory, reinstalls workspace dependencies there, starts the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against the downloaded bundle itself before it tears the stack back down.
+Run `pnpm release:rehearse` from the repo root to resolve the newest staged bundle under `release/`, reinstalls workspace dependencies there, boots the staged stack with `docker compose up -d --build`, reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes`, then dumps compose logs on failure and tears the stack back down. Override the bundle root with `RELEASE_REHEARSE_ROOT` when you want to rehearse a specific extracted artifact directory.
+
+The same workflow then downloads the uploaded artifact into a clean directory and runs `RELEASE_REHEARSE_ROOT=. pnpm release:rehearse` inside that extracted bundle so the uploaded deployment artifact itself is what gets rebuilt and smoke-tested.
 
 ## Runtime verify
 
@@ -185,6 +188,8 @@ RUNTIME_API_BASE_URL=http://127.0.0.1:13001 RUNTIME_WEB_BASE_URL=http://127.0.0.
 ```
 
 The script reuses the readiness and route smoke checks, derives the default endpoint URLs from `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL`, and defaults the public landing checks to the `en` locale. Override the landing locale with `RUNTIME_LOCALE`, or pass explicit `API_*`, `WEB_*`, `ADMIN_*`, or `WORKER_RUNTIME_URL` values when a deployed stack exposes different paths.
+
+The `Runtime verify` GitHub Actions workflow is also available through `workflow_dispatch` when you want to rerun the same deployed-stack verification remotely by supplying `runtime_api_base_url`, `runtime_web_base_url`, `runtime_admin_base_url`, and an optional `runtime_locale`.
 
 ## Service start commands
 
