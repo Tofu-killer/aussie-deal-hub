@@ -110,11 +110,11 @@ describe("favorites and price context pages", () => {
       }).getAttribute("href"),
     ).toBe("https://www.amazon.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123",
+      "/en/deals/nintendo-switch-oled-amazon-au",
     );
     expect(screen.getByText("A$399")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_test_123",
+      "/en",
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/v1/favorites",
@@ -191,10 +191,10 @@ describe("favorites and price context pages", () => {
     expect(within(priceContext).getByText("2025-04-15")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "English" }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123");
+    ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
   });
 
-  it("preserves the session token on the home favorites entry point", async () => {
+  it("keeps the home favorites entry point and locale switch clean", async () => {
     render(
       await LocaleHomePage({
         params: Promise.resolve({ locale: "en" }),
@@ -203,11 +203,9 @@ describe("favorites and price context pages", () => {
     );
 
     expect(screen.getByRole("link", { name: "Open Favorites" }).getAttribute("href")).toBe(
-      "/en/favorites?sessionToken=session_test_123",
+      "/en/favorites",
     );
-    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe(
-      "/zh?sessionToken=session_test_123",
-    );
+    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe("/zh");
   });
 
   it("shows explicit API error copy instead of pretending empty data", async () => {
@@ -407,7 +405,7 @@ describe("favorites and price context pages", () => {
     );
   });
 
-  it("deletes favorites through the API before redirecting back with session token", async () => {
+  it("deletes favorites through the API before redirecting back to a clean favorites URL", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
         return new Response(
@@ -464,7 +462,7 @@ describe("favorites and price context pages", () => {
       (removeForm?.props.action as (formData: FormData) => Promise<void>)(
         buildFormDataFromElement(removeForm!),
       ),
-    ).rejects.toThrow("REDIRECT:/en/favorites?sessionToken=session_test_123");
+    ).rejects.toThrow("REDIRECT:/en/favorites");
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/v1/favorites/nintendo-switch-oled-amazon-au",
       expect.objectContaining({
@@ -534,7 +532,7 @@ describe("favorites and price context pages", () => {
       (removeForm?.props.action as (formData: FormData) => Promise<void>)(
         buildFormDataFromElement(removeForm!),
       ),
-    ).rejects.toThrow("REDIRECT:/zh/favorites?sessionToken=session_test_123&removeStatus=error");
+    ).rejects.toThrow("REDIRECT:/zh/favorites?removeStatus=error");
 
     render(
       await FavoritesPage({

@@ -132,9 +132,7 @@ describe("home page curated sections", () => {
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "热门商家" });
     const amazonLink = within(trendingMerchantsSection).getByRole("link", { name: "Amazon AU" });
-    expect(amazonLink.getAttribute("href")).toBe(
-      "/zh/search?q=Amazon+AU&merchant=amazon-au&sessionToken=session_zh_123",
-    );
+    expect(amazonLink.getAttribute("href")).toBe("/zh/search?q=Amazon+AU&merchant=amazon-au");
     const merchantMetaId = amazonLink.getAttribute("aria-describedby");
     expect(merchantMetaId).toBeTruthy();
     const merchantMeta = merchantMetaId ? document.getElementById(merchantMetaId) : null;
@@ -153,7 +151,7 @@ describe("home page curated sections", () => {
     const sessionTokenInput = container.querySelector(
       'input[type="hidden"][name="sessionToken"]',
     ) as HTMLInputElement | null;
-    expect(sessionTokenInput?.value).toBe("session_test_456");
+    expect(sessionTokenInput).toBeNull();
 
     const featuredSection = screen.getByRole("region", { name: "Featured deals" });
     expect(
@@ -164,7 +162,7 @@ describe("home page curated sections", () => {
         .getAttribute("href"),
     ).toBe("https://www.amazon.com.au/deal");
     expect(within(featuredSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456",
+      "/en/deals/nintendo-switch-oled-amazon-au",
     );
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
@@ -176,17 +174,13 @@ describe("home page curated sections", () => {
         .getAttribute("href"),
     ).toBe("https://www.amazon.com.au/deal");
     expect(within(latestDealsSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
-      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_456",
+      "/en/deals/nintendo-switch-oled-amazon-au",
     );
 
-    expect(screen.getByRole("link", { name: "English" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_test_456",
-    );
-    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe(
-      "/zh?sessionToken=session_test_456",
-    );
+    expect(screen.getByRole("link", { name: "English" }).getAttribute("href")).toBe("/en");
+    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe("/zh");
     expect(screen.getByRole("link", { name: "Open Favorites" }).getAttribute("href")).toBe(
-      "/en/favorites?sessionToken=session_test_456",
+      "/en/favorites",
     );
 
     const trendingMerchantsSection = screen.getByRole("region", { name: "Trending merchants" });
@@ -194,7 +188,7 @@ describe("home page curated sections", () => {
       within(trendingMerchantsSection)
         .getByRole("link", { name: "Amazon AU" })
         .getAttribute("href"),
-    ).toBe("/en/search?q=Amazon+AU&merchant=amazon-au&sessionToken=session_test_456");
+    ).toBe("/en/search?q=Amazon+AU&merchant=amazon-au");
   });
 
   it("merges live API deals into latest deals and trending merchants", async () => {

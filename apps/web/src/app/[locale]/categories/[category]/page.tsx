@@ -8,7 +8,6 @@ import { listPublicDeals } from "../../../../lib/serverApi";
 import {
   PUBLIC_PRIMARY_CATEGORIES,
   appendQueryParams,
-  appendSessionToken,
   buildCategoryPageMetadata,
   buildLocaleHref,
   getDefaultPublicDeals,
@@ -24,7 +23,6 @@ import {
   type PublicDealRecord,
   type SupportedLocale,
 } from "../../../../lib/publicDeals";
-import { resolveSessionTokens } from "../../../../lib/session";
 import { LocaleSwitch } from "../../../../lib/ui";
 
 interface CategoryPageProps {
@@ -261,7 +259,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
   const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
   const hasFilters = hasActiveListingFilters(filters);
   const filterCopy = getFilterCopy(activeLocale);
@@ -304,7 +301,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     href: appendQueryParams(
       buildLocaleHref(candidateLocale, `/categories/${category}`),
       {
-        sessionToken: urlSessionToken,
         ...getListingFilterQueryParams(filters),
       },
     ),
@@ -382,7 +378,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             {filterCopy.historicalLowLabel}
           </label>
         </p>
-        {urlSessionToken ? <input name="sessionToken" type="hidden" value={urlSessionToken} /> : null}
         <button type="submit">{filterCopy.submitLabel}</button>
       </form>
         </aside>
@@ -420,7 +415,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                     locale={activeLocale}
                     primaryActionLabel={copy.ctaLabel}
                     secondaryActionLabel={detailActionLabel}
-                    sessionToken={urlSessionToken}
                   />
                 </li>
               ))}

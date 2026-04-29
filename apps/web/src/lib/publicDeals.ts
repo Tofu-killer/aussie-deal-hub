@@ -1038,26 +1038,18 @@ export function appendQueryParams(href: string, params: Record<string, string | 
   return `${url.pathname}${url.search}`;
 }
 
-export function appendSessionToken(href: string, sessionToken?: string) {
-  return appendQueryParams(href, { sessionToken });
-}
-
-export function getLocaleSwitchLinks(
-  locale: SupportedLocale,
-  slug: string,
-  sessionToken?: string,
-) {
+export function getLocaleSwitchLinks(locale: SupportedLocale, slug: string) {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
-    href: appendSessionToken(buildLocaleHref(candidateLocale, `/deals/${slug}`), sessionToken),
+    href: buildLocaleHref(candidateLocale, `/deals/${slug}`),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
 }
 
-export function getHomeLocaleSwitchLinks(sessionToken?: string) {
+export function getHomeLocaleSwitchLinks() {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
-    href: appendSessionToken(buildLocaleHref(candidateLocale, ""), sessionToken),
+    href: buildLocaleHref(candidateLocale, ""),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
 }

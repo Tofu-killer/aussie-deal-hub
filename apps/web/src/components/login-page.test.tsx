@@ -56,7 +56,7 @@ describe("login page", () => {
     expect(screen.getByRole("button", { name: "Verify code" })).toBeTruthy();
     expect(screen.getByText("Verification code sent.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_existing_123",
+      "/en",
     );
   });
 
@@ -208,7 +208,7 @@ describe("login page", () => {
         status: "success",
         email: "user@example.com",
       }),
-    ).toBe("/en/login?sessionToken=session_existing_123&status=request_success&email=user%40example.com");
+    ).toBe("/en/login?status=request_success&email=user%40example.com");
 
     expect(
       buildLoginRequestCodeRedirectTarget({
@@ -226,7 +226,7 @@ describe("login page", () => {
         sessionToken: "session_existing_123",
         email: "user@example.com",
       }),
-    ).toBe("/en/login?sessionToken=session_existing_123&status=verify_error&email=user%40example.com");
+    ).toBe("/en/login?status=verify_error&email=user%40example.com");
   });
 
   it("builds verify-success redirect target to favorites with session token", () => {

@@ -8,7 +8,6 @@ import { getRelatedDeals } from "../../../../lib/discovery";
 import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
 import { getPublicDealFromApi, listPriceSnapshots } from "../../../../lib/serverApi";
 import {
-  appendSessionToken,
   buildDealPageMetadata,
   buildLocaleHref,
   getLocaleCopy,
@@ -81,10 +80,9 @@ function getFavoriteActionCopy(locale: "en" | "zh", status: FavoriteStatus | nul
 function buildFavoriteStatusRedirectTarget(
   locale: "en" | "zh",
   slug: string,
-  sessionToken: string | undefined,
   status: FavoriteStatus,
 ) {
-  const target = appendSessionToken(buildLocaleHref(locale, `/deals/${slug}`), sessionToken);
+  const target = buildLocaleHref(locale, `/deals/${slug}`);
   const url = new URL(target, "http://local.test");
   url.searchParams.set("favoriteStatus", status);
 
@@ -147,7 +145,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
   }
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { sessionToken, urlSessionToken } = await resolveSessionTokens(
+  const { sessionToken } = await resolveSessionTokens(
     resolvedSearchParams?.sessionToken,
   );
   const favoriteStatus = toFavoriteStatus(
@@ -193,7 +191,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
       status = "error";
     }
 
-    redirect(buildFavoriteStatusRedirectTarget(activeLocale, deal.slug, urlSessionToken, status));
+    redirect(buildFavoriteStatusRedirectTarget(activeLocale, deal.slug, status));
   }
 
   return (
@@ -203,7 +201,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
         <div className="web-detail-overview">
           <LocaleSwitch
             currentLocale={activeLocale}
-            locales={getLocaleSwitchLinks(activeLocale, deal.slug, urlSessionToken)}
+            locales={getLocaleSwitchLinks(activeLocale, deal.slug)}
           />
           <div className="web-badge-row">
             <span className="web-chip">{deal.merchant.name}</span>
@@ -314,7 +312,6 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
                   locale={activeLocale}
                   primaryActionLabel={copy.ctaLabel}
                   secondaryActionLabel={detailActionLabel}
-                  sessionToken={urlSessionToken}
                 />
               </li>
             ))}

@@ -142,7 +142,7 @@ describe("recent views tracking and page", () => {
     ).toHaveLength(1);
   });
 
-  it("preserves sessionToken on recent views deal links and back-home link", async () => {
+  it("keeps recent views deal links and back-home link clean", async () => {
     vi.mocked(cookies).mockResolvedValue({
       get(name: string) {
         if (name !== RECENT_VIEWS_COOKIE_NAME) {
@@ -169,10 +169,10 @@ describe("recent views tracking and page", () => {
         .getAttribute("href"),
     ).toBe("https://www.costco.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_123",
+      "/en/deals/airpods-pro-2-costco-au",
     );
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_test_123",
+      "/en",
     );
   });
 
@@ -319,7 +319,7 @@ describe("recent views tracking and page", () => {
 
     await expect(
       (clearForm?.props.action as (formData: FormData) => Promise<void>)(new FormData()),
-    ).rejects.toThrow("REDIRECT:/en/recent-views?sessionToken=session_test_123");
+    ).rejects.toThrow("REDIRECT:/en/recent-views");
 
     expect(setCookie).toHaveBeenCalledWith(
       RECENT_VIEWS_COOKIE_NAME,

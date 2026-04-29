@@ -5,7 +5,6 @@ import { notFound, redirect } from "next/navigation";
 import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import { getRecentViewSlugsFromCookie, RECENT_VIEWS_COOKIE_NAME } from "../../../lib/recentViews";
 import {
-  appendSessionToken,
   buildLocaleHref,
   getDefaultPublicDeals,
   getPublicDeal,
@@ -28,7 +27,7 @@ interface RecentViewsPageProps {
 function getAccountQuickLinks(
   locale: "en" | "zh",
   currentPage: "home" | "favorites" | "email-preferences" | "recent-views" | "login",
-  sessionToken?: string,
+  isAuthenticated: boolean,
 ) {
   const copy =
     locale === "en"
@@ -55,33 +54,33 @@ function getAccountQuickLinks(
     navLabel: copy.navLabel,
     links: [
       {
-        href: appendSessionToken(buildLocaleHref(locale, ""), sessionToken),
+        href: buildLocaleHref(locale, ""),
         label: copy.home,
         isCurrent: currentPage === "home",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/favorites"), sessionToken),
+        href: buildLocaleHref(locale, "/favorites"),
         label: copy.favorites,
         isCurrent: currentPage === "favorites",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/email-preferences"), sessionToken),
+        href: buildLocaleHref(locale, "/email-preferences"),
         label: copy.emailPreferences,
         isCurrent: currentPage === "email-preferences",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/recent-views"), sessionToken),
+        href: buildLocaleHref(locale, "/recent-views"),
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      sessionToken
+      isAuthenticated
         ? {
             href: buildLocaleHref(locale, "/logout"),
             label: copy.logout,
             isCurrent: false,
           }
         : {
-            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            href: buildLocaleHref(locale, "/login"),
             label: copy.login,
             isCurrent: currentPage === "login",
           },
@@ -97,7 +96,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
 
   const activeLocale = locale;
   const resolvedSearchParams = await searchParams;
-  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
 
   const cookieStore = await cookies();
   const recentViewsCookieValue = cookieStore.get(RECENT_VIEWS_COOKIE_NAME)?.value;
@@ -123,7 +122,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   const listTitle = activeLocale === "en" ? "Recent deals" : "最近浏览的优惠";
   const clearRecentViewsLabel = activeLocale === "en" ? "Clear recent views" : "清空最近浏览";
   const backToHomeLabel = activeLocale === "en" ? "Back to home" : "返回首页";
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", urlSessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", Boolean(sessionToken));
   const ctaLabel = activeLocale === "en" ? "Open merchant page" : "打开商品页";
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
 
@@ -135,7 +134,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
       expires: new Date(0),
       path: "/",
     });
-    redirect(appendSessionToken(buildLocaleHref(activeLocale, "/recent-views"), urlSessionToken));
+    redirect(buildLocaleHref(activeLocale, "/recent-views"));
   }
 
   return (
@@ -152,7 +151,6 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
                   locale={activeLocale}
                   primaryActionLabel={ctaLabel}
                   secondaryActionLabel={detailActionLabel}
-                  sessionToken={urlSessionToken}
                 />
               </li>
             ))}
@@ -175,7 +173,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
           ))}
         </ul>
       </nav>
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
+      <a href={buildLocaleHref(activeLocale, "")}>
         {backToHomeLabel}
       </a>
     </main>

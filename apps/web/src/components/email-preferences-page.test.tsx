@@ -64,7 +64,7 @@ describe("email preferences page", () => {
       true,
     );
     expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_test_123",
+      "/en",
     );
   });
 

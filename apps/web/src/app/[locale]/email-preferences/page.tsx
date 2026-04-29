@@ -1,7 +1,7 @@
 import React from "react";
 import { notFound, redirect } from "next/navigation";
 
-import { appendSessionToken, buildLocaleHref, getLocaleCopy, isSupportedLocale } from "../../../lib/publicDeals";
+import { buildLocaleHref, getLocaleCopy, isSupportedLocale } from "../../../lib/publicDeals";
 import {
   getEmailPreferencesCopy,
   submitDigestPreferencesFromForm,
@@ -26,7 +26,7 @@ function toSingleParam(value: string | string[] | undefined) {
 function getAccountQuickLinks(
   locale: "en" | "zh",
   currentPage: "home" | "favorites" | "email-preferences" | "recent-views" | "login",
-  sessionToken?: string,
+  isAuthenticated: boolean,
 ) {
   const copy =
     locale === "en"
@@ -53,33 +53,33 @@ function getAccountQuickLinks(
     navLabel: copy.navLabel,
     links: [
       {
-        href: appendSessionToken(buildLocaleHref(locale, ""), sessionToken),
+        href: buildLocaleHref(locale, ""),
         label: copy.home,
         isCurrent: currentPage === "home",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/favorites"), sessionToken),
+        href: buildLocaleHref(locale, "/favorites"),
         label: copy.favorites,
         isCurrent: currentPage === "favorites",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/email-preferences"), sessionToken),
+        href: buildLocaleHref(locale, "/email-preferences"),
         label: copy.emailPreferences,
         isCurrent: currentPage === "email-preferences",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/recent-views"), sessionToken),
+        href: buildLocaleHref(locale, "/recent-views"),
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      sessionToken
+      isAuthenticated
         ? {
             href: buildLocaleHref(locale, "/logout"),
             label: copy.logout,
             isCurrent: false,
           }
         : {
-            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            href: buildLocaleHref(locale, "/login"),
             label: copy.login,
             isCurrent: currentPage === "login",
           },
@@ -99,7 +99,7 @@ export default async function EmailPreferencesPage({
   const activeLocale = locale;
   const copy = getEmailPreferencesCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { sessionToken, urlSessionToken } = await resolveSessionTokens(
+  const { sessionToken } = await resolveSessionTokens(
     resolvedSearchParams?.sessionToken,
   );
   const status = toSingleParam(resolvedSearchParams?.status);
@@ -132,10 +132,7 @@ export default async function EmailPreferencesPage({
       formData,
     });
 
-    const target = appendSessionToken(
-      buildLocaleHref(activeLocale, "/email-preferences"),
-      urlSessionToken,
-    );
+    const target = buildLocaleHref(activeLocale, "/email-preferences");
     const url = new URL(target, "http://local.test");
     url.searchParams.set("status", result.status);
     redirect(`${url.pathname}${url.search}`);
@@ -151,7 +148,7 @@ export default async function EmailPreferencesPage({
   const accountQuickLinks = getAccountQuickLinks(
     activeLocale,
     "email-preferences",
-    urlSessionToken,
+    Boolean(sessionToken),
   );
 
   return (
@@ -240,7 +237,7 @@ export default async function EmailPreferencesPage({
 
         <button type="submit">{copy.saveCtaLabel}</button>
       </form>
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
+      <a href={buildLocaleHref(activeLocale, "")}>
         {localeCopy.backToHomeLabel}
       </a>
     </main>

@@ -42,19 +42,19 @@ function expectQuickLinks(locale: "en" | "zh") {
   const navigation = screen.getByRole("navigation", { name: copy.navLabel });
 
   expect(within(navigation).getByRole("link", { name: copy.home }).getAttribute("href")).toBe(
-    `${basePath}?sessionToken=${SESSION_TOKEN}`,
+    `${basePath}`,
   );
   expect(
     within(navigation).getByRole("link", { name: copy.favorites }).getAttribute("href"),
-  ).toBe(`${basePath}/favorites?sessionToken=${SESSION_TOKEN}`);
+  ).toBe(`${basePath}/favorites`);
   expect(
     within(navigation)
       .getByRole("link", { name: copy.emailPreferences })
       .getAttribute("href"),
-  ).toBe(`${basePath}/email-preferences?sessionToken=${SESSION_TOKEN}`);
+  ).toBe(`${basePath}/email-preferences`);
   expect(
     within(navigation).getByRole("link", { name: copy.recentViews }).getAttribute("href"),
-  ).toBe(`${basePath}/recent-views?sessionToken=${SESSION_TOKEN}`);
+  ).toBe(`${basePath}/recent-views`);
   expect(within(navigation).getByRole("link", { name: copy.logout }).getAttribute("href")).toBe(
     `${basePath}/logout`,
   );

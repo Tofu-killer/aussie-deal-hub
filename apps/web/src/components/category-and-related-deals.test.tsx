@@ -50,7 +50,7 @@ function stubLiveDealsResponse() {
 }
 
 describe("category listing and related deals", () => {
-  it("renders category listing with bilingual title and locale switch links", async () => {
+  it("renders category listing with bilingual title and clean locale switch links", async () => {
     render(
       await CategoryPage({
         params: Promise.resolve({ locale: "en", category: "deals" }),
@@ -62,17 +62,15 @@ describe("category listing and related deals", () => {
     expect(screen.getByRole("heading", { name: "Available deals", level: 2 })).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "English" }).getAttribute("href"),
-    ).toBe("/en/categories/deals?sessionToken=session_test_123");
-    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe(
-      "/zh/categories/deals?sessionToken=session_test_123",
-    );
+    ).toBe("/en/categories/deals");
+    expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe("/zh/categories/deals");
     expect(
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
     ).toBe("https://www.amazon.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_123",
+      "/en/deals/nintendo-switch-oled-amazon-au",
     );
   });
 
@@ -128,7 +126,7 @@ describe("category listing and related deals", () => {
     ).toBeNull();
   });
 
-  it("preserves session token in related deal links on detail page", async () => {
+  it("keeps related deal detail links clean on detail page", async () => {
     render(
       await DealDetailPage({
         params: Promise.resolve({
@@ -148,7 +146,7 @@ describe("category listing and related deals", () => {
         .getAttribute("href"),
     ).toBe("https://www.costco.com.au/deal");
     expect(within(relatedSection).getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
-      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_test_789",
+      "/en/deals/airpods-pro-2-costco-au",
     );
   });
 

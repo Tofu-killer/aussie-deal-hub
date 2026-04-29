@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("listing query-param filters", () => {
-  it("renders visible filter controls on the search page and preserves current params", async () => {
+  it("renders visible filter controls on the search page without echoing sessionToken", async () => {
     render(
       await SearchPage({
         params: Promise.resolve({ locale: "en" }),
@@ -56,12 +56,10 @@ describe("listing query-param filters", () => {
     expect(freeShippingCheckbox.checked).toBe(true);
     expect(endingSoonCheckbox.checked).toBe(true);
     expect(historicalLowCheckbox.checked).toBe(true);
-    expect(form?.querySelector('input[name="sessionToken"]')?.getAttribute("value")).toBe(
-      "session_filter_123",
-    );
+    expect(form?.querySelector('input[name="sessionToken"]')).toBeNull();
   });
 
-  it("filters search results by merchant and keeps session token on result links", async () => {
+  it("filters search results by merchant without keeping session token on result links", async () => {
     render(
       await SearchPage({
         params: Promise.resolve({ locale: "en" }),
@@ -79,7 +77,7 @@ describe("listing query-param filters", () => {
       }).getAttribute("href"),
     ).toBe("https://www.costco.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_123",
+      "/en/deals/airpods-pro-2-costco-au",
     );
     expect(
       screen.queryByRole("link", {
@@ -260,7 +258,7 @@ describe("listing query-param filters", () => {
       }).getAttribute("href"),
     ).toBe("https://www.costco.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/airpods-pro-2-costco-au?sessionToken=session_filter_456",
+      "/en/deals/airpods-pro-2-costco-au",
     );
     expect(
       screen.queryByRole("link", {
@@ -268,14 +266,14 @@ describe("listing query-param filters", () => {
       }),
     ).toBeNull();
     expect(screen.getByRole("link", { name: "English" }).getAttribute("href")).toBe(
-      "/en/categories/historical-lows?sessionToken=session_filter_456&discount-band=20-plus&free-shipping=true&ending-soon=true",
+      "/en/categories/historical-lows?discount-band=20-plus&free-shipping=true&ending-soon=true",
     );
     expect(screen.getByRole("link", { name: "中文" }).getAttribute("href")).toBe(
-      "/zh/categories/historical-lows?sessionToken=session_filter_456&discount-band=20-plus&free-shipping=true&ending-soon=true",
+      "/zh/categories/historical-lows?discount-band=20-plus&free-shipping=true&ending-soon=true",
     );
   });
 
-  it("renders visible filter controls on the category page and preserves current params", async () => {
+  it("renders visible filter controls on the category page without echoing sessionToken", async () => {
     render(
       await CategoryPage({
         params: Promise.resolve({ locale: "en", category: "deals" }),
@@ -316,9 +314,7 @@ describe("listing query-param filters", () => {
     expect(freeShippingCheckbox.checked).toBe(true);
     expect(endingSoonCheckbox.checked).toBe(true);
     expect(historicalLowCheckbox.checked).toBe(true);
-    expect(form?.querySelector('input[name="sessionToken"]')?.getAttribute("value")).toBe(
-      "session_filter_789",
-    );
+    expect(form?.querySelector('input[name="sessionToken"]')).toBeNull();
   });
 
   it("renders merchant-filtered category results as a landing state", async () => {

@@ -7,7 +7,6 @@ import { LocaleSwitch } from "../../lib/ui";
 import { listPublicDeals } from "../../lib/serverApi";
 import {
   appendQueryParams,
-  appendSessionToken,
   buildHomePageMetadata,
   buildLocaleHref,
   getLatestDeals,
@@ -34,7 +33,7 @@ interface LocaleHomePageProps {
 function getAccountQuickLinks(
   locale: "en" | "zh",
   currentPage: "home" | "favorites" | "email-preferences" | "recent-views" | "login",
-  sessionToken?: string,
+  isAuthenticated: boolean,
 ) {
   const copy =
     locale === "en"
@@ -61,33 +60,33 @@ function getAccountQuickLinks(
     navLabel: copy.navLabel,
     links: [
       {
-        href: appendSessionToken(buildLocaleHref(locale, ""), sessionToken),
+        href: buildLocaleHref(locale, ""),
         label: copy.home,
         isCurrent: currentPage === "home",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/favorites"), sessionToken),
+        href: buildLocaleHref(locale, "/favorites"),
         label: copy.favorites,
         isCurrent: currentPage === "favorites",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/email-preferences"), sessionToken),
+        href: buildLocaleHref(locale, "/email-preferences"),
         label: copy.emailPreferences,
         isCurrent: currentPage === "email-preferences",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/recent-views"), sessionToken),
+        href: buildLocaleHref(locale, "/recent-views"),
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      sessionToken
+      isAuthenticated
         ? {
             href: buildLocaleHref(locale, "/logout"),
             label: copy.logout,
             isCurrent: false,
           }
         : {
-            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            href: buildLocaleHref(locale, "/login"),
             label: copy.login,
             isCurrent: currentPage === "login",
           },
@@ -99,12 +98,10 @@ function getTrendingMerchantHref(
   locale: "en" | "zh",
   merchantId: string,
   merchantName: string,
-  sessionToken?: string,
 ) {
   return appendQueryParams(buildLocaleHref(locale, "/search"), {
     q: merchantName,
     merchant: merchantId,
-    sessionToken,
   });
 }
 
@@ -153,8 +150,8 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
   const latestDeals = getLatestDeals(4, publicDeals);
   const trendingMerchants = getTrendingMerchants(4, publicDeals);
   const resolvedSearchParams = await searchParams;
-  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", urlSessionToken);
+  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", Boolean(sessionToken));
   const cardActionCopy =
     activeLocale === "en"
       ? {
@@ -189,16 +186,12 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
             <label htmlFor="home-search-q">{activeLocale === "en" ? "Search deals" : "搜索优惠"}</label>
             <div className="web-search-card__controls">
               <input id="home-search-q" name="q" type="text" />
-              {urlSessionToken ? <input type="hidden" name="sessionToken" value={urlSessionToken} /> : null}
               <button type="submit">{activeLocale === "en" ? "Search" : "搜索"}</button>
             </div>
           </form>
         </div>
         <aside className="web-home__aside">
-          <LocaleSwitch
-            currentLocale={activeLocale}
-            locales={getHomeLocaleSwitchLinks(urlSessionToken)}
-          />
+          <LocaleSwitch currentLocale={activeLocale} locales={getHomeLocaleSwitchLinks()} />
           <nav aria-label={accountQuickLinks.navLabel} className="web-account-nav">
             <ul>
               {accountQuickLinks.links.map((link) => (
@@ -243,7 +236,6 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
                       locale={activeLocale}
                       primaryActionLabel={copy.ctaLabel}
                       secondaryActionLabel={cardActionCopy.detailLabel}
-                      sessionToken={urlSessionToken}
                     />
                   </li>
                 ))}
@@ -265,7 +257,6 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
                 locale={activeLocale}
                 primaryActionLabel={copy.ctaLabel}
                 secondaryActionLabel={cardActionCopy.detailLabel}
-                sessionToken={urlSessionToken}
               />
             </li>
           ))}
@@ -291,7 +282,6 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
                     activeLocale,
                     merchant.id,
                     merchant.name,
-                    urlSessionToken,
                   )}
                 >
                   <span className="web-merchant-link__name">{merchant.name}</span>
@@ -307,7 +297,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
       </section>
       <a
         className="web-primary-link"
-        href={appendSessionToken(buildLocaleHref(activeLocale, "/favorites"), urlSessionToken)}
+        href={buildLocaleHref(activeLocale, "/favorites")}
       >
         {copy.favoritesCtaLabel}
       </a>

@@ -1,7 +1,6 @@
 import React, { type ReactNode } from "react";
 
 import {
-  appendSessionToken,
   buildLocaleHref,
   type PublicDealRecord,
   type SupportedLocale,
@@ -13,7 +12,6 @@ interface DealDiscoveryCardProps {
   locale: SupportedLocale;
   primaryActionLabel: string;
   secondaryActionLabel: string;
-  sessionToken?: string;
   summary?: string;
 }
 
@@ -27,10 +25,9 @@ export default function DealDiscoveryCard({
   locale,
   primaryActionLabel,
   secondaryActionLabel,
-  sessionToken,
   summary,
 }: DealDiscoveryCardProps) {
-  const detailHref = appendSessionToken(buildLocaleHref(locale, `/deals/${deal.slug}`), sessionToken);
+  const detailHref = buildLocaleHref(locale, `/deals/${deal.slug}`);
   const primaryHref = hasExternalDealUrl(deal.dealUrl) ? deal.dealUrl : detailHref;
   const merchantName =
     "merchant" in deal && deal.merchant && typeof deal.merchant === "object" && "name" in deal.merchant

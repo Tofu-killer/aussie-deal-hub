@@ -1,5 +1,5 @@
 import { requestLoginCode, verifyLoginCode } from "./serverApi";
-import { appendSessionToken, buildLocaleHref } from "./publicDeals";
+import { buildLocaleHref } from "./publicDeals";
 import { persistSessionTokenCookie } from "./session";
 
 export interface LoginCopy {
@@ -40,14 +40,12 @@ export interface SubmitVerifyCodeFromFormResult {
 export interface BuildLoginRequestCodeRedirectTargetInput {
   activeLocale: "en" | "zh";
   email: string;
-  sessionToken?: string;
   status: "error" | "success";
 }
 
 export interface BuildLoginVerifyErrorRedirectTargetInput {
   activeLocale: "en" | "zh";
   email: string;
-  sessionToken?: string;
 }
 
 export interface BuildLoginVerifySuccessRedirectTargetInput {
@@ -94,10 +92,9 @@ function getNormalizedCode(value: FormDataEntryValue | null) {
 export function buildLoginRequestCodeRedirectTarget({
   activeLocale,
   email,
-  sessionToken,
   status,
 }: BuildLoginRequestCodeRedirectTargetInput) {
-  const target = appendSessionToken(buildLocaleHref(activeLocale, "/login"), sessionToken);
+  const target = buildLocaleHref(activeLocale, "/login");
   const url = new URL(target, "http://local.test");
   url.searchParams.set("status", `request_${status}`);
   url.searchParams.set("email", email);
@@ -107,9 +104,8 @@ export function buildLoginRequestCodeRedirectTarget({
 export function buildLoginVerifyErrorRedirectTarget({
   activeLocale,
   email,
-  sessionToken,
 }: BuildLoginVerifyErrorRedirectTargetInput) {
-  const target = appendSessionToken(buildLocaleHref(activeLocale, "/login"), sessionToken);
+  const target = buildLocaleHref(activeLocale, "/login");
   const url = new URL(target, "http://local.test");
   url.searchParams.set("status", "verify_error");
   url.searchParams.set("email", email);

@@ -54,7 +54,7 @@ function stubLiveDealsResponse(routeLocale = "en") {
 }
 
 describe("home hero search and search results page", () => {
-  it("renders a GET hero search form on home and preserves session token", async () => {
+  it("renders a GET hero search form on home without propagating session token", async () => {
     render(
       await LocaleHomePage({
         params: Promise.resolve({ locale: "en" }),
@@ -69,9 +69,7 @@ describe("home hero search and search results page", () => {
     expect(form?.getAttribute("method")).toBe("get");
     expect(form?.getAttribute("action")).toBe("/en/search");
     expect(form?.querySelector('input[name="q"]')).toBeTruthy();
-    expect(form?.querySelector('input[name="sessionToken"]')?.getAttribute("value")).toBe(
-      "session_test_789",
-    );
+    expect(form?.querySelector('input[name="sessionToken"]')).toBeNull();
   });
 
   it("renders search results and passes locale/query to discovery search", async () => {
@@ -110,7 +108,7 @@ describe("home hero search and search results page", () => {
       }).getAttribute("href"),
     ).toBe("https://www.amazon.com.au/deal");
     expect(screen.getByRole("link", { name: "Read breakdown" }).getAttribute("href")).toBe(
-      "/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session_test_789",
+      "/en/deals/nintendo-switch-oled-amazon-au",
     );
   });
 
@@ -138,7 +136,7 @@ describe("home hero search and search results page", () => {
     expect(screen.getByText('No deals found for "nohit".')).toBeTruthy();
   });
 
-  it("keeps session token on back-to-home link", async () => {
+  it("keeps back-to-home link clean", async () => {
     vi.mocked(searchDeals).mockReturnValueOnce([]);
 
     render(
@@ -148,9 +146,7 @@ describe("home hero search and search results page", () => {
       }),
     );
 
-    expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe(
-      "/en?sessionToken=session_test_999",
-    );
+    expect(screen.getByRole("link", { name: "Back to home" }).getAttribute("href")).toBe("/en");
   });
 
   it("searches merged live API deals", async () => {

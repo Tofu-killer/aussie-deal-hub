@@ -10,7 +10,6 @@ import {
   submitVerifyCodeFromForm,
 } from "../../../lib/auth";
 import {
-  appendSessionToken,
   buildLocaleHref,
   getLocaleCopy,
   isSupportedLocale,
@@ -35,7 +34,7 @@ function toSingleParam(value: string | string[] | undefined) {
 function getAccountQuickLinks(
   locale: "en" | "zh",
   currentPage: "home" | "favorites" | "email-preferences" | "recent-views" | "login",
-  sessionToken?: string,
+  isAuthenticated: boolean,
 ) {
   const copy =
     locale === "en"
@@ -62,33 +61,33 @@ function getAccountQuickLinks(
     navLabel: copy.navLabel,
     links: [
       {
-        href: appendSessionToken(buildLocaleHref(locale, ""), sessionToken),
+        href: buildLocaleHref(locale, ""),
         label: copy.home,
         isCurrent: currentPage === "home",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/favorites"), sessionToken),
+        href: buildLocaleHref(locale, "/favorites"),
         label: copy.favorites,
         isCurrent: currentPage === "favorites",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/email-preferences"), sessionToken),
+        href: buildLocaleHref(locale, "/email-preferences"),
         label: copy.emailPreferences,
         isCurrent: currentPage === "email-preferences",
       },
       {
-        href: appendSessionToken(buildLocaleHref(locale, "/recent-views"), sessionToken),
+        href: buildLocaleHref(locale, "/recent-views"),
         label: copy.recentViews,
         isCurrent: currentPage === "recent-views",
       },
-      sessionToken
+      isAuthenticated
         ? {
             href: buildLocaleHref(locale, "/logout"),
             label: copy.logout,
             isCurrent: false,
           }
         : {
-            href: appendSessionToken(buildLocaleHref(locale, "/login"), sessionToken),
+            href: buildLocaleHref(locale, "/login"),
             label: copy.login,
             isCurrent: currentPage === "login",
           },
@@ -108,7 +107,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const resolvedSearchParams = await searchParams;
   const status = toSingleParam(resolvedSearchParams?.status);
   const email = toSingleParam(resolvedSearchParams?.email) ?? "";
-  const { urlSessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
 
   async function handleRequestCode(formData: FormData) {
     "use server";
@@ -118,12 +117,11 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
       formData,
     });
     redirect(
-        buildLoginRequestCodeRedirectTarget({
-          activeLocale,
-          sessionToken: urlSessionToken,
-          status: result.status,
-          email: result.email,
-        }),
+      buildLoginRequestCodeRedirectTarget({
+        activeLocale,
+        status: result.status,
+        email: result.email,
+      }),
     );
   }
 
@@ -147,7 +145,6 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
     redirect(
       buildLoginVerifyErrorRedirectTarget({
         activeLocale,
-        sessionToken: urlSessionToken,
         email: result.email,
       }),
     );
@@ -161,7 +158,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
         : status === "verify_error"
           ? copy.verifyErrorMessage
           : null;
-  const accountQuickLinks = getAccountQuickLinks(activeLocale, "login", urlSessionToken);
+  const accountQuickLinks = getAccountQuickLinks(activeLocale, "login", Boolean(sessionToken));
 
   return (
     <main>
@@ -200,7 +197,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
         <button type="submit">{copy.loginCtaLabel}</button>
       </form>
 
-      <a href={appendSessionToken(buildLocaleHref(activeLocale, ""), urlSessionToken)}>
+      <a href={buildLocaleHref(activeLocale, "")}>
         {localeCopy.backToHomeLabel}
       </a>
     </main>

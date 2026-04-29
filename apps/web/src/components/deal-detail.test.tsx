@@ -283,7 +283,7 @@ describe("public deal surfaces", () => {
 
     await expect(findFormActionByButtonText(detail, "Add to Favorites")(new FormData())).rejects.toMatchObject({
       digest: expect.stringContaining(
-        `/en/deals/${slug}?sessionToken=${sessionToken}&favoriteStatus=success`,
+        `/en/deals/${slug}?favoriteStatus=success`,
       ),
     });
     expect(fetchMock).toHaveBeenCalledWith(
@@ -390,7 +390,7 @@ describe("public deal surfaces", () => {
     detail.unmount();
   });
 
-  it("keeps the session token on locale switch and related deal links", async () => {
+  it("keeps locale switch and related deal links clean when a session token is present", async () => {
     stubPriceContextResponse([]);
 
     const detail = render(
@@ -407,17 +407,17 @@ describe("public deal surfaces", () => {
 
     expect(
       detail.getByRole("link", { name: "English" }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au?sessionToken=session-123");
+    ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
     expect(
       detail.getByRole("link", { name: "中文" }).getAttribute("href"),
-    ).toBe("/zh/deals/nintendo-switch-oled-amazon-au?sessionToken=session-123");
+    ).toBe("/zh/deals/nintendo-switch-oled-amazon-au");
     expect(
       detail
         .getByRole("link", { name: "AirPods Pro (2nd Gen) for A$299 at Costco AU" })
         .getAttribute("href"),
     ).toBe("https://www.costco.com.au/deal");
     expect(detail.getAllByRole("link", { name: "Read breakdown" })[0]?.getAttribute("href")).toBe(
-      "/en/deals/airpods-pro-2-costco-au?sessionToken=session-123",
+      "/en/deals/airpods-pro-2-costco-au",
     );
     detail.unmount();
   });
