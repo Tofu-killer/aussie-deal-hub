@@ -51,6 +51,56 @@ function collectElementsByType(node: React.ReactNode, type: string) {
   return elements;
 }
 
+function getPublicDealsListResponse(
+  input: string | URL | Request,
+  itemsByLocale: Partial<
+    Record<
+      "en" | "zh",
+      Array<{
+        affiliateUrl: string;
+        category: string;
+        currentPrice: string;
+        locale: string;
+        merchant: string;
+        publishedAt: string;
+        slug: string;
+        summary: string;
+        title: string;
+      }>
+    >
+  >,
+) {
+  if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
+    return new Response(
+      JSON.stringify({
+        items: itemsByLocale.en ?? [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }
+
+  if (String(input) === "http://127.0.0.1:3001/v1/public/deals/zh") {
+    return new Response(
+      JSON.stringify({
+        items: itemsByLocale.zh ?? [],
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      },
+    );
+  }
+
+  return null;
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -191,30 +241,25 @@ describe("recent views tracking and page", () => {
     } as Awaited<ReturnType<typeof cookies>>);
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-        return new Response(
-          JSON.stringify({
-            items: [
-              {
-                slug: "live-only-weekend-bundle",
-                title: "Weekend bundle for A$179 at JB Hi-Fi",
-                summary: "Live catalog weekend bundle with pickup available.",
-                category: "deals",
-                locale: "en",
-                merchant: "JB Hi-Fi",
-                currentPrice: "179",
-                affiliateUrl: "https://example.test/live-only-weekend-bundle",
-                publishedAt: "2026-04-23T10:00:00.000Z",
-              },
-            ],
-          }),
+      const publicDealsListResponse = getPublicDealsListResponse(input, {
+        en: [
           {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
+            slug: "live-only-weekend-bundle",
+            title: "Weekend bundle for A$179 at JB Hi-Fi",
+            summary: "Live catalog weekend bundle with pickup available.",
+            category: "deals",
+            locale: "en",
+            merchant: "JB Hi-Fi",
+            currentPrice: "179",
+            affiliateUrl: "https://example.test/live-only-weekend-bundle",
+            publishedAt: "2026-04-23T10:00:00.000Z",
           },
-        );
+        ],
+        zh: [],
+      });
+
+      if (publicDealsListResponse) {
+        return publicDealsListResponse;
       }
 
       throw new Error(`Unexpected fetch: ${String(input)}`);
@@ -240,6 +285,72 @@ describe("recent views tracking and page", () => {
         cache: "no-store",
       }),
     );
+  });
+
+  it("renders localized fallback copy for english-only live recent views on the Chinese page", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get(name: string) {
+        if (name !== RECENT_VIEWS_COOKIE_NAME) {
+          return undefined;
+        }
+
+        return {
+          name,
+          value: buildRecentViewsCookieValue(["live-only-weekend-bundle"]),
+        };
+      },
+    } as Awaited<ReturnType<typeof cookies>>);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const publicDealsListResponse = getPublicDealsListResponse(input, {
+          en: [
+            {
+              slug: "live-only-weekend-bundle",
+              title: "Weekend bundle for A$179 at JB Hi-Fi",
+              summary: "Live catalog weekend bundle with pickup available.",
+              category: "deals",
+              locale: "en",
+              merchant: "JB Hi-Fi",
+              currentPrice: "179",
+              affiliateUrl: "https://example.test/live-only-weekend-bundle",
+              publishedAt: "2026-04-23T10:00:00.000Z",
+            },
+          ],
+          zh: [],
+        });
+
+        if (publicDealsListResponse) {
+          return publicDealsListResponse;
+        }
+
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }),
+    );
+
+    render(
+      await RecentViewsPage({
+        params: Promise.resolve({ locale: "zh" }),
+      }),
+    );
+
+    const recentSection = screen.getByRole("region", { name: "最近浏览的优惠" });
+    expect(
+      within(recentSection)
+        .getByRole("link", {
+          name: "JB Hi-Fi 当前优惠：Weekend bundle for A$179 at JB Hi-Fi",
+        })
+        .getAttribute("href"),
+    ).toBe("https://example.test/live-only-weekend-bundle");
+    expect(
+      within(recentSection).getByText(
+        "当前标价 A$179.00，商家是 JB Hi-Fi。商家原文：Live catalog weekend bundle with pickup available.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(recentSection).getByRole("link", { name: "站内详情" }).getAttribute("href"),
+    ).toBe("/zh/deals/live-only-weekend-bundle");
   });
 
   it("renders chinese empty state when cookie is missing", async () => {

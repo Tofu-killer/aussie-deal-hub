@@ -579,6 +579,15 @@ describe("public deal surfaces", () => {
           String(input)
           === "http://127.0.0.1:3001/v1/public/deals/zh/breville-barista-express-for-a-499"
         ) {
+          return new Response(null, {
+            status: 404,
+          });
+        }
+
+        if (
+          String(input)
+          === "http://127.0.0.1:3001/v1/public/deals/en/breville-barista-express-for-a-499"
+        ) {
           return new Response(
             JSON.stringify({
               locale: "en",

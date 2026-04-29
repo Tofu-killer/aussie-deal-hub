@@ -13,29 +13,37 @@ afterEach(() => {
 });
 
 function stubLiveDealsResponse(
-  items: Array<{
-    affiliateUrl: string;
-    category: string;
-    currentPrice: string;
-    locale: string;
-    merchant: string;
-    publishedAt: string;
-    slug: string;
-    summary: string;
-    title: string;
-  }> = [
-    {
-      locale: "en",
-      slug: "breville-barista-express-for-a-499",
-      title: "Breville Barista Express for A$499",
-      summary: "Live catalog deal loaded from the public API.",
-      category: "Deals",
-      merchant: "The Good Guys",
-      currentPrice: "499.00",
-      affiliateUrl: "https://www.thegoodguys.com.au/deal",
-      publishedAt: "2026-04-23T01:00:00.000Z",
-    },
-  ],
+  itemsByLocale: Partial<
+    Record<
+      "en" | "zh",
+      Array<{
+        affiliateUrl: string;
+        category: string;
+        currentPrice: string;
+        locale: string;
+        merchant: string;
+        publishedAt: string;
+        slug: string;
+        summary: string;
+        title: string;
+      }>
+    >
+  > = {
+    en: [
+      {
+        locale: "en",
+        slug: "breville-barista-express-for-a-499",
+        title: "Breville Barista Express for A$499",
+        summary: "Live catalog deal loaded from the public API.",
+        category: "Deals",
+        merchant: "The Good Guys",
+        currentPrice: "499.00",
+        affiliateUrl: "https://www.thegoodguys.com.au/deal",
+        publishedAt: "2026-04-23T01:00:00.000Z",
+      },
+    ],
+    zh: [],
+  },
 ) {
   vi.stubGlobal(
     "fetch",
@@ -43,7 +51,21 @@ function stubLiveDealsResponse(
       if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
         return new Response(
           JSON.stringify({
-            items,
+            items: itemsByLocale.en ?? [],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/zh") {
+        return new Response(
+          JSON.stringify({
+            items: itemsByLocale.zh ?? [],
           }),
           {
             status: 200,
@@ -140,6 +162,50 @@ describe("home page curated sections", () => {
     expect(merchantMeta?.textContent).toContain("最近 2026-04-22");
   });
 
+  it("renders localized fallback copy for english-only live deals on the Chinese home page", async () => {
+    stubLiveDealsResponse({
+      en: [
+        {
+          locale: "en",
+          slug: "breville-barista-express-for-a-499",
+          title: "Breville Barista Express for A$499",
+          summary: "Live catalog deal loaded from the public API.",
+          category: "Deals",
+          merchant: "The Good Guys",
+          currentPrice: "499.00",
+          affiliateUrl: "https://www.thegoodguys.com.au/deal",
+          publishedAt: "2026-04-23T01:00:00.000Z",
+        },
+      ],
+      zh: [],
+    });
+
+    render(
+      await LocaleHomePage({
+        params: Promise.resolve({ locale: "zh" }),
+      }),
+    );
+
+    const latestDealsSection = screen.getByRole("region", { name: "最新优惠" });
+    const fallbackDealLink = within(latestDealsSection).getByRole("link", {
+      name: "The Good Guys 当前优惠：Breville Barista Express for A$499",
+    });
+    const fallbackDealCard = fallbackDealLink.closest("article");
+
+    expect(fallbackDealLink.getAttribute("href")).toBe("https://www.thegoodguys.com.au/deal");
+    expect(fallbackDealCard).toBeTruthy();
+    expect(
+      within(latestDealsSection).getByText(
+        "当前标价 A$499.00，商家是 The Good Guys。商家原文：Live catalog deal loaded from the public API.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(fallbackDealCard as HTMLElement).getByRole("link", { name: "站内详情" }).getAttribute(
+        "href",
+      ),
+    ).toBe("/zh/deals/breville-barista-express-for-a-499");
+  });
+
   it("preserves session token across locale switch and favorites entry", async () => {
     const { container } = render(
       await LocaleHomePage({
@@ -192,41 +258,44 @@ describe("home page curated sections", () => {
   });
 
   it("merges live API deals into latest deals and trending merchants", async () => {
-    stubLiveDealsResponse([
-      {
-        locale: "en",
-        slug: "breville-barista-express-for-a-499",
-        title: "Breville Barista Express for A$499",
-        summary: "Live catalog deal loaded from the public API.",
-        category: "Deals",
-        merchant: "The Good Guys",
-        currentPrice: "499.00",
-        affiliateUrl: "https://www.thegoodguys.com.au/deal",
-        publishedAt: "2026-04-23T01:00:00.000Z",
-      },
-      {
-        locale: "en",
-        slug: "breville-smart-grinder-pro-for-a-279",
-        title: "Breville Smart Grinder Pro for A$279",
-        summary: "Pair it with the espresso machine while the price holds.",
-        category: "Deals",
-        merchant: "The Good Guys",
-        currentPrice: "279.00",
-        affiliateUrl: "https://www.thegoodguys.com.au/grinder-deal",
-        publishedAt: "2026-04-22T05:00:00.000Z",
-      },
-      {
-        locale: "en",
-        slug: "audible-30-day-trial-now-a-0",
-        title: "Audible 30-day trial now A$0",
-        summary: "Live free trial with one included audiobook credit.",
-        category: "Freebies",
-        merchant: "Audible AU",
-        currentPrice: "0",
-        affiliateUrl: "https://www.audible.com.au/deal",
-        publishedAt: "2026-04-24T05:00:00.000Z",
-      },
-    ]);
+    stubLiveDealsResponse({
+      en: [
+        {
+          locale: "en",
+          slug: "breville-barista-express-for-a-499",
+          title: "Breville Barista Express for A$499",
+          summary: "Live catalog deal loaded from the public API.",
+          category: "Deals",
+          merchant: "The Good Guys",
+          currentPrice: "499.00",
+          affiliateUrl: "https://www.thegoodguys.com.au/deal",
+          publishedAt: "2026-04-23T01:00:00.000Z",
+        },
+        {
+          locale: "en",
+          slug: "breville-smart-grinder-pro-for-a-279",
+          title: "Breville Smart Grinder Pro for A$279",
+          summary: "Pair it with the espresso machine while the price holds.",
+          category: "Deals",
+          merchant: "The Good Guys",
+          currentPrice: "279.00",
+          affiliateUrl: "https://www.thegoodguys.com.au/grinder-deal",
+          publishedAt: "2026-04-22T05:00:00.000Z",
+        },
+        {
+          locale: "en",
+          slug: "audible-30-day-trial-now-a-0",
+          title: "Audible 30-day trial now A$0",
+          summary: "Live free trial with one included audiobook credit.",
+          category: "Freebies",
+          merchant: "Audible AU",
+          currentPrice: "0",
+          affiliateUrl: "https://www.audible.com.au/deal",
+          publishedAt: "2026-04-24T05:00:00.000Z",
+        },
+      ],
+      zh: [],
+    });
 
     render(
       await LocaleHomePage({

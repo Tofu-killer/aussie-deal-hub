@@ -14,26 +14,60 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function stubLiveDealsResponse() {
+function stubLiveDealsResponse(
+  itemsByLocale: Partial<
+    Record<
+      "en" | "zh",
+      Array<{
+        affiliateUrl: string;
+        category: string;
+        currentPrice: string;
+        locale: string;
+        merchant: string;
+        publishedAt: string;
+        slug: string;
+        summary: string;
+        title: string;
+      }>
+    >
+  > = {
+    en: [
+      {
+        locale: "en",
+        slug: "breville-barista-express-for-a-499",
+        title: "Breville Barista Express for A$499",
+        summary: "Live catalog deal loaded from the public API.",
+        category: "Deals",
+        merchant: "The Good Guys",
+        currentPrice: "499.00",
+        affiliateUrl: "https://www.thegoodguys.com.au/deal",
+        publishedAt: "2026-04-23T01:00:00.000Z",
+      },
+    ],
+    zh: [],
+  },
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request) => {
       if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
         return new Response(
           JSON.stringify({
-            items: [
-              {
-                locale: "en",
-                slug: "breville-barista-express-for-a-499",
-                title: "Breville Barista Express for A$499",
-                summary: "Live catalog deal loaded from the public API.",
-                category: "Deals",
-                merchant: "The Good Guys",
-                currentPrice: "499.00",
-                affiliateUrl: "https://www.thegoodguys.com.au/deal",
-                publishedAt: "2026-04-23T01:00:00.000Z",
-              },
-            ],
+            items: itemsByLocale.en ?? [],
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        );
+      }
+
+      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/zh") {
+        return new Response(
+          JSON.stringify({
+            items: itemsByLocale.zh ?? [],
           }),
           {
             status: 200,
@@ -164,5 +198,48 @@ describe("category listing and related deals", () => {
         name: "Breville Barista Express for A$499",
       }).getAttribute("href"),
     ).toBe("https://www.thegoodguys.com.au/deal");
+  });
+
+  it("renders localized fallback copy for english-only live deals in Chinese category listings", async () => {
+    stubLiveDealsResponse({
+      en: [
+        {
+          locale: "en",
+          slug: "breville-barista-express-for-a-499",
+          title: "Breville Barista Express for A$499",
+          summary: "Live catalog deal loaded from the public API.",
+          category: "Deals",
+          merchant: "The Good Guys",
+          currentPrice: "499.00",
+          affiliateUrl: "https://www.thegoodguys.com.au/deal",
+          publishedAt: "2026-04-23T01:00:00.000Z",
+        },
+      ],
+      zh: [],
+    });
+
+    render(
+      await CategoryPage({
+        params: Promise.resolve({ locale: "zh", category: "deals" }),
+      }),
+    );
+
+    const fallbackDealLink = screen.getByRole("link", {
+      name: "The Good Guys 当前优惠：Breville Barista Express for A$499",
+    });
+    const fallbackDealCard = fallbackDealLink.closest("article");
+
+    expect(fallbackDealLink.getAttribute("href")).toBe("https://www.thegoodguys.com.au/deal");
+    expect(fallbackDealCard).toBeTruthy();
+    expect(
+      screen.getByText(
+        "当前标价 A$499.00，商家是 The Good Guys。商家原文：Live catalog deal loaded from the public API.",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(fallbackDealCard as HTMLElement).getByRole("link", { name: "站内详情" }).getAttribute(
+        "href",
+      ),
+    ).toBe("/zh/deals/breville-barista-express-for-a-499");
   });
 });

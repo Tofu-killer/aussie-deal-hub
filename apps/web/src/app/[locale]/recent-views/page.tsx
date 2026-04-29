@@ -12,7 +12,7 @@ import {
   mergePublicDeals,
   normalizeLivePublicDeal,
 } from "../../../lib/publicDeals";
-import { listPublicDeals } from "../../../lib/serverApi";
+import { listPublicDealsWithLocaleFallback } from "../../../lib/serverApi";
 import { resolveSessionTokens } from "../../../lib/session";
 
 interface RecentViewsPageProps {
@@ -104,7 +104,7 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   const publicDeals =
     recentViewSlugs.length > 0
       ? mergePublicDeals(
-          (await listPublicDeals(activeLocale)).map((deal) =>
+          (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
             normalizeLivePublicDeal(deal, activeLocale),
           ),
           getDefaultPublicDeals(),

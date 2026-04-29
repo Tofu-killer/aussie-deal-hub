@@ -6,7 +6,10 @@ import DealDiscoveryCard from "../../../../components/DealDiscoveryCard";
 import RecentViewTracker from "../../../../components/RecentViewTracker";
 import { getRelatedDeals } from "../../../../lib/discovery";
 import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
-import { getPublicDealFromApi, listPriceSnapshots } from "../../../../lib/serverApi";
+import {
+  getPublicDealFromApiWithLocaleFallback,
+  listPriceSnapshots,
+} from "../../../../lib/serverApi";
 import {
   buildDealPageMetadata,
   buildLocaleHref,
@@ -120,7 +123,7 @@ export async function generateMetadata({
 
   let deal = getPublicDeal(slug);
   if (!deal) {
-    const liveDeal = await getPublicDealFromApi(locale, slug);
+    const liveDeal = await getPublicDealFromApiWithLocaleFallback(locale, slug);
     deal = liveDeal ? normalizeLivePublicDeal(liveDeal, locale) : null;
   }
 
@@ -139,7 +142,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
 
   const activeLocale = locale;
   let deal = getPublicDeal(slug);
-  const liveApiDeal = deal ? null : await getPublicDealFromApi(activeLocale, slug);
+  const liveApiDeal = deal ? null : await getPublicDealFromApiWithLocaleFallback(activeLocale, slug);
   if (!deal && liveApiDeal) {
     deal = normalizeLivePublicDeal(liveApiDeal, activeLocale);
   }

@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { listPublicDeals } from "../lib/serverApi";
+import {
+  getPublicDealFromApiWithLocaleFallback,
+  listPublicDeals,
+  listPublicDealsWithLocaleFallback,
+} from "../lib/serverApi";
 
 vi.mock("../lib/serverApi", () => ({
   getPublicDealFromApi: vi.fn(),
+  getPublicDealFromApiWithLocaleFallback: vi.fn(),
   listPriceSnapshots: vi.fn(),
   listPublicDeals: vi.fn(),
+  listPublicDealsWithLocaleFallback: vi.fn(),
 }));
 
 const SITE_URL = "https://deals.example";
@@ -28,6 +34,8 @@ describe("public SEO metadata and discovery files", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SITE_URL = SITE_URL;
     vi.mocked(listPublicDeals).mockResolvedValue([]);
+    vi.mocked(listPublicDealsWithLocaleFallback).mockResolvedValue([]);
+    vi.mocked(getPublicDealFromApiWithLocaleFallback).mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -195,6 +203,41 @@ describe("public SEO metadata and discovery files", () => {
         languages: {
           en: `${SITE_URL}/en/deals/nintendo-switch-oled-amazon-au`,
           zh: `${SITE_URL}/zh/deals/nintendo-switch-oled-amazon-au`,
+        },
+      },
+    });
+  });
+
+  it("returns localized detail metadata when a zh page falls back to an en-only live deal", async () => {
+    vi.mocked(getPublicDealFromApiWithLocaleFallback).mockResolvedValue({
+      slug: "live-only-weekend-bundle",
+      title: "Weekend bundle for A$179 at JB Hi-Fi",
+      summary: "Live catalog weekend bundle with pickup available.",
+      category: "deals",
+      locale: "en",
+      merchant: "JB Hi-Fi",
+      currentPrice: "179",
+      publishedAt: "2026-04-23T10:00:00.000Z",
+    });
+
+    const detailModule = await import("../app/[locale]/deals/[slug]/page");
+
+    const metadata = await detailModule.generateMetadata({
+      params: Promise.resolve({
+        locale: "zh",
+        slug: "live-only-weekend-bundle",
+      }),
+    });
+
+    expect(metadata).toMatchObject({
+      title: "JB Hi-Fi 当前优惠：Weekend bundle for A$179 at JB Hi-Fi | Aussie Deal Hub",
+      description:
+        "当前标价 A$179.00，商家是 JB Hi-Fi。商家原文：Live catalog weekend bundle with pickup available.",
+      alternates: {
+        canonical: `${SITE_URL}/zh/deals/live-only-weekend-bundle`,
+        languages: {
+          en: `${SITE_URL}/en/deals/live-only-weekend-bundle`,
+          zh: `${SITE_URL}/zh/deals/live-only-weekend-bundle`,
         },
       },
     });

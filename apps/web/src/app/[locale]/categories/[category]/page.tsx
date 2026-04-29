@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import DealDiscoveryCard from "../../../../components/DealDiscoveryCard";
 import { getCategoryDealGroups } from "../../../../lib/discovery";
-import { listPublicDeals } from "../../../../lib/serverApi";
+import { listPublicDealsWithLocaleFallback } from "../../../../lib/serverApi";
 import {
   PUBLIC_PRIMARY_CATEGORIES,
   appendQueryParams,
@@ -262,7 +262,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const filters = getListingFiltersFromSearchParams(resolvedSearchParams);
   const hasFilters = hasActiveListingFilters(filters);
   const filterCopy = getFilterCopy(activeLocale);
-  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
+  const liveDeals = (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
   const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());

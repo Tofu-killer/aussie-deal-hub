@@ -11,7 +11,11 @@ import {
   mergePublicDeals,
   normalizeLivePublicDeal,
 } from "../../../lib/publicDeals";
-import { listFavoriteDealIds, listPublicDeals, removeFavoriteDealId } from "../../../lib/serverApi";
+import {
+  listFavoriteDealIds,
+  listPublicDealsWithLocaleFallback,
+  removeFavoriteDealId,
+} from "../../../lib/serverApi";
 import { resolveSessionTokens } from "../../../lib/session";
 
 interface FavoritesPageProps {
@@ -150,7 +154,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
     const publicDeals =
       favorites.length > 0
         ? mergePublicDeals(
-            (await listPublicDeals(activeLocale)).map((deal) =>
+            (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
               normalizeLivePublicDeal(deal, activeLocale),
             ),
             getDefaultPublicDeals(),

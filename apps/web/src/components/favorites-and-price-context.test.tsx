@@ -56,6 +56,36 @@ function buildFormDataFromElement(element: React.ReactElement<{ children?: React
   return formData;
 }
 
+function createJsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json",
+    },
+  });
+}
+
+function getPublicDealsListResponse(
+  input: string | URL | Request,
+  itemsByLocale: Partial<Record<"en" | "zh", unknown[]>>,
+) {
+  const url = String(input);
+
+  if (url === "http://127.0.0.1:3001/v1/public/deals/en") {
+    return createJsonResponse({
+      items: itemsByLocale.en ?? [],
+    });
+  }
+
+  if (url === "http://127.0.0.1:3001/v1/public/deals/zh") {
+    return createJsonResponse({
+      items: itemsByLocale.zh ?? [],
+    });
+  }
+
+  return null;
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -64,33 +94,20 @@ afterEach(() => {
 describe("favorites and price context pages", () => {
   it("renders real favorite rows from the API on the favorites page", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-        return new Response(
-          JSON.stringify({
-            items: [],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+      const publicDealsListResponse = getPublicDealsListResponse(input, {
+        en: [],
+        zh: [],
+      });
+
+      if (publicDealsListResponse) {
+        return publicDealsListResponse;
       }
 
       expect(String(input)).toBe("http://127.0.0.1:3001/v1/favorites");
 
-      return new Response(
-        JSON.stringify({
-          items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
-        }),
-        {
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-          },
-        },
-      );
+      return createJsonResponse({
+        items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
+      });
     });
 
     vi.stubGlobal("fetch", fetchMock);
@@ -232,34 +249,21 @@ describe("favorites and price context pages", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
-        if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-          return new Response(
-            JSON.stringify({
-              items: [],
-            }),
-            {
-              status: 200,
-              headers: {
-                "content-type": "application/json",
-              },
-            },
-          );
+        const publicDealsListResponse = getPublicDealsListResponse(input, {
+          en: [],
+          zh: [],
+        });
+
+        if (publicDealsListResponse) {
+          return publicDealsListResponse;
         }
 
-        return new Response(
-          JSON.stringify({
-            items: [
-              { dealId: "nintendo-switch-oled-amazon-au" },
-              { dealId: "airpods-pro-2-costco-au" },
-            ],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return createJsonResponse({
+          items: [
+            { dealId: "nintendo-switch-oled-amazon-au" },
+            { dealId: "airpods-pro-2-costco-au" },
+          ],
+        });
       }),
     );
 
@@ -289,43 +293,30 @@ describe("favorites and price context pages", () => {
   it("renders live-only favorites from the batched public deals list", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       if (String(input) === "http://127.0.0.1:3001/v1/favorites") {
-        return new Response(
-          JSON.stringify({
-            items: [{ dealId: "live-only-weekend-bundle" }],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return createJsonResponse({
+          items: [{ dealId: "live-only-weekend-bundle" }],
+        });
       }
 
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-        return new Response(
-          JSON.stringify({
-            items: [
-              {
-                slug: "live-only-weekend-bundle",
-                title: "Weekend bundle for A$179 at JB Hi-Fi",
-                summary: "Live catalog weekend bundle with pickup available.",
-                category: "deals",
-                locale: "en",
-                merchant: "JB Hi-Fi",
-                currentPrice: "179",
-                affiliateUrl: "https://example.test/live-only-weekend-bundle",
-                publishedAt: "2026-04-23T10:00:00.000Z",
-              },
-            ],
-          }),
+      const publicDealsListResponse = getPublicDealsListResponse(input, {
+        en: [
           {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
+            slug: "live-only-weekend-bundle",
+            title: "Weekend bundle for A$179 at JB Hi-Fi",
+            summary: "Live catalog weekend bundle with pickup available.",
+            category: "deals",
+            locale: "en",
+            merchant: "JB Hi-Fi",
+            currentPrice: "179",
+            affiliateUrl: "https://example.test/live-only-weekend-bundle",
+            publishedAt: "2026-04-23T10:00:00.000Z",
           },
-        );
+        ],
+        zh: [],
+      });
+
+      if (publicDealsListResponse) {
+        return publicDealsListResponse;
       }
 
       throw new Error(`Unexpected fetch: ${String(input)}`);
@@ -359,34 +350,21 @@ describe("favorites and price context pages", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
-        if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-          return new Response(
-            JSON.stringify({
-              items: [],
-            }),
-            {
-              status: 200,
-              headers: {
-                "content-type": "application/json",
-              },
-            },
-          );
+        const publicDealsListResponse = getPublicDealsListResponse(input, {
+          en: [],
+          zh: [],
+        });
+
+        if (publicDealsListResponse) {
+          return publicDealsListResponse;
         }
 
-        return new Response(
-          JSON.stringify({
-            items: [
-              { dealId: "nintendo-switch-oled-amazon-au" },
-              { dealId: "retired-deal-123" },
-            ],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return createJsonResponse({
+          items: [
+            { dealId: "nintendo-switch-oled-amazon-au" },
+            { dealId: "retired-deal-123" },
+          ],
+        });
       }),
     );
 
@@ -407,18 +385,13 @@ describe("favorites and price context pages", () => {
 
   it("deletes favorites through the API before redirecting back to a clean favorites URL", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/en") {
-        return new Response(
-          JSON.stringify({
-            items: [],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+      const publicDealsListResponse = getPublicDealsListResponse(input, {
+        en: [],
+        zh: [],
+      });
+
+      if (publicDealsListResponse) {
+        return publicDealsListResponse;
       }
 
       if (
@@ -432,17 +405,9 @@ describe("favorites and price context pages", () => {
       }
 
       if (String(input) === "http://127.0.0.1:3001/v1/favorites") {
-        return new Response(
-          JSON.stringify({
-            items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return createJsonResponse({
+          items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
+        });
       }
 
       throw new Error(`Unexpected fetch: ${String(input)}`);
@@ -477,18 +442,13 @@ describe("favorites and price context pages", () => {
 
   it("redirects back with localized page feedback when removing a favorite fails", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      if (String(input) === "http://127.0.0.1:3001/v1/public/deals/zh") {
-        return new Response(
-          JSON.stringify({
-            items: [],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+      const publicDealsListResponse = getPublicDealsListResponse(input, {
+        en: [],
+        zh: [],
+      });
+
+      if (publicDealsListResponse) {
+        return publicDealsListResponse;
       }
 
       if (
@@ -502,17 +462,9 @@ describe("favorites and price context pages", () => {
       }
 
       if (String(input) === "http://127.0.0.1:3001/v1/favorites") {
-        return new Response(
-          JSON.stringify({
-            items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
-          }),
-          {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          },
-        );
+        return createJsonResponse({
+          items: [{ dealId: "nintendo-switch-oled-amazon-au" }],
+        });
       }
 
       throw new Error(`Unexpected fetch: ${String(input)}`);

@@ -49,6 +49,7 @@ export interface DigestPreferencesRecord {
 }
 
 const DEFAULT_SERVER_API_BASE_URL = "http://127.0.0.1:3001";
+const PUBLIC_DEAL_LOCALES = ["en", "zh"] as const;
 
 function getServerApiBaseUrl() {
   return process.env.API_BASE_URL ?? DEFAULT_SERVER_API_BASE_URL;
@@ -139,6 +140,52 @@ export async function getPublicDealFromApi(locale: string, slug: string) {
   } catch {
     return null;
   }
+}
+
+function getAlternatePublicDealLocale(locale: string) {
+  return PUBLIC_DEAL_LOCALES.find((candidateLocale) => candidateLocale !== locale) ?? null;
+}
+
+function mergePublicApiDealRecords(
+  primaryDeals: PublicApiDealRecord[],
+  fallbackDeals: PublicApiDealRecord[],
+) {
+  const primarySlugs = new Set(primaryDeals.map((deal) => deal.slug));
+
+  return [
+    ...primaryDeals,
+    ...fallbackDeals.filter((deal) => !primarySlugs.has(deal.slug)),
+  ];
+}
+
+export async function listPublicDealsWithLocaleFallback(locale: string) {
+  const alternateLocale = getAlternatePublicDealLocale(locale);
+
+  if (!alternateLocale) {
+    return listPublicDeals(locale);
+  }
+
+  const [primaryDeals, fallbackDeals] = await Promise.all([
+    listPublicDeals(locale),
+    listPublicDeals(alternateLocale),
+  ]);
+
+  return mergePublicApiDealRecords(primaryDeals, fallbackDeals);
+}
+
+export async function getPublicDealFromApiWithLocaleFallback(locale: string, slug: string) {
+  const alternateLocale = getAlternatePublicDealLocale(locale);
+
+  if (!alternateLocale) {
+    return getPublicDealFromApi(locale, slug);
+  }
+
+  const [primaryDeal, fallbackDeal] = await Promise.all([
+    getPublicDealFromApi(locale, slug),
+    getPublicDealFromApi(alternateLocale, slug),
+  ]);
+
+  return primaryDeal ?? fallbackDeal;
 }
 
 export async function getDigestPreferences(sessionToken: string | undefined) {

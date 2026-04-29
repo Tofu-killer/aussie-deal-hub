@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import DealDiscoveryCard from "../../../components/DealDiscoveryCard";
 import { searchDeals } from "../../../lib/discovery";
-import { listPublicDeals } from "../../../lib/serverApi";
+import { listPublicDealsWithLocaleFallback } from "../../../lib/serverApi";
 import {
   appendQueryParams,
   buildLocaleHref,
@@ -328,7 +328,9 @@ function buildSearchMetadataPath(
 }
 
 async function getSearchPageDeals(locale: SupportedLocale) {
-  const liveDeals = (await listPublicDeals(locale)).map((deal) => normalizeLivePublicDeal(deal, locale));
+  const liveDeals = (await listPublicDealsWithLocaleFallback(locale)).map((deal) =>
+    normalizeLivePublicDeal(deal, locale),
+  );
   return mergePublicDeals(liveDeals, getDefaultPublicDeals());
 }
 

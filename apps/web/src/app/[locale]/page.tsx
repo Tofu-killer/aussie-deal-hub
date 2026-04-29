@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import DealDiscoveryCard from "../../components/DealDiscoveryCard";
 import { LocaleSwitch } from "../../lib/ui";
-import { listPublicDeals } from "../../lib/serverApi";
+import { listPublicDealsWithLocaleFallback } from "../../lib/serverApi";
 import {
   appendQueryParams,
   buildHomePageMetadata,
@@ -142,7 +142,7 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
 
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
-  const liveDeals = (await listPublicDeals(activeLocale)).map((deal) =>
+  const liveDeals = (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
   const publicDeals = mergePublicDeals(liveDeals);
