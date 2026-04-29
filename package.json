@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "vitest --config vitest.workspace.ts --watch packages/config/src/env.test.ts",
+    "release:bundle": "node scripts/release-bundle.mjs",
     "runtime:backup": "node scripts/runtime-backup.mjs",
     "runtime:restore": "node scripts/runtime-restore.mjs",
     "smoke:container-health": "node scripts/check-compose-health.mjs",

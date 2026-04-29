@@ -162,6 +162,18 @@ Create a fresh runtime backup with `pnpm runtime:backup` before restoring. Stop 
 
 This operation is destructive because it runs `pg_restore --clean --if-exists` against the target database. The script requires `pg_restore` in `PATH`, only accepts custom-format `.dump` artifacts created by `pnpm runtime:backup`, resolves `BACKUP_FILE` from the current working directory, and expands `DATABASE_URL` into libpq runtime settings without placing credentials on the `pg_restore` command line. The explicit `RESTORE_CONFIRM=restore` gate is required on every invocation to reduce accidental restores.
 
+## Release bundle
+
+Create a curated deployment bundle from the current checkout with:
+
+```bash
+pnpm release:bundle
+```
+
+The script stages a curated deployment bundle under `release/`, copies the checked-in runtime files needed for deployment, skips generated directories such as `.next`, `coverage`, `backups`, and writes a `release-manifest.json` with the bundle timestamp and git SHA. Override the output root with `RELEASE_DIR` when you need to stage the bundle somewhere else.
+
+The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact`.
+
 ## Service start commands
 
 Build the workspace once before starting the Next.js apps:

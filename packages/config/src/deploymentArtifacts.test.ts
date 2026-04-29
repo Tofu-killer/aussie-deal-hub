@@ -373,6 +373,33 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("without placing credentials on the `pg_restore` command line");
   });
 
+  it("provides a release bundle workflow and local bundle entrypoint", () => {
+    const packageJson = readRepoFile("package.json");
+    const readme = readRepoFile("README.md");
+    const gitignore = readRepoFile(".gitignore");
+    const workflow = readRepoFile(".github/workflows/release-bundle.yml");
+    const releaseBundleBlock = ["pnpm release:bundle"].join("\n");
+
+    expect(packageJson).toContain("\"release:bundle\": \"node scripts/release-bundle.mjs\"");
+    expect(readme).toContain("## Release bundle");
+    expect(readme).toContain(releaseBundleBlock);
+    expect(readme).toContain("workflow_dispatch");
+    expect(readme).toContain("release-manifest.json");
+    expect(readme).toContain("curated deployment bundle");
+    expect(readme).toContain("actions/upload-artifact");
+    expect(gitignore).toContain("release");
+    expect(workflow).toContain("name: Release bundle");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("pnpm verify");
+    expect(workflow).toContain("pnpm release:bundle");
+    expect(workflow).toContain(
+      "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
+    );
+    expect(workflow).toContain("if-no-files-found: error");
+    expect(workflow).toContain("path: release/");
+    expect(workflow).toContain("permissions:\n  contents: read");
+  });
+
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const packageJson = JSON.parse(readRepoFile("package.json")) as {
