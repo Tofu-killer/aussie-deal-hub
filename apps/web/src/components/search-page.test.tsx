@@ -265,4 +265,27 @@ describe("home hero search and search results page", () => {
       }).getAttribute("href"),
     ).toBe("https://www.thegoodguys.com.au/deal");
   });
+
+  it("does not leak seeded discovery results into live-backed searches", async () => {
+    stubLiveDealsResponse();
+    const actualDiscovery = await vi.importActual<typeof import("../lib/discovery")>(
+      "../lib/discovery",
+    );
+    vi.mocked(searchDeals).mockImplementationOnce(actualDiscovery.searchDeals);
+
+    render(
+      await SearchPage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({ q: "Nintendo" }),
+      }),
+    );
+
+    expect(searchDeals).toHaveBeenCalledWith("Nintendo", "en", undefined, expect.any(Array));
+    expect(screen.getByText('No deals found for "Nintendo".')).toBeTruthy();
+    expect(
+      screen.queryByRole("link", {
+        name: "Nintendo Switch OLED for A$399 at Amazon AU",
+      }),
+    ).toBeNull();
+  });
 });

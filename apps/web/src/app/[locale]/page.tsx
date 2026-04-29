@@ -9,13 +9,13 @@ import {
   appendQueryParams,
   buildHomePageMetadata,
   buildLocaleHref,
+  getDiscoveryPublicDeals,
   getLatestDeals,
   getLocaleCopy,
   getHomeLocaleSwitchLinks,
   getHomeSections,
   getTrendingMerchants,
   isSupportedLocale,
-  mergePublicDeals,
   normalizeLivePublicDeal,
   type TrendingMerchantRecord,
 } from "../../lib/publicDeals";
@@ -145,10 +145,10 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
   const liveDeals = (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
-  const publicDeals = mergePublicDeals(liveDeals);
-  const sections = getHomeSections(activeLocale, publicDeals, liveDeals);
-  const latestDeals = getLatestDeals(4, publicDeals);
-  const trendingMerchants = getTrendingMerchants(4, publicDeals);
+  const discoveryDeals = getDiscoveryPublicDeals(liveDeals);
+  const sections = getHomeSections(activeLocale, discoveryDeals, liveDeals);
+  const latestDeals = getLatestDeals(4, discoveryDeals);
+  const trendingMerchants = getTrendingMerchants(4, discoveryDeals);
   const resolvedSearchParams = await searchParams;
   const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", Boolean(sessionToken));

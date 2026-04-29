@@ -323,16 +323,21 @@ describe("home page curated sections", () => {
       within(freebiesSection).getByRole("link", { name: "Read breakdown" }).getAttribute("href"),
     ).toBe("/en/deals/audible-30-day-trial-now-a-0");
 
-    const historicalLowsSection = screen.getByRole("region", { name: "Historical lows" });
+    const historicalLowsSection = screen.queryByRole("region", { name: "Historical lows" });
+    expect(historicalLowsSection).toBeNull();
     expect(
-      within(historicalLowsSection)
-        .getByRole("link", {
-          name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
-        })
-        .getAttribute("href"),
-    ).toBe("https://www.costco.com.au/deal");
+      screen.queryByRole("region", {
+        name: "Gift card offers",
+      }),
+    ).toBeNull();
 
     const latestDealsSection = screen.getByRole("region", { name: "Latest deals" });
+    expect(
+      within(latestDealsSection).queryByRole("link", {
+        name: "Nintendo Switch OLED for A$399 at Amazon AU",
+      }),
+    ).toBeNull();
+    expect(within(latestDealsSection).getAllByRole("heading", { level: 3 })).toHaveLength(3);
     expect(
       within(latestDealsSection)
         .getByRole("link", { name: "Breville Barista Express for A$499" })
@@ -351,6 +356,7 @@ describe("home page curated sections", () => {
     expect(within(goodGuysItem as HTMLLIElement).getByText("2 deals")).toBeTruthy();
     expect(within(goodGuysItem as HTMLLIElement).getByText("Latest 2026-04-23")).toBeTruthy();
     expect(within(trendingMerchantsSection).getByText("Audible AU")).toBeTruthy();
+    expect(within(trendingMerchantsSection).queryByText("Amazon AU")).toBeNull();
   });
 
   it("throws when a curated section references a missing deal slug", () => {

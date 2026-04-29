@@ -817,6 +817,15 @@ export function mergePublicDeals(
   return [...merged.values()];
 }
 
+export function getDiscoveryPublicDeals(
+  liveDeals: PublicDealRecord[] = [],
+  fallbackDeals: PublicDealRecord[] = getDefaultPublicDeals(),
+) {
+  const dedupedLiveDeals = mergePublicDeals(liveDeals, []);
+
+  return dedupedLiveDeals.length > 0 ? dedupedLiveDeals : fallbackDeals;
+}
+
 export function getPublicDeal(slug: string, deals: PublicDealRecord[] = getDefaultPublicDeals()) {
   return deals.find((deal) => deal.slug === slug) ?? null;
 }

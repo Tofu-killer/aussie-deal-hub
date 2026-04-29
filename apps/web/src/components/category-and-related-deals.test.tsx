@@ -200,6 +200,23 @@ describe("category listing and related deals", () => {
     ).toBe("https://www.thegoodguys.com.au/deal");
   });
 
+  it("does not mix seeded discovery deals into live-backed category listings", async () => {
+    stubLiveDealsResponse();
+
+    render(
+      await CategoryPage({
+        params: Promise.resolve({ locale: "en", category: "deals" }),
+      }),
+    );
+
+    const availableDealsSection = screen.getByRole("region", { name: "Available deals" });
+    expect(
+      within(availableDealsSection).queryByRole("link", {
+        name: "Nintendo Switch OLED for A$399 at Amazon AU",
+      }),
+    ).toBeNull();
+  });
+
   it("renders localized fallback copy for english-only live deals in Chinese category listings", async () => {
     stubLiveDealsResponse({
       en: [

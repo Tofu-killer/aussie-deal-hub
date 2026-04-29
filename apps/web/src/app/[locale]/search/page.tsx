@@ -9,13 +9,12 @@ import {
   appendQueryParams,
   buildLocaleHref,
   buildPublicUrl,
-  getDefaultPublicDeals,
+  getDiscoveryPublicDeals,
   getListingFilterQueryParams,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
   hasActiveListingFilters,
   isSupportedLocale,
-  mergePublicDeals,
   normalizeLivePublicDeal,
   type SupportedLocale,
   type PublicDealRecord,
@@ -331,7 +330,7 @@ async function getSearchPageDeals(locale: SupportedLocale) {
   const liveDeals = (await listPublicDealsWithLocaleFallback(locale)).map((deal) =>
     normalizeLivePublicDeal(deal, locale),
   );
-  return mergePublicDeals(liveDeals, getDefaultPublicDeals());
+  return getDiscoveryPublicDeals(liveDeals);
 }
 
 export async function generateMetadata({

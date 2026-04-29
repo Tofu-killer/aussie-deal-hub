@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getSeededPublicDeals, normalizeLivePublicDeal } from "./publicDeals";
+import {
+  getDiscoveryPublicDeals,
+  getSeededPublicDeals,
+  normalizeLivePublicDeal,
+} from "./publicDeals";
 
 describe("normalizeLivePublicDeal", () => {
   it.each([
@@ -222,5 +226,34 @@ describe("normalizeLivePublicDeal", () => {
       .join(" ");
 
     expect(userVisibleCopy).not.toMatch(/seeded/i);
+  });
+});
+
+describe("getDiscoveryPublicDeals", () => {
+  it("prefers live discovery deals over seeded defaults when live data exists", () => {
+    const liveDeal = normalizeLivePublicDeal(
+      {
+        locale: "en",
+        slug: "live-breville-barista-express",
+        title: "Breville Barista Express for A$499",
+        summary: "Live catalog deal loaded from the public API.",
+        category: "Deals",
+        merchant: "The Good Guys",
+        currentPrice: "499.00",
+        affiliateUrl: "https://www.thegoodguys.com.au/deal",
+        publishedAt: "2026-04-23T01:00:00.000Z",
+      },
+      "en",
+    );
+
+    expect(getDiscoveryPublicDeals([liveDeal]).map((deal) => deal.slug)).toEqual([
+      "live-breville-barista-express",
+    ]);
+  });
+
+  it("falls back to seeded defaults when no live discovery deals exist", () => {
+    expect(getDiscoveryPublicDeals([]).map((deal) => deal.slug)).toContain(
+      "nintendo-switch-oled-amazon-au",
+    );
   });
 });

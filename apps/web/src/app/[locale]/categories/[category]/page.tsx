@@ -10,14 +10,13 @@ import {
   appendQueryParams,
   buildCategoryPageMetadata,
   buildLocaleHref,
-  getDefaultPublicDeals,
+  getDiscoveryPublicDeals,
   getListingFilterQueryParams,
   getListingFiltersFromSearchParams,
   getLocaleCopy,
   getPublicCategoryTitle,
   hasActiveListingFilters,
   isSupportedLocale,
-  mergePublicDeals,
   normalizeLivePublicDeal,
   type PublicDealCategory,
   type PublicDealRecord,
@@ -265,7 +264,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const liveDeals = (await listPublicDealsWithLocaleFallback(activeLocale)).map((deal) =>
     normalizeLivePublicDeal(deal, activeLocale),
   );
-  const publicDeals = mergePublicDeals(liveDeals, getDefaultPublicDeals());
+  const publicDeals = getDiscoveryPublicDeals(liveDeals);
   const merchantOptions = getMerchantOptions(activeLocale, publicDeals, filters.merchant);
   const categoryGroups = hasFilters
     ? getCategoryDealGroups(activeLocale, filters, publicDeals)
