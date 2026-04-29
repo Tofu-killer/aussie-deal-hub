@@ -174,6 +174,8 @@ The script stages a curated deployment bundle under `release/`, copies the check
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact`.
 
+The same workflow then downloads the uploaded artifact into a clean directory, reinstalls workspace dependencies there, starts the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against the downloaded bundle itself before it tears the stack back down.
+
 ## Runtime verify
 
 Verify a deployed or split-port runtime with one command:

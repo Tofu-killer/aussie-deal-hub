@@ -387,6 +387,12 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("release-manifest.json");
     expect(readme).toContain("curated deployment bundle");
     expect(readme).toContain("actions/upload-artifact");
+    expect(readme).toContain("downloads the uploaded artifact into a clean directory");
+    expect(readme).toContain("reinstalls workspace dependencies there");
+    expect(readme).toContain("docker compose up -d --build");
+    expect(readme).toContain("smoke:container-health");
+    expect(readme).toContain("smoke:readiness");
+    expect(readme).toContain("smoke:routes");
     expect(gitignore).toContain("release");
     expect(workflow).toContain("name: Release bundle");
     expect(workflow).toContain("workflow_dispatch:");
@@ -395,9 +401,54 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain(
       "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
     );
+    expect(workflow).toContain(
+      "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
+    );
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
     expect(workflow).toContain("permissions:\n  contents: read");
+  });
+
+  it("rehearses the uploaded release bundle from a clean artifact directory", () => {
+    const workflow = readRepoFile(".github/workflows/release-bundle.yml");
+    const workflowLines = workflow.split("\n");
+    const orderedFragments = [
+      "bundle:",
+      "name: Upload release bundle artifact",
+      "rehearse:",
+      "needs: bundle",
+      "name: Download release bundle artifact",
+      "name: Resolve release bundle root",
+      "name: Install bundle dependencies",
+      "name: Start bundle container stack",
+      "name: Run bundle container health smoke",
+      "name: Run bundle readiness smoke",
+      "name: Run bundle route smoke",
+      "name: Stop bundle container stack",
+    ];
+
+    expect(workflow).toContain('bundle_root="release-artifact"');
+    expect(workflow).toContain('if [ ! -f "${bundle_root}/release-manifest.json" ]; then');
+    expect(workflow).toContain(
+      "find release-artifact -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/release-manifest.json' ';' -print",
+    );
+    expect(workflow).toContain("RELEASE_BUNDLE_ROOT");
+    expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
+    expect(workflow).toContain("pnpm smoke:container-health");
+    expect(workflow).toContain("pnpm smoke:readiness");
+    expect(workflow).toContain("pnpm smoke:routes");
+    expect(workflow).toContain("docker compose logs postgres redis db-init api web admin worker");
+    expect(workflow).toContain("docker compose down -v");
+    expect(workflow).not.toContain("name: Start bundle container stack\n        run: docker compose up -d --build");
+
+    let previousIndex = -1;
+
+    for (const fragment of orderedFragments) {
+      const currentIndex = findLineIndex(workflowLines, fragment);
+
+      expect(currentIndex).toBeGreaterThan(previousIndex);
+      previousIndex = currentIndex;
+    }
   });
 
   it("documents a unified runtime verification entrypoint for deployed stacks", () => {
