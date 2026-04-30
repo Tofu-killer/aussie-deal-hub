@@ -98,9 +98,11 @@ describe("deployment artifacts", () => {
     expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db db:push");
     expect(compose).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(compose).toContain("service_completed_successfully");
-    expect(compose).toContain("pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub");
+    expect(compose).toContain(
+      "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-aussie_deals_hub}",
+    );
     expect(dbInitEnvironment).toContain(
-      "DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub",
+      "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",
     );
     expect(migrateScript).toBe("node --import tsx ./src/migrate.ts");
     expect(migrateScript).toContain("migrate.ts");
@@ -132,14 +134,14 @@ describe("deployment artifacts", () => {
     const apiEnvironment = readComposeServiceEnvironmentBlock(compose, "api");
     const workerEnvironment = readComposeServiceEnvironmentBlock(compose, "worker");
 
-    expect(apiEnvironment).toContain("EMAIL_FROM: deals@example.com");
-    expect(apiEnvironment).toContain("SMTP_HOST: smtp-placeholder");
-    expect(apiEnvironment).toContain("SMTP_PORT: 1025");
-    expect(apiEnvironment).toContain("SMTP_SECURE: 0");
-    expect(workerEnvironment).toContain("SMTP_HOST: smtp-placeholder");
-    expect(workerEnvironment).toContain("SMTP_PORT: 1025");
-    expect(workerEnvironment).toContain("SMTP_SECURE: 0");
-    expect(workerEnvironment).toContain("EMAIL_FROM: deals@example.com");
+    expect(apiEnvironment).toContain("EMAIL_FROM: ${EMAIL_FROM:-deals@example.com}");
+    expect(apiEnvironment).toContain("SMTP_HOST: ${SMTP_HOST:-smtp-placeholder}");
+    expect(apiEnvironment).toContain("SMTP_PORT: ${SMTP_PORT:-1025}");
+    expect(apiEnvironment).toContain("SMTP_SECURE: ${SMTP_SECURE:-0}");
+    expect(workerEnvironment).toContain("SMTP_HOST: ${SMTP_HOST:-smtp-placeholder}");
+    expect(workerEnvironment).toContain("SMTP_PORT: ${SMTP_PORT:-1025}");
+    expect(workerEnvironment).toContain("SMTP_SECURE: ${SMTP_SECURE:-0}");
+    expect(workerEnvironment).toContain("EMAIL_FROM: ${EMAIL_FROM:-deals@example.com}");
   });
 
   it("documents smtp runtime variables in the production example env file", () => {
@@ -175,7 +177,7 @@ describe("deployment artifacts", () => {
     const compose = readRepoFile("docker-compose.yml");
     const postgresBlock = readComposeServiceBlock(compose, "postgres");
 
-    expect(postgresBlock).toContain("POSTGRES_DB: aussie_deals_hub");
+    expect(postgresBlock).toContain("POSTGRES_DB: ${POSTGRES_DB:-aussie_deals_hub}");
     expect(postgresBlock).not.toContain("unix_socket_directories=");
   });
 
@@ -418,8 +420,71 @@ describe("deployment artifacts", () => {
     );
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
-    expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain("permissions:\n  contents: read\n  actions: read");
     expect(workflow).toContain("pnpm release:rehearse");
+  });
+
+  it("provides a deploy workflow and local deploy entrypoint for reviewed release bundles", () => {
+    const packageJson = readRepoFile("package.json");
+    const readme = readRepoFile("README.md");
+    const workflow = readRepoFile(".github/workflows/deploy-release-bundle.yml");
+    const deployBlock = [
+      "RELEASE_DEPLOY_ROOT=release/aussie-deal-hub-release-20260430T120000Z-abcdef123456 \\",
+      "DEPLOY_HOST=deploy.example.com \\",
+      "DEPLOY_USER=deploy \\",
+      "DEPLOY_PATH=/srv/aussie-deal-hub \\",
+      "DEPLOY_SSH_KEY_PATH=$HOME/.ssh/aussie-deal-hub \\",
+      "DEPLOY_RUNTIME_API_BASE_URL=https://api.example.com \\",
+      "DEPLOY_RUNTIME_WEB_BASE_URL=https://www.example.com \\",
+      "DEPLOY_RUNTIME_ADMIN_BASE_URL=https://admin.example.com \\",
+      "pnpm release:deploy",
+    ].join("\n");
+
+    expect(packageJson).toContain("\"release:deploy\": \"node scripts/release-deploy.mjs\"");
+    expect(readme).toContain("## Deploy release bundle");
+    expect(readme).toContain(deployBlock);
+    expect(readme).toContain("/srv/aussie-deal-hub/releases");
+    expect(readme).toContain("/srv/aussie-deal-hub/shared/.env.production");
+    expect(readme).toContain("/srv/aussie-deal-hub/current");
+    expect(readme).toContain("The `Deploy release bundle` GitHub Actions workflow");
+    expect(readme).toContain("downloads a reviewed release bundle artifact");
+    expect(readme).toContain("DEPLOY_ENV_FILE");
+    expect(readme).toContain("DEPLOY_SSH_PORT");
+    expect(workflow).toContain("name: Deploy release bundle");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("bundle_run_id:");
+    expect(workflow).toContain("runtime_api_base_url:");
+    expect(workflow).toContain("runtime_web_base_url:");
+    expect(workflow).toContain("runtime_admin_base_url:");
+    expect(workflow).toContain("runtime_locale:");
+    expect(workflow).toContain("deploy_ssh_port:");
+    expect(workflow).toContain("deploy_env_file:");
+    expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain(
+      "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
+    );
+    expect(workflow).toContain("run-id: ${{ inputs.bundle_run_id }}");
+    expect(workflow).toContain("pattern: aussie-deal-hub-release-bundle-*");
+    expect(workflow).toContain("github-token: ${{ github.token }}");
+    expect(workflow).toContain("path: release-artifact");
+    expect(workflow).toContain("name: Resolve release bundle root");
+    expect(workflow).toContain('bundle_root="release-artifact"');
+    expect(workflow).toContain('if [ ! -f "${bundle_root}/release-manifest.json" ]; then');
+    expect(workflow).toContain(
+      "find release-artifact -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/release-manifest.json' ';' -print",
+    );
+    expect(workflow).toContain('echo "RELEASE_BUNDLE_ROOT=${bundle_root}" >> "${GITHUB_ENV}"');
+    expect(workflow).toContain("name: Write deploy SSH key");
+    expect(workflow).toContain("DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}");
+    expect(workflow).toContain("DEPLOY_USER: ${{ secrets.DEPLOY_USER }}");
+    expect(workflow).toContain("DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}");
+    expect(workflow).toContain("DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}");
+    expect(workflow).toContain("DEPLOY_RUNTIME_API_BASE_URL: ${{ inputs.runtime_api_base_url }}");
+    expect(workflow).toContain("DEPLOY_RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}");
+    expect(workflow).toContain("DEPLOY_RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}");
+    expect(workflow).toContain("DEPLOY_RUNTIME_LOCALE: ${{ inputs.runtime_locale }}");
+    expect(workflow).toContain("RELEASE_DEPLOY_ROOT: ${{ env.RELEASE_BUNDLE_ROOT }}");
+    expect(workflow).toContain("pnpm release:deploy");
   });
 
   it("rehearses the uploaded release bundle from a clean artifact directory", () => {
@@ -495,6 +560,43 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}");
     expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}");
     expect(workflow).toContain("RUNTIME_LOCALE: ${{ inputs.runtime_locale }}");
+  });
+
+  it("keeps compose runtime settings overridable for deployed bundles", () => {
+    const compose = readRepoFile("docker-compose.yml");
+    const postgresBlock = readComposeServiceBlock(compose, "postgres");
+    const dbInitEnvironment = readComposeServiceEnvironmentBlock(compose, "db-init");
+    const apiEnvironment = readComposeServiceEnvironmentBlock(compose, "api");
+    const webEnvironment = readComposeServiceEnvironmentBlock(compose, "web");
+    const adminEnvironment = readComposeServiceEnvironmentBlock(compose, "admin");
+    const workerEnvironment = readComposeServiceEnvironmentBlock(compose, "worker");
+
+    expect(postgresBlock).toContain('      - "${POSTGRES_HOST_PORT:-5432}:5432"');
+    expect(postgresBlock).toContain("POSTGRES_USER: ${POSTGRES_USER:-postgres}");
+    expect(postgresBlock).toContain("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}");
+    expect(postgresBlock).toContain(
+      'pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-aussie_deals_hub}',
+    );
+    expect(dbInitEnvironment).toContain(
+      "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",
+    );
+    expect(apiEnvironment).toContain(
+      "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",
+    );
+    expect(apiEnvironment).toContain("REDIS_URL: ${REDIS_URL:-redis://redis:6379}");
+    expect(apiEnvironment).toContain(
+      "SESSION_SECRET: ${SESSION_SECRET:-change-me-to-at-least-16-characters}",
+    );
+    expect(webEnvironment).toContain("API_BASE_URL: ${API_BASE_URL:-http://api:3001}");
+    expect(webEnvironment).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}");
+    expect(webEnvironment).toContain("SITE_URL: ${SITE_URL:-http://localhost:3000}");
+    expect(adminEnvironment).toContain("ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}");
+    expect(workerEnvironment).toContain(
+      "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",
+    );
+    expect(workerEnvironment).toContain("WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-30000}");
+    expect(workerEnvironment).toContain("WORKER_REVIEW_ENABLED: ${WORKER_REVIEW_ENABLED:-1}");
+    expect(workerEnvironment).toContain("WORKER_PUBLISH_ENABLED: ${WORKER_PUBLISH_ENABLED:-1}");
   });
 
   it("pins CI setup actions to reviewed SHAs and keeps the workspace toolchain aligned", () => {

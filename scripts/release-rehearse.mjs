@@ -1,68 +1,11 @@
-import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-import { fail } from "./lib/postgres-runtime.mjs";
-
-function readManifest(bundleRoot) {
-  const manifestPath = path.join(bundleRoot, "release-manifest.json");
-
-  try {
-    return JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveConfiguredBundleRoot(cwd, configuredRoot) {
-  const bundleRoot = path.resolve(cwd, configuredRoot);
-  const manifest = readManifest(bundleRoot);
-
-  if (!manifest) {
-    fail(`Could not find a release bundle manifest under ${configuredRoot}.`);
-  }
-
-  return bundleRoot;
-}
-
-function resolveNewestBundleRoot(cwd) {
-  const releaseRoot = path.join(cwd, "release");
-
-  try {
-    const manifestAtRoot = readManifest(releaseRoot);
-
-    if (manifestAtRoot) {
-      return releaseRoot;
-    }
-
-    const bundleCandidates = readdirSync(releaseRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => {
-        const bundleRoot = path.join(releaseRoot, entry.name);
-        const manifest = readManifest(bundleRoot);
-
-        if (!manifest?.createdAt) {
-          return undefined;
-        }
-
-        return {
-          bundleRoot,
-          createdAt: manifest.createdAt,
-        };
-      })
-      .filter(Boolean)
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-
-    if (bundleCandidates.length > 0) {
-      return bundleCandidates[0].bundleRoot;
-    }
-  } catch {
-    // handled by the fail below
-  }
-
-  fail(`Could not find a release bundle manifest under ${path.relative(cwd, releaseRoot) || "release"}.`);
-}
+import {
+  resolveConfiguredBundleRoot,
+  resolveNewestBundleRoot,
+} from "./lib/release-bundle-root.mjs";
 
 function resolveReleaseRehearseRoot(cwd = process.cwd(), env = process.env) {
   const configuredRoot = env.RELEASE_REHEARSE_ROOT?.trim();

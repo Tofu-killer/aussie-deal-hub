@@ -2,14 +2,14 @@ services:
   postgres:
     image: postgres:16@sha256:71e27bf60b70bded003791b5573f8b808365613f341df20ffcf0c1ed7bc13ddf
     environment:
-      POSTGRES_DB: aussie_deals_hub
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-aussie_deals_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d aussie_deals_hub"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-aussie_deals_hub}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7@sha256:3e0669e42d4fe421c9dea0ba5fbc04d336b80b4f32a6c7d25bee3a1d089288a1
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -37,7 +37,7 @@ services:
         "pnpm --filter @aussie-deal-hub/db db:migrate",
       ]
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,17 +50,19 @@ services:
       NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 3001
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
-      REDIS_URL: redis://redis:6379
-      SESSION_SECRET: change-me-to-at-least-16-characters
-      EMAIL_FROM: deals@example.com
-      SMTP_HOST: smtp-placeholder
-      SMTP_PORT: 1025
-      SMTP_SECURE: 0
-      WORKER_STATE_PATH: /app/.runtime/worker-state.json
-      WORKER_STALE_AFTER_MS: 120000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-to-at-least-16-characters}
+      EMAIL_FROM: ${EMAIL_FROM:-deals@example.com}
+      SMTP_HOST: ${SMTP_HOST:-smtp-placeholder}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-0}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      WORKER_STATE_PATH: ${WORKER_STATE_PATH:-/app/.runtime/worker-state.json}
+      WORKER_STALE_AFTER_MS: ${WORKER_STALE_AFTER_MS:-120000}
     ports:
-      - "3001:3001"
+      - "${API_HOST_PORT:-3001}:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,12 +89,13 @@ services:
       target: web
     environment:
       NODE_ENV: production
-      API_BASE_URL: http://api:3001
-      NEXT_PUBLIC_SITE_URL: http://localhost:3000
-      SITE_URL: http://localhost:3000
+      API_BASE_URL: ${API_BASE_URL:-http://api:3001}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      PUBLIC_SEEDED_DEALS_ENABLED: ${PUBLIC_SEEDED_DEALS_ENABLED:-}
       PORT: 3000
     ports:
-      - "3000:3000"
+      - "${WEB_HOST_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -113,10 +116,13 @@ services:
       target: admin
     environment:
       NODE_ENV: production
-      ADMIN_API_BASE_URL: http://api:3001
+      ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}
+      ADMIN_BASIC_AUTH_USERNAME: ${ADMIN_BASIC_AUTH_USERNAME:-}
+      ADMIN_BASIC_AUTH_PASSWORD: ${ADMIN_BASIC_AUTH_PASSWORD:-}
+      ADMIN_BASIC_AUTH_REALM: ${ADMIN_BASIC_AUTH_REALM:-}
       PORT: 3002
     ports:
-      - "3002:3002"
+      - "${ADMIN_HOST_PORT:-3002}:3002"
     depends_on:
       api:
         condition: service_healthy
@@ -137,16 +143,20 @@ services:
       target: worker
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aussie_deals_hub
-      EMAIL_FROM: deals@example.com
-      SMTP_HOST: smtp-placeholder
-      SMTP_PORT: 1025
-      SMTP_SECURE: 0
-      WORKER_POLL_INTERVAL_MS: 30000
-      WORKER_REVIEW_ENABLED: 1
-      WORKER_PUBLISH_ENABLED: 1
-      WORKER_STATE_PATH: /app/.runtime/worker-state.json
-      WORKER_STALE_AFTER_MS: 120000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}
+      EMAIL_FROM: ${EMAIL_FROM:-deals@example.com}
+      SMTP_HOST: ${SMTP_HOST:-smtp-placeholder}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-0}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-30000}
+      WORKER_INGEST_ENABLED: ${WORKER_INGEST_ENABLED:-1}
+      WORKER_REVIEW_ENABLED: ${WORKER_REVIEW_ENABLED:-1}
+      WORKER_PUBLISH_ENABLED: ${WORKER_PUBLISH_ENABLED:-1}
+      WORKER_DIGEST_ENABLED: ${WORKER_DIGEST_ENABLED:-1}
+      WORKER_STATE_PATH: ${WORKER_STATE_PATH:-/app/.runtime/worker-state.json}
+      WORKER_STALE_AFTER_MS: ${WORKER_STALE_AFTER_MS:-120000}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,104 @@
+name: Deploy release bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_run_id:
+        description: Workflow run id from a successful Release bundle run
+        required: true
+        type: string
+      runtime_api_base_url:
+        description: Base URL for the deployed API runtime, for example https://api.example.com
+        required: true
+        type: string
+      runtime_web_base_url:
+        description: Base URL for the deployed public web runtime, for example https://www.example.com
+        required: true
+        type: string
+      runtime_admin_base_url:
+        description: Base URL for the deployed admin runtime, for example https://admin.example.com
+        required: true
+        type: string
+      runtime_locale:
+        description: Public locale to verify after deployment
+        required: false
+        default: en
+        type: string
+      deploy_ssh_port:
+        description: SSH port for the remote deployment host
+        required: false
+        default: "22"
+        type: string
+      deploy_env_file:
+        description: Environment file under the remote shared directory
+        required: false
+        default: .env.production
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download reviewed release bundle artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          merge-multiple: true
+          path: release-artifact
+          pattern: aussie-deal-hub-release-bundle-*
+          run-id: ${{ inputs.bundle_run_id }}
+
+      - name: Resolve release bundle root
+        run: |
+          bundle_root="release-artifact"
+          if [ ! -f "${bundle_root}/release-manifest.json" ]; then
+            bundle_root="$(find release-artifact -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/release-manifest.json' ';' -print)"
+          fi
+          test -n "${bundle_root}"
+          echo "RELEASE_BUNDLE_ROOT=${bundle_root}" >> "${GITHUB_ENV}"
+
+      - name: Write deploy SSH key
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          key_path="${RUNNER_TEMP}/deploy-key"
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" > "${key_path}"
+          chmod 600 "${key_path}"
+          echo "DEPLOY_SSH_KEY_PATH=${key_path}" >> "${GITHUB_ENV}"
+
+      - name: Deploy reviewed release bundle
+        env:
+          DEPLOY_ENV_FILE: ${{ inputs.deploy_env_file }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}
+          DEPLOY_RUNTIME_API_BASE_URL: ${{ inputs.runtime_api_base_url }}
+          DEPLOY_RUNTIME_LOCALE: ${{ inputs.runtime_locale }}
+          DEPLOY_RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}
+          DEPLOY_SSH_KEY_PATH: ${{ env.DEPLOY_SSH_KEY_PATH }}
+          DEPLOY_SSH_PORT: ${{ inputs.deploy_ssh_port }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          RELEASE_DEPLOY_ROOT: ${{ env.RELEASE_BUNDLE_ROOT }}
+        run: pnpm release:deploy
