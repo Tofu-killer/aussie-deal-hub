@@ -1,23 +1,45 @@
 import { z } from "zod";
 
-const smtpSecureSchema = z.preprocess((value) => {
-  if (value === undefined) {
-    return undefined;
-  }
+function normalizeOptionalEnvValue(value: unknown) {
+  if (typeof value === "string") {
+    const trimmedValue = value.trim();
 
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  if (value === "1" || value === "true") {
-    return true;
-  }
-
-  if (value === "0" || value === "false") {
-    return false;
+    return trimmedValue.length > 0 ? trimmedValue : undefined;
   }
 
   return value;
+}
+
+const optionalNonEmptyStringSchema = z.preprocess(
+  normalizeOptionalEnvValue,
+  z.string().min(1).optional(),
+);
+
+const optionalPositiveIntegerSchema = z.preprocess(
+  normalizeOptionalEnvValue,
+  z.coerce.number().int().positive().optional(),
+);
+
+const smtpSecureSchema = z.preprocess((value) => {
+  const normalizedValue = normalizeOptionalEnvValue(value);
+
+  if (normalizedValue === undefined) {
+    return undefined;
+  }
+
+  if (typeof normalizedValue === "boolean") {
+    return normalizedValue;
+  }
+
+  if (normalizedValue === "1" || normalizedValue === "true") {
+    return true;
+  }
+
+  if (normalizedValue === "0" || normalizedValue === "false") {
+    return false;
+  }
+
+  return normalizedValue;
 }, z.boolean().default(false));
 
 const apiEnvSchema = z
@@ -29,11 +51,11 @@ const apiEnvSchema = z
     REDIS_URL: z.string().url(),
     SESSION_SECRET: z.string().min(16),
     EMAIL_FROM: z.string().email(),
-    SMTP_HOST: z.string().min(1).optional(),
-    SMTP_PORT: z.coerce.number().int().positive().optional(),
+    SMTP_HOST: optionalNonEmptyStringSchema,
+    SMTP_PORT: optionalPositiveIntegerSchema,
     SMTP_SECURE: smtpSecureSchema,
-    SMTP_USER: z.string().min(1).optional(),
-    SMTP_PASS: z.string().min(1).optional(),
+    SMTP_USER: optionalNonEmptyStringSchema,
+    SMTP_PASS: optionalNonEmptyStringSchema,
     AUTH_CODE_TTL_MS: z.coerce.number().int().positive().default(10 * 60 * 1000),
   })
   .superRefine((env, context) => {

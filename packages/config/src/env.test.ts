@@ -55,4 +55,23 @@ describe("parseApiEnv", () => {
     expect(env.SMTP_PASS).toBe("secret");
     expect(env.AUTH_CODE_TTL_MS).toBe(300000);
   });
+
+  it("treats blank smtp auth placeholders as unset", () => {
+    const env = parseApiEnv({
+      NODE_ENV: "production",
+      API_PORT: "3100",
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+      REDIS_URL: "redis://127.0.0.1:6379",
+      SESSION_SECRET: "development-secret",
+      EMAIL_FROM: "deals@example.com",
+      SMTP_HOST: "smtp.example.com",
+      SMTP_PORT: "587",
+      SMTP_SECURE: "0",
+      SMTP_USER: "",
+      SMTP_PASS: "",
+    });
+
+    expect(env.SMTP_USER).toBeUndefined();
+    expect(env.SMTP_PASS).toBeUndefined();
+  });
 });
