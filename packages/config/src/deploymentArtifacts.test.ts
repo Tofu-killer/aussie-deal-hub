@@ -446,6 +446,10 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("/srv/aussie-deal-hub/releases");
     expect(readme).toContain("/srv/aussie-deal-hub/shared/.env.production");
     expect(readme).toContain("/srv/aussie-deal-hub/current");
+    expect(readme).toContain("captures remote compose logs for the failing stack");
+    expect(readme).toContain("repoints `/srv/aussie-deal-hub/current` back to the previous release");
+    expect(readme).toContain("reruns `pnpm runtime:verify`");
+    expect(readme).toContain("surfaces both the original deployment failure and the rollback failure");
     expect(readme).toContain("The `Deploy release bundle` GitHub Actions workflow");
     expect(readme).toContain("downloads a reviewed release bundle artifact");
     expect(readme).toContain("DEPLOY_ENV_FILE");

@@ -17,6 +17,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const repoRoot = path.join(import.meta.dirname, "../../..");
 const scriptPath = path.join(repoRoot, "scripts/release-deploy.mjs");
 const tempDirs: string[] = [];
+type RuntimeVerifyRunner = (env: Record<string, string | undefined>) => Promise<void>;
+type ResolveCurrentReleaseRootRunner = (context: {
+  cwd: string;
+  deploySshPort: string;
+  env: Record<string, string | undefined>;
+  remoteCurrentRoot: string;
+  remoteTarget: string;
+  sshKeyPath: string;
+}) => Promise<string | undefined> | string | undefined;
+type ReleaseDeployScriptModule = {
+  runReleaseDeployScript?: (
+    cwd?: string,
+    env?: Record<string, string | undefined>,
+    dependencies?: {
+      resolveCurrentReleaseRootRunner?: ResolveCurrentReleaseRootRunner;
+      runtimeVerifyRunner?: RuntimeVerifyRunner;
+    },
+  ) => Promise<void>;
+};
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
@@ -103,15 +122,9 @@ describe("release deploy script", () => {
     process.exitCode = undefined;
 
     try {
-      const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?import-only`)) as {
-        runReleaseDeployScript?: (
-          cwd?: string,
-          env?: Record<string, string | undefined>,
-          dependencies?: {
-            runtimeVerifyRunner?: (env: Record<string, string | undefined>) => Promise<void>;
-          },
-        ) => Promise<void>;
-      };
+      const scriptModule = (await import(
+        `${pathToFileURL(scriptPath).href}?import-only`
+      )) as ReleaseDeployScriptModule;
 
       expect(typeof scriptModule.runReleaseDeployScript).toBe("function");
       expect(consoleError).not.toHaveBeenCalled();
@@ -145,15 +158,9 @@ describe("release deploy script", () => {
       expect(env.RUNTIME_ADMIN_BASE_URL).toBe("https://admin.example.com");
       expect(env.RUNTIME_LOCALE).toBe("zh");
     });
-    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?success-test`)) as {
-      runReleaseDeployScript?: (
-        cwd?: string,
-        env?: Record<string, string | undefined>,
-        dependencies?: {
-          runtimeVerifyRunner?: (env: Record<string, string | undefined>) => Promise<void>;
-        },
-      ) => Promise<void>;
-    };
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?success-test`
+    )) as ReleaseDeployScriptModule;
 
     expect(typeof scriptModule.runReleaseDeployScript).toBe("function");
 
@@ -200,6 +207,18 @@ describe("release deploy script", () => {
           "-p",
           "2222",
           "deploy@deploy.example.com",
+          "if [ -L '/srv/aussie-deal-hub/current' ]; then readlink '/srv/aussie-deal-hub/current'; fi",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "2222",
+          "deploy@deploy.example.com",
           "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
         ],
       },
@@ -232,7 +251,7 @@ describe("release deploy script", () => {
     expect(captureLines.flatMap((entry) => entry.argv)).not.toContain(resolvedOlderBundleRoot);
   });
 
-  it("captures remote compose logs when runtime verification fails after deployment", async () => {
+  it("captures remote compose logs when runtime verification fails after current switches to the new release", async () => {
     const workspaceRoot = await createTempWorkspace();
     const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
     const sshKeyPath = path.join(workspaceRoot, "deploy-key");
@@ -244,34 +263,41 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
-    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?verify-failure-test`)) as {
-      runReleaseDeployScript?: (
-        cwd?: string,
-        env?: Record<string, string | undefined>,
-        dependencies?: {
-          runtimeVerifyRunner?: (env: Record<string, string | undefined>) => Promise<void>;
-        },
-      ) => Promise<void>;
-    };
+    const remoteReleaseRoot =
+      "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T120000Z-failing";
+    const resolveCurrentReleaseRootRunner = vi
+      .fn<ResolveCurrentReleaseRootRunner>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(remoteReleaseRoot);
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?verify-failure-test`
+    )) as ReleaseDeployScriptModule;
 
     await expect(
-      scriptModule.runReleaseDeployScript?.(workspaceRoot, {
-        CAPTURE_FILE: captureFilePath,
-        DEPLOY_HOST: "deploy.example.com",
-        DEPLOY_PATH: "/srv/aussie-deal-hub",
-        DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
-        DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
-        DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
-        DEPLOY_SSH_KEY_PATH: sshKeyPath,
-        DEPLOY_USER: "deploy",
-        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
-        RELEASE_DEPLOY_ROOT: bundleRoot,
-      }, {
-        runtimeVerifyRunner: async () => {
-          throw new Error("runtime verify failed");
+      scriptModule.runReleaseDeployScript?.(
+        workspaceRoot,
+        {
+          CAPTURE_FILE: captureFilePath,
+          DEPLOY_HOST: "deploy.example.com",
+          DEPLOY_PATH: "/srv/aussie-deal-hub",
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
+          DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
+          DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
+          DEPLOY_SSH_KEY_PATH: sshKeyPath,
+          DEPLOY_USER: "deploy",
+          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          RELEASE_DEPLOY_ROOT: bundleRoot,
         },
-      }),
+        {
+          resolveCurrentReleaseRootRunner,
+          runtimeVerifyRunner: async () => {
+            throw new Error("runtime verify failed");
+          },
+        },
+      ),
     ).rejects.toThrow("runtime verify failed");
+
+    expect(resolveCurrentReleaseRootRunner).toHaveBeenCalledTimes(2);
 
     const captureLines = (await readFile(captureFilePath, "utf8"))
       .trim()
@@ -339,16 +365,525 @@ describe("release deploy script", () => {
     ]);
   });
 
-  it("fails fast when required deploy environment variables are missing", async () => {
-    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-env-test`)) as {
-      runReleaseDeployScript?: (
-        cwd?: string,
-        env?: Record<string, string | undefined>,
-        dependencies?: {
-          runtimeVerifyRunner?: (env: Record<string, string | undefined>) => Promise<void>;
+  it("does not capture logs or rollback when activation fails before current changes", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
+    const sshKeyPath = path.join(workspaceRoot, "deploy-key");
+    const previousReleaseRoot =
+      "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable";
+    const releaseName = "aussie-deal-hub-release-20260430T125000Z-pre-switch-failure";
+
+    await writeFile(sshKeyPath, "private-key\n");
+
+    const bundleRoot = await writeReleaseBundle(
+      workspaceRoot,
+      releaseName,
+      "2026-04-30T12:50:00.000Z",
+    );
+    const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
+    await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+
+    const resolveCurrentReleaseRootRunner = vi
+      .fn<ResolveCurrentReleaseRootRunner>()
+      .mockResolvedValueOnce(previousReleaseRoot)
+      .mockResolvedValueOnce(previousReleaseRoot);
+    const runtimeVerifyRunner = vi.fn<RuntimeVerifyRunner>();
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?pre-switch-failure-test`
+    )) as ReleaseDeployScriptModule;
+    const deployRemoteCommand =
+      `ln -sfn '/srv/aussie-deal-hub/releases/${releaseName}' '/srv/aussie-deal-hub/current' && ` +
+      "cd '/srv/aussie-deal-hub/current' && " +
+      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build";
+    const deployCommand = `ssh -i ${sshKeyPath} -p 22 deploy@deploy.example.com ${deployRemoteCommand}`;
+
+    await expect(
+      scriptModule.runReleaseDeployScript?.(
+        workspaceRoot,
+        {
+          CAPTURE_FILE: captureFilePath,
+          DEPLOY_HOST: "deploy.example.com",
+          DEPLOY_PATH: "/srv/aussie-deal-hub",
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
+          DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
+          DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
+          DEPLOY_SSH_KEY_PATH: sshKeyPath,
+          DEPLOY_USER: "deploy",
+          FAIL_COMMAND: deployCommand,
+          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          RELEASE_DEPLOY_ROOT: bundleRoot,
         },
-      ) => Promise<void>;
-    };
+        {
+          resolveCurrentReleaseRootRunner,
+          runtimeVerifyRunner,
+        },
+      ),
+    ).rejects.toThrow(`Command failed (1): ${deployCommand}`);
+
+    expect(resolveCurrentReleaseRootRunner).toHaveBeenCalledTimes(2);
+    expect(runtimeVerifyRunner).not.toHaveBeenCalled();
+
+    const captureLines = (await readFile(captureFilePath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) =>
+        JSON.parse(line) as {
+          argv: string[];
+          command: string;
+          cwd: string;
+        },
+      );
+    const resolvedWorkspaceRoot = await realpath(workspaceRoot);
+    const resolvedBundleRoot = await realpath(bundleRoot);
+
+    expect(captureLines).toEqual([
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+        ],
+      },
+      {
+        command: "scp",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-P",
+          "22",
+          "-r",
+          resolvedBundleRoot,
+          "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T125000Z-pre-switch-failure' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+        ],
+      },
+    ]);
+  });
+
+  it("rolls back to the previous current release when runtime verification fails after activation", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
+    const sshKeyPath = path.join(workspaceRoot, "deploy-key");
+    const previousReleaseRoot =
+      "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable";
+
+    await writeFile(sshKeyPath, "private-key\n");
+
+    const bundleRoot = await writeReleaseBundle(
+      workspaceRoot,
+      "aussie-deal-hub-release-20260430T140000Z-candidate",
+      "2026-04-30T14:00:00.000Z",
+    );
+    const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
+    await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+
+    const runtimeVerifyRunner = vi
+      .fn<RuntimeVerifyRunner>()
+      .mockRejectedValueOnce(new Error("runtime verify failed"))
+      .mockResolvedValueOnce();
+    const resolveCurrentReleaseRootRunner = vi
+      .fn<ResolveCurrentReleaseRootRunner>()
+      .mockResolvedValueOnce(previousReleaseRoot)
+      .mockResolvedValueOnce("/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T140000Z-candidate");
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?rollback-test`
+    )) as ReleaseDeployScriptModule;
+
+    await expect(
+      scriptModule.runReleaseDeployScript?.(
+        workspaceRoot,
+        {
+          CAPTURE_FILE: captureFilePath,
+          DEPLOY_HOST: "deploy.example.com",
+          DEPLOY_PATH: "/srv/aussie-deal-hub",
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
+          DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
+          DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
+          DEPLOY_SSH_KEY_PATH: sshKeyPath,
+          DEPLOY_USER: "deploy",
+          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          RELEASE_DEPLOY_ROOT: bundleRoot,
+        },
+        {
+          resolveCurrentReleaseRootRunner,
+          runtimeVerifyRunner,
+        },
+      ),
+    ).rejects.toThrow("runtime verify failed");
+
+    expect(resolveCurrentReleaseRootRunner).toHaveBeenCalledTimes(2);
+    expect(runtimeVerifyRunner).toHaveBeenCalledTimes(2);
+
+    const captureLines = (await readFile(captureFilePath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) =>
+        JSON.parse(line) as {
+          argv: string[];
+          command: string;
+          cwd: string;
+        },
+      );
+    const resolvedWorkspaceRoot = await realpath(workspaceRoot);
+    const resolvedBundleRoot = await realpath(bundleRoot);
+
+    expect(captureLines).toEqual([
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+        ],
+      },
+      {
+        command: "scp",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-P",
+          "22",
+          "-r",
+          resolvedBundleRoot,
+          "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T140000Z-candidate' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' logs postgres redis db-init api web admin worker",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+        ],
+      },
+    ]);
+  });
+
+  it("rolls back when activation fails after current changes", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
+    const sshKeyPath = path.join(workspaceRoot, "deploy-key");
+    const previousReleaseRoot =
+      "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable";
+    const releaseName = "aussie-deal-hub-release-20260430T150000Z-activation-failure";
+    const remoteReleaseRoot = `/srv/aussie-deal-hub/releases/${releaseName}`;
+
+    await writeFile(sshKeyPath, "private-key\n");
+
+    const bundleRoot = await writeReleaseBundle(
+      workspaceRoot,
+      releaseName,
+      "2026-04-30T15:00:00.000Z",
+    );
+    const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
+    await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+
+    const resolveCurrentReleaseRootRunner = vi
+      .fn<ResolveCurrentReleaseRootRunner>()
+      .mockResolvedValueOnce(previousReleaseRoot)
+      .mockResolvedValueOnce(remoteReleaseRoot);
+    const runtimeVerifyRunner = vi.fn<RuntimeVerifyRunner>().mockResolvedValueOnce();
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?activation-rollback-test`
+    )) as ReleaseDeployScriptModule;
+    const deployRemoteCommand =
+      `ln -sfn '${remoteReleaseRoot}' '/srv/aussie-deal-hub/current' && ` +
+      "cd '/srv/aussie-deal-hub/current' && " +
+      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build";
+    const deployCommand = `ssh -i ${sshKeyPath} -p 22 deploy@deploy.example.com ${deployRemoteCommand}`;
+
+    await expect(
+      scriptModule.runReleaseDeployScript?.(
+        workspaceRoot,
+        {
+          CAPTURE_FILE: captureFilePath,
+          DEPLOY_HOST: "deploy.example.com",
+          DEPLOY_PATH: "/srv/aussie-deal-hub",
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
+          DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
+          DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
+          DEPLOY_SSH_KEY_PATH: sshKeyPath,
+          DEPLOY_USER: "deploy",
+          FAIL_COMMAND: deployCommand,
+          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          RELEASE_DEPLOY_ROOT: bundleRoot,
+        },
+        {
+          resolveCurrentReleaseRootRunner,
+          runtimeVerifyRunner,
+        },
+      ),
+    ).rejects.toThrow(
+      `Release deploy failed, rolled back to ${previousReleaseRoot}, original error: Command failed (1): ${deployCommand}`,
+    );
+
+    expect(resolveCurrentReleaseRootRunner).toHaveBeenCalledTimes(2);
+    expect(runtimeVerifyRunner).toHaveBeenCalledTimes(1);
+
+    const captureLines = (await readFile(captureFilePath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) =>
+        JSON.parse(line) as {
+          argv: string[];
+          command: string;
+          cwd: string;
+        },
+      );
+    const resolvedWorkspaceRoot = await realpath(workspaceRoot);
+    const resolvedBundleRoot = await realpath(bundleRoot);
+
+    expect(captureLines).toEqual([
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+        ],
+      },
+      {
+        command: "scp",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-P",
+          "22",
+          "-r",
+          resolvedBundleRoot,
+          "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: ["-i", sshKeyPath, "-p", "22", "deploy@deploy.example.com", deployRemoteCommand],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' logs postgres redis db-init api web admin worker",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+        ],
+      },
+    ]);
+  });
+
+  it("surfaces rollback failures after activation", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
+    const sshKeyPath = path.join(workspaceRoot, "deploy-key");
+    const previousReleaseRoot =
+      "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable";
+    const releaseName = "aussie-deal-hub-release-20260430T160000Z-rollback-failure";
+    const remoteReleaseRoot = `/srv/aussie-deal-hub/releases/${releaseName}`;
+
+    await writeFile(sshKeyPath, "private-key\n");
+
+    const bundleRoot = await writeReleaseBundle(
+      workspaceRoot,
+      releaseName,
+      "2026-04-30T16:00:00.000Z",
+    );
+    const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
+    await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+
+    const runtimeVerifyFailure = new Error("runtime verify failed");
+    const runtimeVerifyRunner = vi
+      .fn<RuntimeVerifyRunner>()
+      .mockRejectedValueOnce(runtimeVerifyFailure);
+    const resolveCurrentReleaseRootRunner = vi
+      .fn<ResolveCurrentReleaseRootRunner>()
+      .mockResolvedValueOnce(previousReleaseRoot)
+      .mockResolvedValueOnce(remoteReleaseRoot);
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?rollback-failure-test`
+    )) as ReleaseDeployScriptModule;
+    const rollbackRemoteCommand =
+      `ln -sfn '${previousReleaseRoot}' '/srv/aussie-deal-hub/current' && ` +
+      "cd '/srv/aussie-deal-hub/current' && " +
+      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build";
+    const rollbackCommand = `ssh -i ${sshKeyPath} -p 22 deploy@deploy.example.com ${rollbackRemoteCommand}`;
+
+    const thrownError = await scriptModule
+      .runReleaseDeployScript?.(
+        workspaceRoot,
+        {
+          CAPTURE_FILE: captureFilePath,
+          DEPLOY_HOST: "deploy.example.com",
+          DEPLOY_PATH: "/srv/aussie-deal-hub",
+          DEPLOY_RUNTIME_ADMIN_BASE_URL: "https://admin.example.com",
+          DEPLOY_RUNTIME_API_BASE_URL: "https://api.example.com",
+          DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
+          DEPLOY_SSH_KEY_PATH: sshKeyPath,
+          DEPLOY_USER: "deploy",
+          FAIL_COMMAND: rollbackCommand,
+          PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+          RELEASE_DEPLOY_ROOT: bundleRoot,
+        },
+        {
+          resolveCurrentReleaseRootRunner,
+          runtimeVerifyRunner,
+        },
+      )
+      .then(() => null)
+      .catch((error) => error as Error);
+
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError?.message).toBe(
+      `Release deploy failed and rollback to ${previousReleaseRoot} failed: Command failed (1): ${rollbackCommand}`,
+    );
+    expect(thrownError?.cause).toBe(runtimeVerifyFailure);
+    expect(resolveCurrentReleaseRootRunner).toHaveBeenCalledTimes(2);
+    expect(runtimeVerifyRunner).toHaveBeenCalledTimes(1);
+
+    const captureLines = (await readFile(captureFilePath, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) =>
+        JSON.parse(line) as {
+          argv: string[];
+          command: string;
+          cwd: string;
+        },
+      );
+    const resolvedWorkspaceRoot = await realpath(workspaceRoot);
+    const resolvedBundleRoot = await realpath(bundleRoot);
+
+    expect(captureLines).toEqual([
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+        ],
+      },
+      {
+        command: "scp",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-P",
+          "22",
+          "-r",
+          resolvedBundleRoot,
+          "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          `ln -sfn '${remoteReleaseRoot}' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build`,
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' logs postgres redis db-init api web admin worker",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: ["-i", sshKeyPath, "-p", "22", "deploy@deploy.example.com", rollbackRemoteCommand],
+      },
+    ]);
+  });
+
+  it("fails fast when required deploy environment variables are missing", async () => {
+    const scriptModule = (await import(
+      `${pathToFileURL(scriptPath).href}?missing-env-test`
+    )) as ReleaseDeployScriptModule;
 
     await expect(
       scriptModule.runReleaseDeployScript?.(repoRoot, {

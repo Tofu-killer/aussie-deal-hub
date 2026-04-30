@@ -101,6 +101,30 @@ function runCommand(command, args, options = {}) {
   }
 }
 
+function runCommandCapture(command, args, options = {}) {
+  const result = spawnSync(command, args, {
+    cwd: options.cwd,
+    encoding: "utf8",
+    env: options.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
+
+  if (result.status !== 0) {
+    const renderedCommand = [command, ...args].join(" ");
+    throw new Error(`Command failed (${result.status ?? 1}): ${renderedCommand}`);
+  }
+
+  return result.stdout ?? "";
+}
+
 function buildSshArgs({ sshKeyPath, deploySshPort, remoteTarget, remoteCommand }) {
   return ["-i", sshKeyPath, "-p", deploySshPort, remoteTarget, remoteCommand];
 }
@@ -117,11 +141,29 @@ function buildScpArgs({ sshKeyPath, deploySshPort, bundleRoot, remoteReleasesRoo
   ];
 }
 
+function resolveCurrentReleaseRoot(context) {
+  const currentReleaseCommand = `if [ -L ${quoteShellArgument(context.remoteCurrentRoot)} ]; then readlink ${quoteShellArgument(context.remoteCurrentRoot)}; fi`;
+  const currentReleaseRoot = runCommandCapture(
+    "ssh",
+    buildSshArgs({
+      deploySshPort: context.deploySshPort,
+      remoteCommand: currentReleaseCommand,
+      remoteTarget: context.remoteTarget,
+      sshKeyPath: context.sshKeyPath,
+    }),
+    { cwd: context.cwd, env: context.env },
+  ).trim();
+
+  return normalizeRemotePath(currentReleaseRoot);
+}
+
 export async function runReleaseDeployScript(
   cwd = process.cwd(),
   env = process.env,
   dependencies = {},
 ) {
+  const resolveCurrentReleaseRootRunner =
+    dependencies.resolveCurrentReleaseRootRunner ?? resolveCurrentReleaseRoot;
   const runtimeVerifyRunner = dependencies.runtimeVerifyRunner ?? runRuntimeVerifyScript;
   const workingDirectory = realpathSync(cwd);
   const validatedDeployEnv = validateReleaseDeployEnv(workingDirectory, env);
@@ -152,6 +194,13 @@ export async function runReleaseDeployScript(
   const remoteSharedEnvFile = path.posix.join(remoteSharedRoot, deployEnvFile);
   const remoteCurrentRoot = path.posix.join(deployPath, "current");
   const remoteReleaseRoot = path.posix.join(remoteReleasesRoot, manifest.releaseName);
+  const runtimeVerifyEnv = {
+    ...env,
+    RUNTIME_ADMIN_BASE_URL: deployRuntimeAdminBaseUrl,
+    RUNTIME_API_BASE_URL: deployRuntimeApiBaseUrl,
+    RUNTIME_LOCALE: deployRuntimeLocale,
+    RUNTIME_WEB_BASE_URL: deployRuntimeWebBaseUrl,
+  };
   const preflightCommand = [
     `mkdir -p ${quoteShellArgument(remoteReleasesRoot)} ${quoteShellArgument(remoteSharedRoot)}`,
     `test -f ${quoteShellArgument(remoteSharedEnvFile)}`,
@@ -165,6 +214,7 @@ export async function runReleaseDeployScript(
     `cd ${quoteShellArgument(remoteCurrentRoot)}`,
     `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} logs postgres redis db-init api web admin worker`,
   ].join(" && ");
+  let previousReleaseRoot;
   let stackAttempted = false;
 
   console.log(
@@ -172,6 +222,16 @@ export async function runReleaseDeployScript(
   );
 
   try {
+    previousReleaseRoot = normalizeRemotePath(
+      await resolveCurrentReleaseRootRunner({
+        cwd: workingDirectory,
+        deploySshPort,
+        env,
+        remoteCurrentRoot,
+        remoteTarget,
+        sshKeyPath,
+      }),
+    );
     runCommand(
       "ssh",
       buildSshArgs({
@@ -204,29 +264,82 @@ export async function runReleaseDeployScript(
       }),
       { cwd: workingDirectory, env },
     );
-    await runtimeVerifyRunner({
-      ...env,
-      RUNTIME_ADMIN_BASE_URL: deployRuntimeAdminBaseUrl,
-      RUNTIME_API_BASE_URL: deployRuntimeApiBaseUrl,
-      RUNTIME_LOCALE: deployRuntimeLocale,
-      RUNTIME_WEB_BASE_URL: deployRuntimeWebBaseUrl,
-    });
+    await runtimeVerifyRunner(runtimeVerifyEnv);
   } catch (error) {
+    let currentReleaseRoot;
+    let releaseActivated = false;
+    let rollbackPerformed = false;
+
     if (stackAttempted) {
       try {
-        runCommand(
-          "ssh",
-          buildSshArgs({
+        currentReleaseRoot = normalizeRemotePath(
+          await resolveCurrentReleaseRootRunner({
+            cwd: workingDirectory,
             deploySshPort,
-            remoteCommand: logsCommand,
+            env,
+            remoteCurrentRoot,
             remoteTarget,
             sshKeyPath,
           }),
-          { cwd: workingDirectory, env },
         );
+        releaseActivated = currentReleaseRoot === remoteReleaseRoot;
       } catch {
-        // best-effort diagnostics
+        // best-effort activation detection
       }
+
+      if (releaseActivated) {
+        try {
+          runCommand(
+            "ssh",
+            buildSshArgs({
+              deploySshPort,
+              remoteCommand: logsCommand,
+              remoteTarget,
+              sshKeyPath,
+            }),
+            { cwd: workingDirectory, env },
+          );
+        } catch {
+          // best-effort diagnostics
+        }
+
+        if (previousReleaseRoot) {
+          const rollbackCommand = [
+            `ln -sfn ${quoteShellArgument(previousReleaseRoot)} ${quoteShellArgument(remoteCurrentRoot)}`,
+            `cd ${quoteShellArgument(remoteCurrentRoot)}`,
+            `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} up -d --build`,
+          ].join(" && ");
+
+          try {
+            runCommand(
+              "ssh",
+              buildSshArgs({
+                deploySshPort,
+                remoteCommand: rollbackCommand,
+                remoteTarget,
+                sshKeyPath,
+              }),
+              { cwd: workingDirectory, env },
+            );
+            await runtimeVerifyRunner(runtimeVerifyEnv);
+            rollbackPerformed = true;
+          } catch (rollbackError) {
+            const rollbackFailure = new Error(
+              `Release deploy failed and rollback to ${previousReleaseRoot} failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+              { cause: error },
+            );
+
+            throw rollbackFailure;
+          }
+        }
+      }
+    }
+
+    if (rollbackPerformed) {
+      throw new Error(
+        `Release deploy failed, rolled back to ${previousReleaseRoot}, original error: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
 
     throw error;

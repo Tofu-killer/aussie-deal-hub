@@ -197,6 +197,8 @@ pnpm release:deploy
 
 The script resolves the staged bundle from `RELEASE_DEPLOY_ROOT` or, when unset, the newest bundle under `release/`. It then copies that reviewed artifact to `/srv/aussie-deal-hub/releases`, expects the shared runtime env file at `/srv/aussie-deal-hub/shared/.env.production`, flips `/srv/aussie-deal-hub/current` to the new release, runs `docker compose --env-file ... up -d --build` remotely, and finishes by running `pnpm runtime:verify` against the supplied runtime base URLs.
 
+If activation or post-deploy runtime verification fails after `current` has been switched, the script captures remote compose logs for the failing stack, repoints `/srv/aussie-deal-hub/current` back to the previous release when one exists, restarts that restored release, reruns `pnpm runtime:verify`, and still exits non-zero with the original deployment failure. If the rollback itself fails, the script still exits non-zero and surfaces both the original deployment failure and the rollback failure.
+
 Override the remote shared env filename with `DEPLOY_ENV_FILE` when the host uses something other than `.env.production`, and override the SSH port with `DEPLOY_SSH_PORT` when the deployment host does not listen on `22`.
 
 The `Deploy release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It downloads a reviewed release bundle artifact from a successful `Release bundle` run, writes the SSH private key from repository secrets, and then invokes `pnpm release:deploy` with the supplied runtime verification targets.
