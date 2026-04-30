@@ -15,6 +15,17 @@ const targets: RouteSmokeTarget[] = [
   },
 ];
 
+const apiTarget: RouteSmokeTarget = {
+  name: "api-public-deal-en",
+  url: "http://127.0.0.1:3001/v1/public/deals/en/nintendo-switch-oled-amazon-au",
+  expectedStatus: 200,
+  requiredJson: {
+    locale: "en",
+    slug: "nintendo-switch-oled-amazon-au",
+    title: "Nintendo Switch OLED for A$399 at Amazon AU",
+  },
+};
+
 describe("route smoke", () => {
   it("parses the route smoke runtime options from environment variables", () => {
     expect(
@@ -89,6 +100,58 @@ describe("route smoke", () => {
         delayMs: 10,
       }),
     ).rejects.toThrow("web-home-en expected 200, got 503");
+  });
+
+  it("accepts route targets that require a partial JSON contract", async () => {
+    await expect(
+      runRouteSmoke([apiTarget], {
+        fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "nintendo-switch-oled-amazon-au",
+              title: "Nintendo Switch OLED for A$399 at Amazon AU",
+              merchant: "Amazon AU",
+              priceContext: {
+                snapshots: [],
+              },
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          ),
+        ),
+        maxAttempts: 1,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("fails when a JSON route returns 200 without the required contract", async () => {
+    await expect(
+      runRouteSmoke([apiTarget], {
+        fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              locale: "en",
+              slug: "nintendo-switch-oled-amazon-au",
+              title: "Placeholder",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          ),
+        ),
+        maxAttempts: 1,
+      }),
+    ).rejects.toThrow(
+      'api-public-deal-en failed after 1 attempts: api-public-deal-en missing expected JSON at $.title: expected "Nintendo Switch OLED for A$399 at Amazon AU", got "Placeholder"',
+    );
   });
 
   it("treats the timeout budget as a whole-smoke deadline instead of a per-target allowance", async () => {

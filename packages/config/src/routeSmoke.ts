@@ -1,6 +1,7 @@
 export interface RouteSmokeTarget {
   expectedStatus: number;
   name: string;
+  requiredJson?: unknown;
   requiredText?: string[];
   url: string;
 }
@@ -41,6 +42,60 @@ function readPositiveInteger(rawValue: string | undefined, fallbackValue: number
   const parsedValue = Number.parseInt(rawValue, 10);
 
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallbackValue;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function describeJsonValue(value: unknown) {
+  return JSON.stringify(value);
+}
+
+function findMissingJsonSubset(actual: unknown, expected: unknown, path = "$"): string | null {
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual)) {
+      return `${path}: expected array, got ${describeJsonValue(actual)}`;
+    }
+
+    for (const [index, expectedItem] of expected.entries()) {
+      if (index >= actual.length) {
+        return `${path}[${index}]: expected ${describeJsonValue(expectedItem)}, got undefined`;
+      }
+
+      const nestedMismatch = findMissingJsonSubset(actual[index], expectedItem, `${path}[${index}]`);
+
+      if (nestedMismatch) {
+        return nestedMismatch;
+      }
+    }
+
+    return null;
+  }
+
+  if (isPlainObject(expected)) {
+    if (!isPlainObject(actual)) {
+      return `${path}: expected object, got ${describeJsonValue(actual)}`;
+    }
+
+    for (const [key, expectedValue] of Object.entries(expected)) {
+      if (!(key in actual)) {
+        return `${path}.${key}: expected ${describeJsonValue(expectedValue)}, got undefined`;
+      }
+
+      const nestedMismatch = findMissingJsonSubset(actual[key], expectedValue, `${path}.${key}`);
+
+      if (nestedMismatch) {
+        return nestedMismatch;
+      }
+    }
+
+    return null;
+  }
+
+  return Object.is(actual, expected)
+    ? null
+    : `${path}: expected ${describeJsonValue(expected)}, got ${describeJsonValue(actual)}`;
 }
 
 function buildTotalTimeoutError(target: RouteSmokeTarget, totalTimeoutMs: number, lastError: unknown) {
@@ -89,15 +144,39 @@ export async function checkRouteTarget(
     throw new Error(`${target.name} expected ${target.expectedStatus}, got ${response.status}`);
   }
 
-  if (!target.requiredText || target.requiredText.length === 0) {
+  if (
+    (!target.requiredText || target.requiredText.length === 0) &&
+    target.requiredJson === undefined
+  ) {
     return;
   }
 
   const responseBody = await response.text();
-  const missingText = target.requiredText.filter((fragment) => !responseBody.includes(fragment));
 
-  if (missingText.length > 0) {
-    throw new Error(`${target.name} missing expected text: ${missingText.join(", ")}`);
+  if (target.requiredText && target.requiredText.length > 0) {
+    const missingText = target.requiredText.filter((fragment) => !responseBody.includes(fragment));
+
+    if (missingText.length > 0) {
+      throw new Error(`${target.name} missing expected text: ${missingText.join(", ")}`);
+    }
+  }
+
+  if (target.requiredJson === undefined) {
+    return;
+  }
+
+  let parsedBody: unknown;
+
+  try {
+    parsedBody = JSON.parse(responseBody);
+  } catch (error) {
+    throw new Error(`${target.name} returned invalid JSON: ${describeError(error)}`);
+  }
+
+  const mismatch = findMissingJsonSubset(parsedBody, target.requiredJson);
+
+  if (mismatch) {
+    throw new Error(`${target.name} missing expected JSON at ${mismatch}`);
   }
 }
 

@@ -13,6 +13,7 @@ afterEach(async () => {
   delete process.env.WEB_HOME_URL;
   delete process.env.WEB_SEARCH_URL;
   delete process.env.ADMIN_HOME_URL;
+  delete process.env.API_PUBLIC_DEAL_URL;
 });
 
 function runRouteSmokeScript(env: Record<string, string>) {
@@ -37,6 +38,8 @@ describe("route smoke script", () => {
       "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E";
     process.env.ADMIN_HOME_URL =
       "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E";
+    process.env.API_PUBLIC_DEAL_URL =
+      "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Nintendo%20Switch%20OLED%20for%20A%24399%20at%20Amazon%20AU%22%7D";
 
     const originalExitCode = process.exitCode;
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -69,6 +72,8 @@ describe("route smoke script", () => {
         "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E",
       ADMIN_HOME_URL:
         "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E",
+      API_PUBLIC_DEAL_URL:
+        "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Nintendo%20Switch%20OLED%20for%20A%24399%20at%20Amazon%20AU%22%7D",
     });
 
     expect(result.status).toBe(0);
@@ -83,6 +88,8 @@ describe("route smoke script", () => {
       "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E";
     process.env.ADMIN_HOME_URL =
       "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E";
+    process.env.API_PUBLIC_DEAL_URL =
+      "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Nintendo%20Switch%20OLED%20for%20A%24399%20at%20Amazon%20AU%22%7D";
 
     const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?runner-test`)) as {
       runRouteSmokeScript?: (
@@ -101,6 +108,7 @@ describe("route smoke script", () => {
         WEB_HOME_URL: "https://example.test/en",
         WEB_SEARCH_URL: "https://example.test/en/search?q=switch",
         ADMIN_HOME_URL: "https://example.test/admin",
+        API_PUBLIC_DEAL_URL: "https://api.example.test/v1/public/deals/en/nintendo-switch-oled-amazon-au",
       },
       runner,
     );
@@ -125,6 +133,16 @@ describe("route smoke script", () => {
           expectedStatus: 200,
           requiredText: ["Admin review dashboard", "Live summary", "Workflow shortcuts"],
         },
+        {
+          name: "api-public-deal-en",
+          url: "https://api.example.test/v1/public/deals/en/nintendo-switch-oled-amazon-au",
+          expectedStatus: 200,
+          requiredJson: {
+            locale: "en",
+            slug: "nintendo-switch-oled-amazon-au",
+            title: "Nintendo Switch OLED for A$399 at Amazon AU",
+          },
+        },
       ],
       {
         totalTimeoutMs: 10_000,
@@ -141,10 +159,30 @@ describe("route smoke script", () => {
         "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E",
       ADMIN_HOME_URL:
         "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E",
+      API_PUBLIC_DEAL_URL:
+        "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Placeholder%22%7D",
     });
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("web-home-en exceeded total timeout");
     expect(result.stderr).toContain("Trending merchants");
+  });
+
+  it("fails when the public deal API returns 200 without the required JSON contract", () => {
+    const result = runRouteSmokeScript({
+      ROUTE_SMOKE_TIMEOUT_MS: "500",
+      WEB_HOME_URL:
+        "data:text/html,%3Ch2%3ELatest%20deals%3C%2Fh2%3E%3Ch2%3ETrending%20merchants%3C%2Fh2%3E%3Ca%3EOpen%20Favorites%3C%2Fa%3E",
+      WEB_SEARCH_URL:
+        "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E",
+      ADMIN_HOME_URL:
+        "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E",
+      API_PUBLIC_DEAL_URL:
+        "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Placeholder%22%7D",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("api-public-deal-en exceeded total timeout");
+    expect(result.stderr).toContain("$.title");
   });
 });

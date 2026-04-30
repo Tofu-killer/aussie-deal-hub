@@ -5,6 +5,11 @@ import {
   runRouteSmoke,
 } from "../packages/config/src/routeSmoke.ts";
 
+const defaultPublicDealSlug = "nintendo-switch-oled-amazon-au";
+const defaultPublicDealLocale = "en";
+const defaultPublicDealUrl =
+  "http://127.0.0.1:3001/v1/public/deals/en/nintendo-switch-oled-amazon-au";
+
 export function buildRouteSmokeTargets(env = process.env) {
   return [
     {
@@ -24,6 +29,16 @@ export function buildRouteSmokeTargets(env = process.env) {
       url: env.ADMIN_HOME_URL ?? "http://127.0.0.1:3002/",
       expectedStatus: 200,
       requiredText: ["Admin review dashboard", "Live summary", "Workflow shortcuts"],
+    },
+    {
+      name: "api-public-deal-en",
+      url: env.API_PUBLIC_DEAL_URL ?? defaultPublicDealUrl,
+      expectedStatus: 200,
+      requiredJson: {
+        locale: defaultPublicDealLocale,
+        slug: defaultPublicDealSlug,
+        title: "Nintendo Switch OLED for A$399 at Amazon AU",
+      },
     },
   ];
 }

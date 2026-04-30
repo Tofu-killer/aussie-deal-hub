@@ -22,6 +22,7 @@ afterEach(() => {
   delete process.env.WEB_HOME_URL;
   delete process.env.WEB_SEARCH_URL;
   delete process.env.ADMIN_HOME_URL;
+  delete process.env.API_PUBLIC_DEAL_URL;
 });
 
 function runRuntimeVerifyScript(env: Record<string, string>) {
@@ -97,6 +98,9 @@ describe("runtime verify script", () => {
       expect(env.WEB_HOME_URL).toBe("https://www.example.test/zh");
       expect(env.WEB_SEARCH_URL).toBe("https://www.example.test/zh/search?q=switch");
       expect(env.ADMIN_HOME_URL).toBe("https://admin.example.test/console");
+      expect(env.API_PUBLIC_DEAL_URL).toBe(
+        "https://api.example.test/v1/public/deals/zh/nintendo-switch-oled-amazon-au",
+      );
     });
 
     expect(typeof scriptModule.resolveRuntimeVerifyEnv).toBe("function");
@@ -133,6 +137,7 @@ describe("runtime verify script", () => {
         RUNTIME_WEB_BASE_URL: "https://www.example.test",
         RUNTIME_ADMIN_BASE_URL: "https://admin.example.test",
         API_READY_URL: "https://override.example.test/v1/ready",
+        API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-deal",
         WEB_HOME_URL: "https://override.example.test/en",
         ADMIN_HOME_URL: "https://override.example.test/admin",
       }),
@@ -140,6 +145,7 @@ describe("runtime verify script", () => {
       API_READY_URL: "https://override.example.test/v1/ready",
       WEB_HOME_URL: "https://override.example.test/en",
       ADMIN_HOME_URL: "https://override.example.test/admin",
+      API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-deal",
       API_HEALTH_URL: "https://api.example.test/v1/health",
       WEB_SEARCH_URL: "https://www.example.test/en/search?q=switch",
     });
@@ -193,6 +199,8 @@ describe("runtime verify script", () => {
         "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E",
       ADMIN_HOME_URL:
         "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E",
+      API_PUBLIC_DEAL_URL:
+        "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Nintendo%20Switch%20OLED%20for%20A%24399%20at%20Amazon%20AU%22%7D",
     });
 
     expect(result.status).toBe(0);
