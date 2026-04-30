@@ -451,7 +451,14 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("reruns `pnpm runtime:verify`");
     expect(readme).toContain("surfaces both the original deployment failure and the rollback failure");
     expect(readme).toContain("The `Deploy release bundle` GitHub Actions workflow");
-    expect(readme).toContain("downloads a reviewed release bundle artifact");
+    expect(readme).toContain(
+      "first validates that the supplied run id belongs to a successful `Release bundle` workflow run",
+    );
+    expect(readme).toContain("downloads that exact reviewed release bundle artifact");
+    expect(readme).toContain("installs dependencies inside that extracted bundle");
+    expect(readme).toContain(
+      "runs `RELEASE_DEPLOY_ROOT=. pnpm release:deploy` from the downloaded bundle root",
+    );
     expect(readme).toContain("DEPLOY_ENV_FILE");
     expect(readme).toContain("DEPLOY_SSH_PORT");
     expect(workflow).toContain("name: Deploy release bundle");
@@ -464,12 +471,15 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("deploy_ssh_port:");
     expect(workflow).toContain("deploy_env_file:");
     expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain("name: Validate reviewed release bundle run");
+    expect(workflow).toContain("GITHUB_TOKEN: ${{ github.token }}");
+    expect(workflow).toContain("BUNDLE_RUN_ID: ${{ inputs.bundle_run_id }}");
+    expect(workflow).toContain("node scripts/validate-release-bundle-run.mjs");
     expect(workflow).toContain(
       "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
     );
     expect(workflow).toContain("run-id: ${{ inputs.bundle_run_id }}");
-    expect(workflow).toContain("pattern: aussie-deal-hub-release-bundle-*");
-    expect(workflow).toContain("github-token: ${{ github.token }}");
+    expect(workflow).toContain("name: ${{ env.REVIEWED_BUNDLE_ARTIFACT_NAME }}");
     expect(workflow).toContain("path: release-artifact");
     expect(workflow).toContain("name: Resolve release bundle root");
     expect(workflow).toContain('bundle_root="release-artifact"');
@@ -478,6 +488,9 @@ describe("deployment artifacts", () => {
       "find release-artifact -mindepth 1 -maxdepth 1 -type d -exec test -f '{}/release-manifest.json' ';' -print",
     );
     expect(workflow).toContain('echo "RELEASE_BUNDLE_ROOT=${bundle_root}" >> "${GITHUB_ENV}"');
+    expect(workflow).toContain("name: Install reviewed bundle dependencies");
+    expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
+    expect(workflow).toContain("pnpm install --frozen-lockfile");
     expect(workflow).toContain("name: Write deploy SSH key");
     expect(workflow).toContain("DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}");
     expect(workflow).toContain("DEPLOY_USER: ${{ secrets.DEPLOY_USER }}");
@@ -487,8 +500,8 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("DEPLOY_RUNTIME_WEB_BASE_URL: ${{ inputs.runtime_web_base_url }}");
     expect(workflow).toContain("DEPLOY_RUNTIME_ADMIN_BASE_URL: ${{ inputs.runtime_admin_base_url }}");
     expect(workflow).toContain("DEPLOY_RUNTIME_LOCALE: ${{ inputs.runtime_locale }}");
-    expect(workflow).toContain("RELEASE_DEPLOY_ROOT: ${{ env.RELEASE_BUNDLE_ROOT }}");
-    expect(workflow).toContain("pnpm release:deploy");
+    expect(workflow).toContain("RELEASE_DEPLOY_ROOT: .");
+    expect(workflow).toContain("run: pnpm release:deploy");
   });
 
   it("rehearses the uploaded release bundle from a clean artifact directory", () => {

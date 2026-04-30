@@ -201,7 +201,7 @@ If activation or post-deploy runtime verification fails after `current` has been
 
 Override the remote shared env filename with `DEPLOY_ENV_FILE` when the host uses something other than `.env.production`, and override the SSH port with `DEPLOY_SSH_PORT` when the deployment host does not listen on `22`.
 
-The `Deploy release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It downloads a reviewed release bundle artifact from a successful `Release bundle` run, writes the SSH private key from repository secrets, and then invokes `pnpm release:deploy` with the supplied runtime verification targets.
+The `Deploy release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It first validates that the supplied run id belongs to a successful `Release bundle` workflow run, downloads that exact reviewed release bundle artifact, installs dependencies inside that extracted bundle, writes the SSH private key from repository secrets, and then runs `RELEASE_DEPLOY_ROOT=. pnpm release:deploy` from the downloaded bundle root with the supplied runtime verification targets.
 
 ## Runtime verify
 

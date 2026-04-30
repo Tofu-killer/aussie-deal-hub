@@ -58,16 +58,17 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Validate reviewed release bundle run
+        env:
+          BUNDLE_RUN_ID: ${{ inputs.bundle_run_id }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/validate-release-bundle-run.mjs
 
       - name: Download reviewed release bundle artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          github-token: ${{ github.token }}
-          merge-multiple: true
+          name: ${{ env.REVIEWED_BUNDLE_ARTIFACT_NAME }}
           path: release-artifact
-          pattern: aussie-deal-hub-release-bundle-*
           run-id: ${{ inputs.bundle_run_id }}
 
       - name: Resolve release bundle root
@@ -79,6 +80,10 @@ jobs:
           test -n "${bundle_root}"
           echo "RELEASE_BUNDLE_ROOT=${bundle_root}" >> "${GITHUB_ENV}"
 
+      - name: Install reviewed bundle dependencies
+        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
+        run: pnpm install --frozen-lockfile
+
       - name: Write deploy SSH key
         env:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -89,6 +94,7 @@ jobs:
           echo "DEPLOY_SSH_KEY_PATH=${key_path}" >> "${GITHUB_ENV}"
 
       - name: Deploy reviewed release bundle
+        working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
         env:
           DEPLOY_ENV_FILE: ${{ inputs.deploy_env_file }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -100,5 +106,5 @@ jobs:
           DEPLOY_SSH_KEY_PATH: ${{ env.DEPLOY_SSH_KEY_PATH }}
           DEPLOY_SSH_PORT: ${{ inputs.deploy_ssh_port }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          RELEASE_DEPLOY_ROOT: ${{ env.RELEASE_BUNDLE_ROOT }}
+          RELEASE_DEPLOY_ROOT: .
         run: pnpm release:deploy
