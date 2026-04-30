@@ -28,7 +28,7 @@ async function createTempRepo() {
   await writeFile(path.join(tempRepoRoot, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
   await writeFile(path.join(tempRepoRoot, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n");
   await writeFile(path.join(tempRepoRoot, "tsconfig.base.json"), JSON.stringify({}, null, 2));
-  await writeFile(path.join(tempRepoRoot, "vitest.workspace.ts"), "export default [];\n");
+  await writeFile(path.join(tempRepoRoot, "vitest.config.ts"), "export default {};\n");
 
   await mkdir(path.join(tempRepoRoot, "apps", "web", "src"), { recursive: true });
   await writeFile(path.join(tempRepoRoot, "apps", "web", "src", "index.ts"), "export const web = true;\n");
@@ -98,7 +98,7 @@ describe("release bundle script", () => {
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml",
       "tsconfig.base.json",
-      "vitest.workspace.ts",
+      "vitest.config.ts",
       "apps",
       "packages",
       "scripts",

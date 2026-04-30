@@ -289,10 +289,9 @@ describe("public SEO metadata and discovery files", () => {
       description:
         "当前标价 A$179.00，商家是 JB Hi-Fi。商家原文：Live catalog weekend bundle with pickup available.",
       alternates: {
-        canonical: `${SITE_URL}/zh/deals/live-only-weekend-bundle`,
+        canonical: `${SITE_URL}/en/deals/live-only-weekend-bundle`,
         languages: {
           en: `${SITE_URL}/en/deals/live-only-weekend-bundle`,
-          zh: `${SITE_URL}/zh/deals/live-only-weekend-bundle`,
         },
       },
     });
@@ -389,7 +388,6 @@ describe("public SEO metadata and discovery files", () => {
           `${SITE_URL}/zh/deals/${slug}`,
         ]),
         `${SITE_URL}/en/deals/live-only-coffee-subscription`,
-        `${SITE_URL}/zh/deals/live-only-coffee-subscription`,
       ]),
     );
     expect(urls.every((url) => !url.includes("sessionToken"))).toBe(true);

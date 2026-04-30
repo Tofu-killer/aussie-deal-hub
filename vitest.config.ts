@@ -7,8 +7,8 @@ export default defineConfig({
         test: {
           include: ["apps/admin/**/*.test.tsx"],
           exclude: ["**/node_modules/**"],
-          environment: "jsdom"
-        }
+          environment: "jsdom",
+        },
       },
       {
         test: {
@@ -16,12 +16,12 @@ export default defineConfig({
             "packages/**/*.test.ts",
             "packages/**/*.test.tsx",
             "apps/**/*.test.ts",
-            "apps/**/*.test.tsx"
+            "apps/**/*.test.tsx",
           ],
           exclude: ["apps/admin/**/*.test.tsx", "**/node_modules/**"],
-          environment: "node"
-        }
-      }
-    ]
-  }
+          environment: "node",
+        },
+      },
+    ],
+  },
 });

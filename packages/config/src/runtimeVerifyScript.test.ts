@@ -145,6 +145,38 @@ describe("runtime verify script", () => {
     });
   });
 
+  it("fails fast when runtime verify targets are incomplete instead of silently falling back to localhost defaults", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-targets-test`)) as {
+      runRuntimeVerifyScript?: (
+        env: Record<string, string | undefined>,
+        dependencies?: {
+          readinessRunner?: (env: Record<string, string | undefined>) => Promise<void>;
+          routeRunner?: (env: Record<string, string | undefined>) => Promise<void>;
+        },
+      ) => Promise<void>;
+    };
+    const readinessRunner = vi.fn(async () => {});
+    const routeRunner = vi.fn(async () => {});
+
+    await expect(
+      scriptModule.runRuntimeVerifyScript?.(
+        {
+          RUNTIME_API_BASE_URL: "https://api.example.test",
+          RUNTIME_WEB_BASE_URL: "https://www.example.test",
+        },
+        {
+          readinessRunner,
+          routeRunner,
+        },
+      ),
+    ).rejects.toThrow(
+      "runtime:verify requires complete target URLs. Missing: ADMIN_HEALTH_URL, ADMIN_HOME_URL, ADMIN_READY_URL",
+    );
+
+    expect(readinessRunner).not.toHaveBeenCalled();
+    expect(routeRunner).not.toHaveBeenCalled();
+  });
+
   it("runs readiness and route smoke end-to-end with explicit target URLs", () => {
     const result = runRuntimeVerifyScript({
       API_HEALTH_URL: "data:text/plain,ok",

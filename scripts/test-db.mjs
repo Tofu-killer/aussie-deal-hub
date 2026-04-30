@@ -107,7 +107,7 @@ const result = spawnSync(
     "run",
     "--no-file-parallelism",
     "--config",
-    "vitest.workspace.ts",
+    "vitest.config.ts",
     ...testFiles,
   ],
   {

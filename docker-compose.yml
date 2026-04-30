@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16@sha256:71e27bf60b70bded003791b5573f8b808365613f341df20ffcf0c1ed7bc13ddf
     environment:
       POSTGRES_DB: aussie_deals_hub
       POSTGRES_USER: postgres
@@ -16,7 +16,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
   redis:
-    image: redis:7
+    image: redis:7@sha256:3e0669e42d4fe421c9dea0ba5fbc04d336b80b4f32a6c7d25bee3a1d089288a1
     ports:
       - "6379:6379"
     restart: unless-stopped

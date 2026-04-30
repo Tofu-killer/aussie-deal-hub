@@ -3,6 +3,19 @@ import { pathToFileURL } from "node:url";
 import { runReadinessSmokeScript } from "./smoke-readiness.mjs";
 import { runRouteSmokeScript } from "./smoke-routes.mjs";
 
+const REQUIRED_RUNTIME_VERIFY_TARGETS = [
+  "API_HEALTH_URL",
+  "API_READY_URL",
+  "WORKER_RUNTIME_URL",
+  "WEB_HEALTH_URL",
+  "WEB_READY_URL",
+  "WEB_HOME_URL",
+  "WEB_SEARCH_URL",
+  "ADMIN_HEALTH_URL",
+  "ADMIN_HOME_URL",
+  "ADMIN_READY_URL",
+];
+
 function normalizeBaseUrl(rawValue) {
   const trimmedValue = rawValue?.trim();
 
@@ -58,6 +71,22 @@ export function resolveRuntimeVerifyEnv(env = process.env) {
   return resolvedEnv;
 }
 
+export function validateRuntimeVerifyEnv(env = process.env) {
+  const missingTargets = REQUIRED_RUNTIME_VERIFY_TARGETS.filter((target) => {
+    const value = env[target];
+
+    return typeof value !== "string" || value.trim().length === 0;
+  });
+
+  if (missingTargets.length > 0) {
+    throw new Error(
+      `runtime:verify requires complete target URLs. Missing: ${missingTargets.join(", ")}`,
+    );
+  }
+
+  return env;
+}
+
 export async function runRuntimeVerifyScript(
   env = process.env,
   dependencies = {},
@@ -65,6 +94,7 @@ export async function runRuntimeVerifyScript(
   const { readinessRunner = runReadinessSmokeScript, routeRunner = runRouteSmokeScript } =
     dependencies;
   const resolvedEnv = resolveRuntimeVerifyEnv(env);
+  validateRuntimeVerifyEnv(resolvedEnv);
 
   await readinessRunner(resolvedEnv);
   await routeRunner(resolvedEnv);

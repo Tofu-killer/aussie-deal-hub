@@ -182,6 +182,7 @@ describe("deployment artifacts", () => {
   it("keeps dedicated runtime targets in the Dockerfile for api, web, admin, and worker", () => {
     const dockerfile = readRepoFile("Dockerfile");
 
+    expect(dockerfile).toContain("FROM node:22-slim@sha256:");
     expect(dockerfile).toContain("FROM workspace AS api");
     expect(dockerfile).toContain("FROM workspace AS web");
     expect(dockerfile).toContain("FROM workspace AS admin");
@@ -194,6 +195,15 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/web build");
     expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
     expect(dockerfile).toContain("validate --schema packages/db/prisma/schema.prisma");
+  });
+
+  it("pins mutable docker images to digests across compose and CI service definitions", () => {
+    const compose = readRepoFile("docker-compose.yml");
+    const workflow = readRepoFile(".github/workflows/verify.yml");
+
+    expect(compose).toContain("image: postgres:16@sha256:");
+    expect(compose).toContain("image: redis:7@sha256:");
+    expect(workflow).toContain("image: postgres:16@sha256:");
   });
 
   it("verifies container artifacts in CI before merge", () => {
@@ -470,6 +480,8 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("The `Runtime verify` GitHub Actions workflow");
     expect(script).toContain("resolveRuntimeVerifyEnv");
     expect(script).toContain("runRuntimeVerifyScript");
+    expect(script).toContain("validateRuntimeVerifyEnv");
+    expect(script).toContain("runtime:verify requires complete target URLs");
     expect(workflow).toContain("name: Runtime verify");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("runtime_api_base_url:");

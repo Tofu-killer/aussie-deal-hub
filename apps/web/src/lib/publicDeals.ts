@@ -1152,12 +1152,26 @@ export function appendQueryParams(href: string, params: Record<string, string | 
   return `${url.pathname}${url.search}`;
 }
 
+function getIndexableDealLocales(deal: PublicDealRecord): SupportedLocale[] {
+  const configuredLocales = (["en", "zh"] as SupportedLocale[]).filter((candidateLocale) => {
+    const candidateSlug = deal.localeSlugs?.[candidateLocale];
+
+    return typeof candidateSlug === "string" && candidateSlug.trim().length > 0;
+  });
+
+  return configuredLocales.length > 0 ? configuredLocales : ["en", "zh"];
+}
+
+function getDealSlugForLocale(deal: PublicDealRecord, locale: SupportedLocale) {
+  return deal.localeSlugs?.[locale] ?? deal.slug;
+}
+
 export function getLocaleSwitchLinks(deal: PublicDealRecord) {
   return (["en", "zh"] as SupportedLocale[]).map((candidateLocale) => ({
     locale: candidateLocale,
     href: buildLocaleHref(
       candidateLocale,
-      `/deals/${deal.localeSlugs?.[candidateLocale] ?? deal.slug}`,
+      `/deals/${getDealSlugForLocale(deal, candidateLocale)}`,
     ),
     label: getLocaleCopy(candidateLocale).localeLabels[candidateLocale],
   }));
@@ -1196,13 +1210,18 @@ export function buildPublicUrl(path: string) {
 function buildLocalizedAlternates(
   locale: SupportedLocale,
   pathBuilder: (locale: SupportedLocale) => string,
+  availableLocales: SupportedLocale[] = ["en", "zh"],
 ): Metadata["alternates"] {
+  const canonicalLocale = availableLocales.includes(locale) ? locale : availableLocales[0];
+
   return {
-    canonical: buildPublicUrl(pathBuilder(locale)),
-    languages: {
-      en: buildPublicUrl(pathBuilder("en")),
-      zh: buildPublicUrl(pathBuilder("zh")),
-    },
+    canonical: buildPublicUrl(pathBuilder(canonicalLocale)),
+    languages: Object.fromEntries(
+      availableLocales.map((candidateLocale) => [
+        candidateLocale,
+        buildPublicUrl(pathBuilder(candidateLocale)),
+      ]),
+    ),
   };
 }
 
@@ -1267,14 +1286,16 @@ export function buildDealPageMetadata(
   locale: SupportedLocale,
   deal: PublicDealRecord,
 ): Metadata {
+  const indexableLocales = getIndexableDealLocales(deal);
+
   return {
     title: buildMetadataTitle(deal.locales[locale].title),
     description: deal.locales[locale].summary,
-    alternates: buildLocalizedAlternates(locale, (candidateLocale) =>
-      buildLocaleHref(
-        candidateLocale,
-        `/deals/${deal.localeSlugs?.[candidateLocale] ?? deal.slug}`,
-      ),
+    alternates: buildLocalizedAlternates(
+      locale,
+      (candidateLocale) =>
+        buildLocaleHref(candidateLocale, `/deals/${getDealSlugForLocale(deal, candidateLocale)}`),
+      indexableLocales,
     ),
   };
 }
@@ -1305,9 +1326,9 @@ export function buildPublicSitemapEntries(
     })),
   );
   const detailEntries: MetadataRoute.Sitemap = sitemapDeals.flatMap((deal) =>
-    (["en", "zh"] as SupportedLocale[]).map((locale) => ({
+    getIndexableDealLocales(deal).map((locale) => ({
       url: buildPublicUrl(
-        buildLocaleHref(locale, `/deals/${deal.localeSlugs?.[locale] ?? deal.slug}`),
+        buildLocaleHref(locale, `/deals/${getDealSlugForLocale(deal, locale)}`),
       ),
       lastModified: deal.publishedAt,
     })),

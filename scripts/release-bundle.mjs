@@ -13,7 +13,7 @@ const releasePaths = [
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
   "tsconfig.base.json",
-  "vitest.workspace.ts",
+  "vitest.config.ts",
   "apps",
   "packages",
   "scripts",

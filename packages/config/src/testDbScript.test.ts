@@ -120,7 +120,7 @@ describe("test-db script", () => {
       "run",
       "--no-file-parallelism",
       "--config",
-      "vitest.workspace.ts",
+      "vitest.config.ts",
       "apps/api/tests/alpha.test.ts",
       "apps/api/tests/nested/beta.test.ts",
       "apps/api/tests/zeta.persistence.test.ts",
@@ -220,7 +220,7 @@ describe("test-db script", () => {
       "run",
       "--no-file-parallelism",
       "--config",
-      "vitest.workspace.ts",
+      "vitest.config.ts",
       "apps/api/tests/real-db.test.ts",
     ]);
   });
@@ -260,7 +260,7 @@ describe("test-db script", () => {
       "run",
       "--no-file-parallelism",
       "--config",
-      "vitest.workspace.ts",
+      "vitest.config.ts",
       "apps/api/tests/tsx-db.test.tsx",
     ]);
   });
@@ -296,7 +296,7 @@ describe("test-db script", () => {
       "run",
       "--no-file-parallelism",
       "--config",
-      "vitest.workspace.ts",
+      "vitest.config.ts",
       "apps/api/tests/adminCatalog.persistence.test.ts",
       "apps/api/tests/adminLeads.test.ts",
       "apps/api/tests/adminPublishing.test.ts",
