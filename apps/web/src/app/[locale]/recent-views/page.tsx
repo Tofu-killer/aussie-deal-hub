@@ -24,6 +24,17 @@ interface RecentViewsPageProps {
   }>;
 }
 
+type RecentViewListItem =
+  | {
+      type: "deal";
+      deal: NonNullable<ReturnType<typeof getPublicDeal>>;
+      slug: string;
+    }
+  | {
+      type: "orphan";
+      slug: string;
+    };
+
 function getAccountQuickLinks(
   locale: "en" | "zh",
   currentPage: "home" | "favorites" | "email-preferences" | "recent-views" | "login",
@@ -110,9 +121,22 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
           getDefaultPublicDeals(),
         )
       : null;
-  const recentDeals = recentViewSlugs
-    .map((slug) => (publicDeals ? getPublicDeal(slug, publicDeals) : getPublicDeal(slug)))
-    .filter((deal) => deal !== null);
+  const recentItems: RecentViewListItem[] = recentViewSlugs.map((slug) => {
+    const deal = publicDeals ? getPublicDeal(slug, publicDeals) : getPublicDeal(slug);
+
+    if (deal) {
+      return {
+        type: "deal",
+        deal,
+        slug,
+      };
+    }
+
+    return {
+      type: "orphan",
+      slug,
+    };
+  });
 
   const title = activeLocale === "en" ? "Recently viewed" : "最近浏览";
   const summary =
@@ -125,6 +149,13 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "recent-views", Boolean(sessionToken));
   const ctaLabel = activeLocale === "en" ? "Open merchant page" : "打开商品页";
   const detailActionLabel = activeLocale === "en" ? "Read breakdown" : "站内详情";
+  const orphanRecentViewTitle =
+    activeLocale === "en" ? "Recently viewed deal unavailable" : "最近浏览的优惠暂不可用";
+  const orphanRecentViewSummary =
+    activeLocale === "en"
+      ? "This recently viewed deal is no longer published."
+      : "这条最近浏览的优惠已不再公开展示。";
+  const orphanRecentViewSlugLabel = activeLocale === "en" ? "Deal slug" : "优惠 slug";
 
   async function handleClearRecentViews() {
     "use server";
@@ -140,18 +171,28 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   return (
     <main>
       <h1>{title}</h1>
-      {recentDeals.length > 0 ? (
+      {recentItems.length > 0 ? (
         <section aria-labelledby="recent-views-title">
           <h2 id="recent-views-title">{listTitle}</h2>
           <ul>
-            {recentDeals.map((deal) => (
-              <li key={deal.slug}>
-                <DealDiscoveryCard
-                  deal={deal}
-                  locale={activeLocale}
-                  primaryActionLabel={ctaLabel}
-                  secondaryActionLabel={detailActionLabel}
-                />
+            {recentItems.map((item) => (
+              <li key={item.slug}>
+                {item.type === "deal" ? (
+                  <DealDiscoveryCard
+                    deal={item.deal}
+                    locale={activeLocale}
+                    primaryActionLabel={ctaLabel}
+                    secondaryActionLabel={detailActionLabel}
+                  />
+                ) : (
+                  <>
+                    <p>{orphanRecentViewTitle}</p>
+                    <p>{orphanRecentViewSummary}</p>
+                    <p>
+                      {orphanRecentViewSlugLabel}: <code>{item.slug}</code>
+                    </p>
+                  </>
+                )}
               </li>
             ))}
           </ul>

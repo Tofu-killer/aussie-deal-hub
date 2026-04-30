@@ -370,6 +370,70 @@ describe("recent views tracking and page", () => {
     expect(screen.getByText("你最近浏览的优惠会显示在这里。")).toBeTruthy();
   });
 
+  it("renders an unavailable recent view instead of collapsing stale slugs into the empty state", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get(name: string) {
+        if (name !== RECENT_VIEWS_COOKIE_NAME) {
+          return undefined;
+        }
+
+        return {
+          name,
+          value: buildRecentViewsCookieValue(["retired-deal-slug"]),
+        };
+      },
+    } as Awaited<ReturnType<typeof cookies>>);
+
+    render(
+      await RecentViewsPage({
+        params: Promise.resolve({ locale: "en" }),
+      }),
+    );
+
+    const recentSection = screen.getByRole("region", { name: "Recent deals" });
+    expect(within(recentSection).getByText("Recently viewed deal unavailable")).toBeTruthy();
+    expect(
+      within(recentSection).getByText("This recently viewed deal is no longer published."),
+    ).toBeTruthy();
+    expect(within(recentSection).getByText("Deal slug:")).toBeTruthy();
+    expect(within(recentSection).getByText("retired-deal-slug")).toBeTruthy();
+    expect(screen.queryByText("Your recently viewed deals will appear here.")).toBeNull();
+  });
+
+  it("preserves order when recent views mix live deals and unavailable slugs", async () => {
+    vi.mocked(cookies).mockResolvedValue({
+      get(name: string) {
+        if (name !== RECENT_VIEWS_COOKIE_NAME) {
+          return undefined;
+        }
+
+        return {
+          name,
+          value: buildRecentViewsCookieValue([
+            "retired-deal-slug",
+            "airpods-pro-2-costco-au",
+          ]),
+        };
+      },
+    } as Awaited<ReturnType<typeof cookies>>);
+
+    render(
+      await RecentViewsPage({
+        params: Promise.resolve({ locale: "en" }),
+      }),
+    );
+
+    const recentSection = screen.getByRole("region", { name: "Recent deals" });
+    const items = within(recentSection).getAllByRole("listitem");
+    expect(within(items[0] as HTMLElement).getByText("Recently viewed deal unavailable")).toBeTruthy();
+    expect(
+      within(items[1] as HTMLElement).getByRole("heading", {
+        level: 3,
+        name: "AirPods Pro (2nd Gen) for A$299 at Costco AU",
+      }),
+    ).toBeTruthy();
+  });
+
   it("writes updated recent views cookie from deal detail tracker", async () => {
     document.cookie = `${RECENT_VIEWS_COOKIE_NAME}=${buildRecentViewsCookieValue([
       "airpods-pro-2-costco-au",
