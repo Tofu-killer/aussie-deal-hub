@@ -93,6 +93,12 @@ async function installFakeCommand(
     "  argv: process.argv.slice(2),",
     "});",
     "appendFileSync(process.env.CAPTURE_FILE, `${entry}\\n`);",
+    "const stdoutEntries = JSON.parse(process.env.FAKE_COMMAND_STDOUT_JSON ?? '{}');",
+    `const renderedCommand = [${JSON.stringify(commandName)}, ...process.argv.slice(2)].join(' ');`,
+    "const stdout = stdoutEntries[renderedCommand] ?? stdoutEntries[process.argv.slice(2).join(' ')] ?? stdoutEntries[process.argv.at(-1) ?? ''] ?? '';",
+    "if (stdout) {",
+    "  process.stdout.write(stdout);",
+    "}",
     "const failToken = process.env.FAIL_COMMAND;",
     `if (failToken === ${JSON.stringify(commandName)} || failToken === [${JSON.stringify(commandName)}, ...process.argv.slice(2)].join(' ')) {`,
     "  process.exit(1);",
@@ -265,6 +271,10 @@ describe("release deploy script", () => {
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
     const remoteReleaseRoot =
       "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T120000Z-failing";
+    const logsRemoteCommand =
+      "cd '/srv/aussie-deal-hub/current' && " +
+      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' " +
+      "logs postgres redis db-init api web admin worker";
     const resolveCurrentReleaseRootRunner = vi
       .fn<ResolveCurrentReleaseRootRunner>()
       .mockResolvedValueOnce(undefined)
@@ -285,6 +295,9 @@ describe("release deploy script", () => {
           DEPLOY_RUNTIME_WEB_BASE_URL: "https://www.example.com",
           DEPLOY_SSH_KEY_PATH: sshKeyPath,
           DEPLOY_USER: "deploy",
+          FAKE_COMMAND_STDOUT_JSON: JSON.stringify({
+            [logsRemoteCommand]: "api-1  | unhealthy\nworker-1  | ready\n",
+          }),
           PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
           RELEASE_DEPLOY_ROOT: bundleRoot,
         },
@@ -363,6 +376,36 @@ describe("release deploy script", () => {
         ],
       },
     ]);
+
+    const diagnosticsRoot = path.join(
+      workspaceRoot,
+      "artifacts",
+      "release-deploy",
+      "aussie-deal-hub-release-20260430T120000Z-failing",
+    );
+    const metadata = JSON.parse(
+      await readFile(path.join(diagnosticsRoot, "metadata.json"), "utf8"),
+    ) as {
+      currentReleaseRoot: string;
+      previousReleaseRoot: string | null;
+      releaseActivated: boolean;
+      remoteReleaseRoot: string;
+    };
+
+    expect(metadata).toEqual(
+      expect.objectContaining({
+        currentReleaseRoot: remoteReleaseRoot,
+        previousReleaseRoot: null,
+        releaseActivated: true,
+        remoteReleaseRoot,
+      }),
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "compose-logs.txt"), "utf8")).resolves.toBe(
+      "api-1  | unhealthy\nworker-1  | ready\n",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "deploy-error.txt"), "utf8")).resolves.toContain(
+      "runtime verify failed",
+    );
   });
 
   it("does not capture logs or rollback when activation fails before current changes", async () => {

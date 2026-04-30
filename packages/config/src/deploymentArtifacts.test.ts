@@ -462,6 +462,10 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("/srv/aussie-deal-hub/shared/.env.production");
     expect(readme).toContain("/srv/aussie-deal-hub/current");
     expect(readme).toContain("captures remote compose logs for the failing stack");
+    expect(readme).toContain("writes local failure diagnostics to `artifacts/release-deploy/<release-name>/`");
+    expect(readme).toContain("`metadata.json`");
+    expect(readme).toContain("`compose-logs.txt`");
+    expect(readme).toContain("`deploy-error.txt`");
     expect(readme).toContain("repoints `/srv/aussie-deal-hub/current` back to the previous release");
     expect(readme).toContain("reruns `pnpm runtime:verify`");
     expect(readme).toContain("surfaces both the original deployment failure and the rollback failure");
@@ -507,6 +511,12 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
     expect(workflow).toContain("pnpm install --frozen-lockfile");
     expect(workflow).toContain("name: Write deploy SSH key");
+    expect(workflow).toContain("name: Upload deploy diagnostics");
+    expect(workflow).toContain("if: failure()");
+    expect(workflow).toContain("uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2");
+    expect(workflow).toContain("name: deploy-diagnostics-${{ inputs.bundle_run_id }}");
+    expect(workflow).toContain("path: ${{ env.RELEASE_BUNDLE_ROOT }}/artifacts/release-deploy");
+    expect(workflow).toContain("if-no-files-found: ignore");
     expect(workflow).toContain("DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}");
     expect(workflow).toContain("DEPLOY_USER: ${{ secrets.DEPLOY_USER }}");
     expect(workflow).toContain("DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}");

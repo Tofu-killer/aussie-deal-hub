@@ -108,3 +108,11 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           RELEASE_DEPLOY_ROOT: .
         run: pnpm release:deploy
+
+      - name: Upload deploy diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: deploy-diagnostics-${{ inputs.bundle_run_id }}
+          path: ${{ env.RELEASE_BUNDLE_ROOT }}/artifacts/release-deploy
+          if-no-files-found: ignore

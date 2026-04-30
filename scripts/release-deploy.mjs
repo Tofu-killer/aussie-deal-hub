@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -50,6 +50,15 @@ function resolveReleaseDeployRoot(cwd = process.cwd(), env = process.env) {
   }
 
   return resolveNewestBundleRoot(cwd);
+}
+
+function resolveReleaseDeployDiagnosticsRoot(cwd, releaseName, env) {
+  const configuredRoot = normalizeEnvValue(env.RELEASE_DEPLOY_DIAGNOSTICS_ROOT);
+  const baseRoot = configuredRoot
+    ? path.resolve(cwd, configuredRoot)
+    : path.join(cwd, "artifacts", "release-deploy");
+
+  return path.join(baseRoot, releaseName);
 }
 
 function validateReleaseDeployEnv(cwd, env) {
@@ -155,6 +164,62 @@ function resolveCurrentReleaseRoot(context) {
   ).trim();
 
   return normalizeRemotePath(currentReleaseRoot);
+}
+
+function serializeError(error) {
+  if (error instanceof Error) {
+    return error.stack ? `${error.stack}\n` : `${error.message}\n`;
+  }
+
+  return `${String(error)}\n`;
+}
+
+function writeDiagnosticsFile(diagnosticsRoot, fileName, contents) {
+  writeFileSync(path.join(diagnosticsRoot, fileName), contents, "utf8");
+}
+
+function persistReleaseDeployDiagnostics(context) {
+  const diagnosticsRoot = resolveReleaseDeployDiagnosticsRoot(
+    context.cwd,
+    context.releaseName,
+    context.env,
+  );
+  const metadata = {
+    bundleRoot: path.relative(context.cwd, context.bundleRoot) || ".",
+    currentReleaseRoot: context.currentReleaseRoot ?? null,
+    previousReleaseRoot: context.previousReleaseRoot ?? null,
+    releaseActivated: context.releaseActivated,
+    remoteCurrentRoot: context.remoteCurrentRoot,
+    remoteReleaseRoot: context.remoteReleaseRoot,
+    remoteSharedEnvFile: context.remoteSharedEnvFile,
+    releaseName: context.releaseName,
+  };
+
+  mkdirSync(diagnosticsRoot, { recursive: true });
+  writeDiagnosticsFile(diagnosticsRoot, "metadata.json", `${JSON.stringify(metadata, null, 2)}\n`);
+  writeDiagnosticsFile(diagnosticsRoot, "deploy-error.txt", serializeError(context.error));
+
+  if (context.composeLogs) {
+    writeDiagnosticsFile(diagnosticsRoot, "compose-logs.txt", context.composeLogs);
+  }
+
+  if (context.composeLogsError) {
+    writeDiagnosticsFile(
+      diagnosticsRoot,
+      "compose-logs-error.txt",
+      serializeError(context.composeLogsError),
+    );
+  }
+
+  return diagnosticsRoot;
+}
+
+function writeRollbackDiagnostics(diagnosticsRoot, fileName, contents) {
+  if (!diagnosticsRoot) {
+    return;
+  }
+
+  writeDiagnosticsFile(diagnosticsRoot, fileName, contents);
 }
 
 export async function runReleaseDeployScript(
@@ -267,6 +332,7 @@ export async function runReleaseDeployScript(
     await runtimeVerifyRunner(runtimeVerifyEnv);
   } catch (error) {
     let currentReleaseRoot;
+    let diagnosticsRoot;
     let releaseActivated = false;
     let rollbackPerformed = false;
 
@@ -288,8 +354,11 @@ export async function runReleaseDeployScript(
       }
 
       if (releaseActivated) {
+        let composeLogs;
+        let composeLogsError;
+
         try {
-          runCommand(
+          composeLogs = runCommandCapture(
             "ssh",
             buildSshArgs({
               deploySshPort,
@@ -299,8 +368,33 @@ export async function runReleaseDeployScript(
             }),
             { cwd: workingDirectory, env },
           );
-        } catch {
-          // best-effort diagnostics
+        } catch (diagnosticsError) {
+          composeLogsError = diagnosticsError;
+        }
+
+        try {
+          diagnosticsRoot = persistReleaseDeployDiagnostics({
+            bundleRoot,
+            composeLogs,
+            composeLogsError,
+            currentReleaseRoot,
+            cwd: workingDirectory,
+            env,
+            error,
+            previousReleaseRoot,
+            releaseActivated,
+            releaseName: manifest.releaseName,
+            remoteCurrentRoot,
+            remoteReleaseRoot,
+            remoteSharedEnvFile,
+          });
+          console.error(
+            `Saved deploy diagnostics to ${path.relative(workingDirectory, diagnosticsRoot) || "."}`,
+          );
+        } catch (persistError) {
+          console.error(
+            `Could not persist deploy diagnostics: ${persistError instanceof Error ? persistError.message : String(persistError)}`,
+          );
         }
 
         if (previousReleaseRoot) {
@@ -323,7 +417,22 @@ export async function runReleaseDeployScript(
             );
             await runtimeVerifyRunner(runtimeVerifyEnv);
             rollbackPerformed = true;
+            writeRollbackDiagnostics(
+              diagnosticsRoot,
+              "rollback-result.txt",
+              `Rolled back to ${previousReleaseRoot} and runtime verification passed.\n`,
+            );
           } catch (rollbackError) {
+            try {
+              writeRollbackDiagnostics(
+                diagnosticsRoot,
+                "rollback-error.txt",
+                serializeError(rollbackError),
+              );
+            } catch {
+              // best-effort diagnostics
+            }
+
             const rollbackFailure = new Error(
               `Release deploy failed and rollback to ${previousReleaseRoot} failed: ${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
               { cause: error },
