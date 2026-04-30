@@ -19,9 +19,7 @@ interface RecentViewsPageProps {
   params: Promise<{
     locale: string;
   }>;
-  searchParams?: Promise<{
-    sessionToken?: string | string[];
-  }>;
+  searchParams?: Promise<Record<string, never>>;
 }
 
 type RecentViewListItem =
@@ -106,8 +104,8 @@ export default async function RecentViewsPage({ params, searchParams }: RecentVi
   }
 
   const activeLocale = locale;
-  const resolvedSearchParams = await searchParams;
-  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  void searchParams;
+  const { sessionToken } = await resolveSessionTokens();
 
   const cookieStore = await cookies();
   const recentViewsCookieValue = cookieStore.get(RECENT_VIEWS_COOKIE_NAME)?.value;

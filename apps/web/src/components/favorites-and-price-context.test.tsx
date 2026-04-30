@@ -3,6 +3,7 @@
 import React from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cookies } from "next/headers";
 
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
@@ -13,9 +14,16 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
+}));
+
 import LocaleHomePage from "../app/[locale]/page";
 import DealDetailPage from "../app/[locale]/deals/[slug]/page";
 import FavoritesPage from "../app/[locale]/favorites/page";
+
+const SESSION_COOKIE_NAME = "aussie_deal_hub_session";
+const SESSION_TOKEN = "session_test_123";
 
 function collectElementsByType(node: React.ReactNode, type: string) {
   const elements: Array<React.ReactElement<{ children?: React.ReactNode; action?: unknown }>> = [];
@@ -86,6 +94,21 @@ function getPublicDealsListResponse(
   return null;
 }
 
+function stubSessionCookie(sessionToken = SESSION_TOKEN) {
+  vi.mocked(cookies).mockResolvedValue({
+    get(name: string) {
+      if (name === SESSION_COOKIE_NAME) {
+        return {
+          name,
+          value: sessionToken,
+        };
+      }
+
+      return undefined;
+    },
+  } as Awaited<ReturnType<typeof cookies>>);
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -93,6 +116,7 @@ afterEach(() => {
 
 describe("favorites and price context pages", () => {
   it("renders real favorite rows from the API on the favorites page", async () => {
+    stubSessionCookie();
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const publicDealsListResponse = getPublicDealsListResponse(input, {
         en: [],
@@ -115,7 +139,6 @@ describe("favorites and price context pages", () => {
     render(
       await FavoritesPage({
         params: Promise.resolve({ locale: "en" }),
-        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
       }),
     );
 
@@ -138,7 +161,7 @@ describe("favorites and price context pages", () => {
       expect.objectContaining({
         cache: "no-store",
         headers: {
-          "x-session-token": "session_test_123",
+          "x-session-token": SESSION_TOKEN,
         },
       }),
     );
@@ -226,6 +249,7 @@ describe("favorites and price context pages", () => {
   });
 
   it("shows explicit API error copy instead of pretending empty data", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -238,7 +262,6 @@ describe("favorites and price context pages", () => {
     render(
       await FavoritesPage({
         params: Promise.resolve({ locale: "zh" }),
-        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
       }),
     );
 
@@ -246,6 +269,7 @@ describe("favorites and price context pages", () => {
   });
 
   it("renders remove actions without hiding deals through removedDealId query params", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -271,7 +295,6 @@ describe("favorites and price context pages", () => {
       await FavoritesPage({
         params: Promise.resolve({ locale: "en" }),
         searchParams: Promise.resolve({
-          sessionToken: "session_test_123",
           removedDealId: "nintendo-switch-oled-amazon-au",
         } as never),
       }),
@@ -291,6 +314,7 @@ describe("favorites and price context pages", () => {
   });
 
   it("renders live-only favorites from the batched public deals list", async () => {
+    stubSessionCookie();
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       if (String(input) === "http://127.0.0.1:3001/v1/favorites") {
         return createJsonResponse({
@@ -327,7 +351,6 @@ describe("favorites and price context pages", () => {
     render(
       await FavoritesPage({
         params: Promise.resolve({ locale: "en" }),
-        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
       }),
     );
 
@@ -347,6 +370,7 @@ describe("favorites and price context pages", () => {
   });
 
   it("renders orphaned favorites as visible removable rows", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request) => {
@@ -370,7 +394,6 @@ describe("favorites and price context pages", () => {
 
     const page = await FavoritesPage({
       params: Promise.resolve({ locale: "en" }),
-      searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
     });
     const removeForms = collectElementsByType(page, "form");
 
@@ -384,6 +407,7 @@ describe("favorites and price context pages", () => {
   });
 
   it("deletes favorites through the API before redirecting back to a clean favorites URL", async () => {
+    stubSessionCookie();
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const publicDealsListResponse = getPublicDealsListResponse(input, {
         en: [],
@@ -417,7 +441,6 @@ describe("favorites and price context pages", () => {
 
     const page = await FavoritesPage({
       params: Promise.resolve({ locale: "en" }),
-      searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
     });
 
     const [removeForm] = collectElementsByType(page, "form");
@@ -434,13 +457,14 @@ describe("favorites and price context pages", () => {
         cache: "no-store",
         method: "DELETE",
         headers: {
-          "x-session-token": "session_test_123",
+          "x-session-token": SESSION_TOKEN,
         },
       }),
     );
   });
 
   it("redirects back with localized page feedback when removing a favorite fails", async () => {
+    stubSessionCookie();
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const publicDealsListResponse = getPublicDealsListResponse(input, {
         en: [],
@@ -474,7 +498,6 @@ describe("favorites and price context pages", () => {
 
     const page = await FavoritesPage({
       params: Promise.resolve({ locale: "zh" }),
-      searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
     });
 
     const [removeForm] = collectElementsByType(page, "form");
@@ -490,7 +513,6 @@ describe("favorites and price context pages", () => {
       await FavoritesPage({
         params: Promise.resolve({ locale: "zh" }),
         searchParams: Promise.resolve({
-          sessionToken: "session_test_123",
           removeStatus: "error",
         } as never),
       }),
@@ -503,7 +525,7 @@ describe("favorites and price context pages", () => {
         cache: "no-store",
         method: "DELETE",
         headers: {
-          "x-session-token": "session_test_123",
+          "x-session-token": SESSION_TOKEN,
         },
       }),
     );

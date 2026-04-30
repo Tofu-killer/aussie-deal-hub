@@ -16,6 +16,7 @@ import RecentViewsPage from "../app/[locale]/recent-views/page";
 import LoginPage from "../app/[locale]/login/page";
 
 const SESSION_TOKEN = "session_nav_123";
+const SESSION_COOKIE_NAME = "aussie_deal_hub_session";
 
 const quickLinkCopy = {
   en: {
@@ -112,6 +113,21 @@ function stubRecentViewsCookie() {
   } as Awaited<ReturnType<typeof cookies>>);
 }
 
+function stubSessionCookie(sessionToken = SESSION_TOKEN) {
+  vi.mocked(cookies).mockResolvedValue({
+    get(name: string) {
+      if (name === SESSION_COOKIE_NAME) {
+        return {
+          name,
+          value: sessionToken,
+        };
+      }
+
+      return undefined;
+    },
+  } as Awaited<ReturnType<typeof cookies>>);
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -121,10 +137,11 @@ describe("account quick links", () => {
   it.each(["en", "zh"] as const)(
     "renders account quick links on the home page in %s",
     async (locale) => {
+      stubSessionCookie();
+
       render(
         await LocaleHomePage({
           params: Promise.resolve({ locale }),
-          searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
         }),
       );
 
@@ -135,12 +152,12 @@ describe("account quick links", () => {
   it.each(["en", "zh"] as const)(
     "renders account quick links on the favorites page in %s",
     async (locale) => {
+      stubSessionCookie();
       stubFavoritesFetch();
 
       render(
         await FavoritesPage({
           params: Promise.resolve({ locale }),
-          searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
         }),
       );
 
@@ -151,12 +168,12 @@ describe("account quick links", () => {
   it.each(["en", "zh"] as const)(
     "renders account quick links on the email preferences page in %s",
     async (locale) => {
+      stubSessionCookie();
       stubEmailPreferencesFetch();
 
       render(
         await EmailPreferencesPage({
           params: Promise.resolve({ locale }),
-          searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
         }),
       );
 
@@ -167,12 +184,11 @@ describe("account quick links", () => {
   it.each(["en", "zh"] as const)(
     "renders account quick links on the recent views page in %s",
     async (locale) => {
-      stubRecentViewsCookie();
+      stubSessionCookie();
 
       render(
         await RecentViewsPage({
           params: Promise.resolve({ locale }),
-          searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
         }),
       );
 
@@ -183,16 +199,32 @@ describe("account quick links", () => {
   it.each(["en", "zh"] as const)(
     "renders account quick links on the login page in %s",
     async (locale) => {
+      stubSessionCookie();
+
       render(
         await LoginPage({
           params: Promise.resolve({ locale }),
-          searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
         }),
       );
 
       expectQuickLinks(locale);
     },
   );
+
+  it("does not treat a sessionToken query param as an authenticated session", async () => {
+    render(
+      await LocaleHomePage({
+        params: Promise.resolve({ locale: "en" }),
+        searchParams: Promise.resolve({ sessionToken: SESSION_TOKEN }),
+      }),
+    );
+
+    const navigation = screen.getByRole("navigation", { name: quickLinkCopy.en.navLabel });
+    expect(within(navigation).getByRole("link", { name: "Login" }).getAttribute("href")).toBe(
+      "/en/login",
+    );
+    expect(within(navigation).queryByRole("link", { name: "Logout" })).toBeNull();
+  });
 
   it("uses session cookie for favorites API calls while keeping links clean", async () => {
     vi.mocked(cookies).mockResolvedValue({

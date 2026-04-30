@@ -6,10 +6,6 @@ interface SessionCookieOverrides {
   maxAge?: number;
 }
 
-function toSingleParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function shouldUseSecureSessionCookie() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? "";
 
@@ -26,16 +22,7 @@ export function getSessionCookieOptions(overrides: SessionCookieOverrides = {}) 
   };
 }
 
-export async function resolveSessionTokens(searchValue?: string | string[]) {
-  const urlSessionToken = toSingleParam(searchValue);
-
-  if (urlSessionToken) {
-    return {
-      sessionToken: urlSessionToken,
-      urlSessionToken,
-    };
-  }
-
+export async function resolveSessionTokens() {
   try {
     const { cookies } = await import("next/headers");
     const cookieStore = await cookies();
@@ -43,12 +30,10 @@ export async function resolveSessionTokens(searchValue?: string | string[]) {
 
     return {
       sessionToken,
-      urlSessionToken: undefined,
     };
   } catch {
     return {
       sessionToken: undefined,
-      urlSessionToken: undefined,
     };
   }
 }

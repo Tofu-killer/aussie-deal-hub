@@ -14,7 +14,6 @@ interface EmailPreferencesPageProps {
     locale: string;
   }>;
   searchParams?: Promise<{
-    sessionToken?: string | string[];
     status?: string | string[];
   }>;
 }
@@ -99,9 +98,7 @@ export default async function EmailPreferencesPage({
   const activeLocale = locale;
   const copy = getEmailPreferencesCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { sessionToken } = await resolveSessionTokens(
-    resolvedSearchParams?.sessionToken,
-  );
+  const { sessionToken } = await resolveSessionTokens();
   const status = toSingleParam(resolvedSearchParams?.status);
   const localeCopy = getLocaleCopy(activeLocale);
 

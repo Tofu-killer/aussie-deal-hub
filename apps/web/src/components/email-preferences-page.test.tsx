@@ -3,9 +3,31 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cookies } from "next/headers";
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
+}));
 
 import EmailPreferencesPage from "../app/[locale]/email-preferences/page";
 import { submitDigestPreferencesFromForm } from "../lib/emailPreferences";
+
+const SESSION_COOKIE_NAME = "aussie_deal_hub_session";
+
+function stubSessionCookie(sessionToken = "session_test_123") {
+  vi.mocked(cookies).mockResolvedValue({
+    get(name: string) {
+      if (name === SESSION_COOKIE_NAME) {
+        return {
+          name,
+          value: sessionToken,
+        };
+      }
+
+      return undefined;
+    },
+  } as Awaited<ReturnType<typeof cookies>>);
+}
 
 afterEach(() => {
   cleanup();
@@ -14,6 +36,7 @@ afterEach(() => {
 
 describe("email preferences page", () => {
   it("loads persisted digest preferences and renders bilingual copy", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -46,7 +69,6 @@ describe("email preferences page", () => {
     render(
       await EmailPreferencesPage({
         params: Promise.resolve({ locale: "en" }),
-        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
       }),
     );
 
@@ -69,6 +91,7 @@ describe("email preferences page", () => {
   });
 
   it("shows load error copy and does not show success copy when GET fails", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -82,7 +105,6 @@ describe("email preferences page", () => {
       await EmailPreferencesPage({
         params: Promise.resolve({ locale: "en" }),
         searchParams: Promise.resolve({
-          sessionToken: "session_test_123",
           status: "success",
         }),
       }),
@@ -93,6 +115,7 @@ describe("email preferences page", () => {
   });
 
   it("falls back to daily in the frequency select when persisted preferences return an unknown value", async () => {
+    stubSessionCookie();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
@@ -115,7 +138,6 @@ describe("email preferences page", () => {
     render(
       await EmailPreferencesPage({
         params: Promise.resolve({ locale: "en" }),
-        searchParams: Promise.resolve({ sessionToken: "session_test_123" }),
       }),
     );
 

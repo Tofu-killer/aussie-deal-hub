@@ -24,7 +24,6 @@ interface FavoritesPageProps {
   }>;
   searchParams?: Promise<{
     removeStatus?: string | string[];
-    sessionToken?: string | string[];
   }>;
 }
 
@@ -142,9 +141,7 @@ export default async function FavoritesPage({ params, searchParams }: FavoritesP
   const activeLocale = locale;
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { sessionToken } = await resolveSessionTokens(
-    resolvedSearchParams?.sessionToken,
-  );
+  const { sessionToken } = await resolveSessionTokens();
   const removeStatus = toRemoveFavoriteStatus(toSingleSearchParam(resolvedSearchParams?.removeStatus));
   let favoriteItems = [] as FavoriteListItem[];
   let favoritesError: string | null = null;

@@ -29,7 +29,6 @@ interface DealDetailPageProps {
   }>;
   searchParams?: Promise<{
     favoriteStatus?: string | string[];
-    sessionToken?: string | string[];
   }>;
 }
 
@@ -148,9 +147,7 @@ export default async function DealDetailPage({ params, searchParams }: DealDetai
   }
   const copy = getLocaleCopy(activeLocale);
   const resolvedSearchParams = await searchParams;
-  const { sessionToken } = await resolveSessionTokens(
-    resolvedSearchParams?.sessionToken,
-  );
+  const { sessionToken } = await resolveSessionTokens();
   const favoriteStatus = toFavoriteStatus(
     toSingleSearchParam(resolvedSearchParams?.favoriteStatus),
   );

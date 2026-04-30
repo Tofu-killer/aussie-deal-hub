@@ -37,7 +37,6 @@ interface CategoryPageProps {
     "free-shipping"?: string | string[];
     "historical-low"?: string | string[];
     merchant?: string | string[];
-    sessionToken?: string | string[];
   }>;
 }
 

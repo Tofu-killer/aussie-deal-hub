@@ -31,7 +31,6 @@ interface SearchPageProps {
     "historical-low"?: string | string[];
     merchant?: string | string[];
     q?: string | string[];
-    sessionToken?: string | string[];
   }>;
 }
 

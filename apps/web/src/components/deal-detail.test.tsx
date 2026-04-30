@@ -3,6 +3,11 @@
 import React from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { cookies } from "next/headers";
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(),
+}));
 
 import LocaleHomePage from "../app/[locale]/page";
 import DealDetailPage from "../app/[locale]/deals/[slug]/page";
@@ -13,11 +18,29 @@ import {
 } from "../lib/recentViews";
 import { LocaleSwitch, PriceCard } from "../lib/ui";
 
+const SESSION_COOKIE_NAME = "aussie_deal_hub_session";
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   document.cookie = `${RECENT_VIEWS_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 });
+
+function stubSessionCookie(sessionToken = "session_test_123") {
+  vi.mocked(cookies).mockResolvedValue({
+    get(name: string) {
+      if (name === SESSION_COOKIE_NAME) {
+        return {
+          name,
+          value: sessionToken,
+        };
+      }
+
+      return undefined;
+    },
+  } as Awaited<ReturnType<typeof cookies>>);
+}
 
 function stubPriceContextResponse(snapshots: unknown[]) {
   vi.stubGlobal(
@@ -232,6 +255,7 @@ describe("public deal surfaces", () => {
   it("submits the current detail deal slug to the favorites API", async () => {
     const slug = "nintendo-switch-oled-amazon-au";
     const sessionToken = "session_test_123";
+    stubSessionCookie(sessionToken);
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
 
@@ -275,9 +299,6 @@ describe("public deal surfaces", () => {
       params: Promise.resolve({
         locale: "en",
         slug,
-      }),
-      searchParams: Promise.resolve({
-        sessionToken,
       }),
     });
 

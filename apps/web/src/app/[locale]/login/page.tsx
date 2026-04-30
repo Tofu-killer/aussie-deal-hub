@@ -22,7 +22,6 @@ interface LoginPageProps {
   }>;
   searchParams?: Promise<{
     email?: string | string[];
-    sessionToken?: string | string[];
     status?: string | string[];
   }>;
 }
@@ -107,7 +106,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
   const resolvedSearchParams = await searchParams;
   const status = toSingleParam(resolvedSearchParams?.status);
   const email = toSingleParam(resolvedSearchParams?.email) ?? "";
-  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  const { sessionToken } = await resolveSessionTokens();
 
   async function handleRequestCode(formData: FormData) {
     "use server";

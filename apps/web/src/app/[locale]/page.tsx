@@ -25,9 +25,7 @@ interface LocaleHomePageProps {
   params: Promise<{
     locale: string;
   }>;
-  searchParams?: Promise<{
-    sessionToken?: string | string[];
-  }>;
+  searchParams?: Promise<Record<string, never>>;
 }
 
 function getAccountQuickLinks(
@@ -149,8 +147,8 @@ export default async function LocaleHomePage({ params, searchParams }: LocaleHom
   const sections = getHomeSections(activeLocale, discoveryDeals, liveDeals);
   const latestDeals = getLatestDeals(4, discoveryDeals);
   const trendingMerchants = getTrendingMerchants(4, discoveryDeals);
-  const resolvedSearchParams = await searchParams;
-  const { sessionToken } = await resolveSessionTokens(resolvedSearchParams?.sessionToken);
+  void searchParams;
+  const { sessionToken } = await resolveSessionTokens();
   const accountQuickLinks = getAccountQuickLinks(activeLocale, "home", Boolean(sessionToken));
   const cardActionCopy =
     activeLocale === "en"
