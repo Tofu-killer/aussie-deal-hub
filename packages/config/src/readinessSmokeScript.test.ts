@@ -55,14 +55,15 @@ describe("readiness smoke script", () => {
   });
 
   it("accepts healthy readiness targets once every endpoint returns 200", () => {
+    const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
     const result = runReadinessSmokeScript({
-      API_HEALTH_URL: "data:text/plain,ok",
-      API_READY_URL: "data:text/plain,ok",
-      WEB_HEALTH_URL: "data:text/plain,ok",
-      WEB_READY_URL: "data:text/plain,ok",
-      ADMIN_HEALTH_URL: "data:text/plain,ok",
-      ADMIN_READY_URL: "data:text/plain,ok",
-      WORKER_RUNTIME_URL: "data:text/plain,ok",
+      API_HEALTH_URL: healthyPayload,
+      API_READY_URL: healthyPayload,
+      WEB_HEALTH_URL: healthyPayload,
+      WEB_READY_URL: healthyPayload,
+      ADMIN_HEALTH_URL: healthyPayload,
+      ADMIN_READY_URL: healthyPayload,
+      WORKER_RUNTIME_URL: healthyPayload,
     });
 
     expect(result.status).toBe(0);
@@ -100,36 +101,43 @@ describe("readiness smoke script", () => {
         name: "api-health",
         url: "https://api.example.test/v1/health",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "api-ready",
         url: "https://api.example.test/v1/ready",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "web-health",
         url: "https://www.example.test/health",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "web-ready",
         url: "https://www.example.test/ready",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "admin-health",
         url: "https://admin.example.test/health",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "admin-ready",
         url: "https://admin.example.test/ready",
         expectedStatus: 200,
+        expectedOk: true,
       },
       {
         name: "worker-runtime-ready",
         url: "https://api.example.test/v1/admin/runtime/worker",
         expectedStatus: 200,
+        expectedOk: true,
       },
     ]);
   });

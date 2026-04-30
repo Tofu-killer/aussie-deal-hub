@@ -178,14 +178,15 @@ describe("runtime verify script", () => {
   });
 
   it("runs readiness and route smoke end-to-end with explicit target URLs", () => {
+    const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
     const result = runRuntimeVerifyScript({
-      API_HEALTH_URL: "data:text/plain,ok",
-      API_READY_URL: "data:text/plain,ok",
-      WEB_HEALTH_URL: "data:text/plain,ok",
-      WEB_READY_URL: "data:text/plain,ok",
-      ADMIN_HEALTH_URL: "data:text/plain,ok",
-      ADMIN_READY_URL: "data:text/plain,ok",
-      WORKER_RUNTIME_URL: "data:text/plain,ok",
+      API_HEALTH_URL: healthyPayload,
+      API_READY_URL: healthyPayload,
+      WEB_HEALTH_URL: healthyPayload,
+      WEB_READY_URL: healthyPayload,
+      ADMIN_HEALTH_URL: healthyPayload,
+      ADMIN_READY_URL: healthyPayload,
+      WORKER_RUNTIME_URL: healthyPayload,
       WEB_HOME_URL:
         "data:text/html,%3Ch2%3ELatest%20deals%3C%2Fh2%3E%3Ch2%3ETrending%20merchants%3C%2Fh2%3E%3Ca%3EOpen%20Favorites%3C%2Fa%3E",
       WEB_SEARCH_URL:

@@ -17,7 +17,7 @@
     "smoke:readiness": "node scripts/smoke-readiness.mjs",
     "test": "vitest run --config vitest.config.ts",
     "test:db": "node scripts/test-db.mjs",
-    "verify": "pnpm build && pnpm test"
+    "verify": "node scripts/verify-workspace.mjs"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",

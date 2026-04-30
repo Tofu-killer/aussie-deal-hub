@@ -8,36 +8,43 @@ export function buildReadinessSmokeTargets(env = process.env) {
       name: "api-health",
       url: env.API_HEALTH_URL ?? "http://127.0.0.1:3001/v1/health",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "api-ready",
       url: env.API_READY_URL ?? "http://127.0.0.1:3001/v1/ready",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "web-health",
       url: env.WEB_HEALTH_URL ?? "http://127.0.0.1:3000/health",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "web-ready",
       url: env.WEB_READY_URL ?? "http://127.0.0.1:3000/ready",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "admin-health",
       url: env.ADMIN_HEALTH_URL ?? "http://127.0.0.1:3002/health",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "admin-ready",
       url: env.ADMIN_READY_URL ?? "http://127.0.0.1:3002/ready",
       expectedStatus: 200,
+      expectedOk: true,
     },
     {
       name: "worker-runtime-ready",
       url: env.WORKER_RUNTIME_URL ?? "http://127.0.0.1:3001/v1/admin/runtime/worker",
       expectedStatus: 200,
+      expectedOk: true,
     },
   ];
 }

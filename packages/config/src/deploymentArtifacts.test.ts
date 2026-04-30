@@ -284,6 +284,7 @@ describe("deployment artifacts", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const readme = readRepoFile("README.md");
     const testDbScript = readRepoFile("scripts/test-db.mjs");
+    const verifyWorkspaceScript = readRepoFile("scripts/verify-workspace.mjs");
     const dbBootstrapMigrationBlock = [
       "Apply the checked-in Prisma migrations:",
       "",
@@ -293,7 +294,7 @@ describe("deployment artifacts", () => {
       "```",
     ].join("\n");
     const dbBootstrapTestBlock = [
-      "Then run the DB-backed persistence suite:",
+      "`pnpm verify` will automatically run `pnpm --filter @aussie-deal-hub/db db:migrate` and include the DB-backed persistence suite whenever `DATABASE_URL` is set. You can still run the persistence suite directly with:",
       "",
       "```bash",
       "export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
@@ -301,6 +302,7 @@ describe("deployment artifacts", () => {
       "```",
     ].join("\n");
 
+    expect(packageJson).toContain("\"verify\": \"node scripts/verify-workspace.mjs\"");
     expect(packageJson).toContain("\"test:db\": \"node scripts/test-db.mjs\"");
     expect(workflow).toContain("Create shadow database for migration drift check");
     expect(workflow).toContain("Check migration drift against schema");
@@ -330,6 +332,9 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("CREATE DATABASE aussie_deals_hub_shadow");
     expect(readme).toContain("docker compose up -d postgres redis");
     expect(readme).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
+    expect(readme).toContain(
+      "`pnpm verify` will automatically run `pnpm --filter @aussie-deal-hub/db db:migrate` and include the DB-backed persistence suite whenever `DATABASE_URL` is set.",
+    );
     expect(readme).toContain(dbBootstrapMigrationBlock);
     expect(readme).toContain(dbBootstrapTestBlock);
     expect(readme).toContain("still matches the checked-in Prisma schema");
@@ -342,6 +347,10 @@ describe("deployment artifacts", () => {
     expect(readme).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
     expect(testDbScript).toContain("\"vitest\"");
+    expect(verifyWorkspaceScript).toContain("VERIFY_DB");
+    expect(verifyWorkspaceScript).toContain("\"db:migrate\"");
+    expect(verifyWorkspaceScript).toContain("\"test:db\"");
+    expect(verifyWorkspaceScript).toContain("withoutDatabaseUrl");
   });
 
   it("documents a runtime backup entrypoint and ignores generated dump artifacts", () => {

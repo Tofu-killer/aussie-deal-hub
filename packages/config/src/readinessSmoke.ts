@@ -1,5 +1,6 @@
 export interface ReadinessTarget {
   expectedStatus: number;
+  expectedOk?: boolean;
   name: string;
   url: string;
 }
@@ -35,6 +36,27 @@ export async function checkReadinessTarget(
 
   if (response.status !== target.expectedStatus) {
     throw new Error(`${target.name} expected ${target.expectedStatus}, got ${response.status}`);
+  }
+
+  if (target.expectedOk === undefined) {
+    return;
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch (error) {
+    throw new Error(`${target.name} did not return a valid JSON readiness payload: ${describeError(error)}`);
+  }
+
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !("ok" in payload) ||
+    (payload as { ok?: unknown }).ok !== target.expectedOk
+  ) {
+    throw new Error(`${target.name} expected readiness payload ok=${target.expectedOk}`);
   }
 }
 

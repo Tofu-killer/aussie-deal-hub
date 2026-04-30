@@ -9,10 +9,9 @@ export SHADOW_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_
 psql postgresql://postgres:postgres@127.0.0.1:5432/postgres -c "DROP DATABASE IF EXISTS aussie_deals_hub_shadow"
 psql postgresql://postgres:postgres@127.0.0.1:5432/postgres -c "CREATE DATABASE aussie_deals_hub_shadow"
 pnpm install --frozen-lockfile
-pnpm verify
 pnpm --filter @aussie-deal-hub/db exec prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_DATABASE_URL"
 pnpm --filter @aussie-deal-hub/db db:migrate
-pnpm test:db
+pnpm verify
 ```
 
 The GitHub workflow in `.github/workflows/verify.yml` verifies those same build/test/migrate entrypoints against a service PostgreSQL instance, exercises the legacy `db:push -> db:migrate` upgrade path, and also runs the container smoke checks.
@@ -35,6 +34,15 @@ For legacy databases that already contain customized source or snapshot rows, th
 ```bash
 pnpm build
 pnpm test
+pnpm --filter @aussie-deal-hub/db db:migrate  # when DATABASE_URL is set, unless VERIFY_DB=0
+pnpm test:db  # when DATABASE_URL is set, unless VERIFY_DB=0
+```
+
+`pnpm verify` will automatically run `pnpm --filter @aussie-deal-hub/db db:migrate` and include the DB-backed persistence suite whenever `DATABASE_URL` is set. You can still run the persistence suite directly with:
+
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
+pnpm test:db
 ```
 
 `pnpm build` includes:
@@ -124,13 +132,6 @@ pnpm --filter @aussie-deal-hub/db db:migrate
 For existing non-empty databases that were previously managed with `db:push`, the wrapper behind `db:migrate` automatically marks `20260425000000_baseline` as applied once before running `prisma migrate deploy` only when `_prisma_migrations` is missing and the live database still matches the checked-in Prisma schema.
 
 Those checked-in migrations also ensure the canonical admin catalogs, runtime sources, and selected public deal snapshots exist for a fresh stack without rewriting already-customized runtime rows.
-
-Then run the DB-backed persistence suite:
-
-```bash
-export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub
-pnpm test:db
-```
 
 If PostgreSQL is not exposed on `127.0.0.1:5432`, set `DATABASE_URL` explicitly before running the suite. For example, the split-deployment layout above uses:
 
