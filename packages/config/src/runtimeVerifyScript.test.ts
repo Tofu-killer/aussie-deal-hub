@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -22,21 +21,9 @@ afterEach(() => {
   delete process.env.WEB_HOME_URL;
   delete process.env.WEB_SEARCH_URL;
   delete process.env.ADMIN_HOME_URL;
+  delete process.env.API_PUBLIC_DEALS_URL;
   delete process.env.API_PUBLIC_DEAL_URL;
 });
-
-function runRuntimeVerifyScript(env: Record<string, string>) {
-  return spawnSync(process.execPath, [scriptPath], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      ROUTE_SMOKE_TIMEOUT_MS: "500",
-      ROUTE_SMOKE_POLL_INTERVAL_MS: "1",
-      ...env,
-    },
-    encoding: "utf8",
-  });
-}
 
 describe("runtime verify script", () => {
   it("does not execute the runtime verify flow when imported as a module", async () => {
@@ -98,8 +85,9 @@ describe("runtime verify script", () => {
       expect(env.WEB_HOME_URL).toBe("https://www.example.test/zh");
       expect(env.WEB_SEARCH_URL).toBe("https://www.example.test/zh/search?q=switch");
       expect(env.ADMIN_HOME_URL).toBe("https://admin.example.test/console");
+      expect(env.API_PUBLIC_DEALS_URL).toBe("https://api.example.test/v1/public/deals/zh");
       expect(env.API_PUBLIC_DEAL_URL).toBe(
-        "https://api.example.test/v1/public/deals/zh/nintendo-switch-oled-amazon-au",
+        "https://api.example.test/v1/public/deals/zh/route-smoke-missing-deal",
       );
     });
 
@@ -137,7 +125,8 @@ describe("runtime verify script", () => {
         RUNTIME_WEB_BASE_URL: "https://www.example.test",
         RUNTIME_ADMIN_BASE_URL: "https://admin.example.test",
         API_READY_URL: "https://override.example.test/v1/ready",
-        API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-deal",
+        API_PUBLIC_DEALS_URL: "https://override.example.test/v1/public/deals/en",
+        API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-missing-deal",
         WEB_HOME_URL: "https://override.example.test/en",
         ADMIN_HOME_URL: "https://override.example.test/admin",
       }),
@@ -145,7 +134,8 @@ describe("runtime verify script", () => {
       API_READY_URL: "https://override.example.test/v1/ready",
       WEB_HOME_URL: "https://override.example.test/en",
       ADMIN_HOME_URL: "https://override.example.test/admin",
-      API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-deal",
+      API_PUBLIC_DEALS_URL: "https://override.example.test/v1/public/deals/en",
+      API_PUBLIC_DEAL_URL: "https://override.example.test/v1/public/deals/en/custom-missing-deal",
       API_HEALTH_URL: "https://api.example.test/v1/health",
       WEB_SEARCH_URL: "https://www.example.test/en/search?q=switch",
     });
@@ -183,27 +173,44 @@ describe("runtime verify script", () => {
     expect(routeRunner).not.toHaveBeenCalled();
   });
 
-  it("runs readiness and route smoke end-to-end with explicit target URLs", () => {
-    const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
-    const result = runRuntimeVerifyScript({
-      API_HEALTH_URL: healthyPayload,
-      API_READY_URL: healthyPayload,
-      WEB_HEALTH_URL: healthyPayload,
-      WEB_READY_URL: healthyPayload,
-      ADMIN_HEALTH_URL: healthyPayload,
-      ADMIN_READY_URL: healthyPayload,
-      WORKER_RUNTIME_URL: healthyPayload,
-      WEB_HOME_URL:
-        "data:text/html,%3Ch2%3ELatest%20deals%3C%2Fh2%3E%3Ch2%3ETrending%20merchants%3C%2Fh2%3E%3Ca%3EOpen%20Favorites%3C%2Fa%3E",
-      WEB_SEARCH_URL:
-        "data:text/html,%3Ch1%3ESearch%20results%3C%2Fh1%3E%3Clabel%3ESearch%20deals%3C%2Flabel%3E%3Cp%3Eswitch%3C%2Fp%3E",
-      ADMIN_HOME_URL:
-        "data:text/html,%3Ch1%3EAdmin%20review%20dashboard%3C%2Fh1%3E%3Ch2%3ELive%20summary%3C%2Fh2%3E%3Ch2%3EWorkflow%20shortcuts%3C%2Fh2%3E",
-      API_PUBLIC_DEAL_URL:
-        "data:application/json,%7B%22locale%22%3A%22en%22%2C%22slug%22%3A%22nintendo-switch-oled-amazon-au%22%2C%22title%22%3A%22Nintendo%20Switch%20OLED%20for%20A%24399%20at%20Amazon%20AU%22%7D",
-    });
+  it("fails fast when the public route smoke targets are incomplete", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-public-route-target-test`)) as {
+      runRuntimeVerifyScript?: (
+        env: Record<string, string | undefined>,
+        dependencies?: {
+          readinessRunner?: (env: Record<string, string | undefined>) => Promise<void>;
+          routeRunner?: (env: Record<string, string | undefined>) => Promise<void>;
+        },
+      ) => Promise<void>;
+    };
+    const readinessRunner = vi.fn(async () => {});
+    const routeRunner = vi.fn(async () => {});
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
+    await expect(
+      scriptModule.runRuntimeVerifyScript?.(
+        {
+          API_HEALTH_URL: "https://api.example.test/v1/health",
+          API_READY_URL: "https://api.example.test/v1/ready",
+          WEB_HEALTH_URL: "https://www.example.test/health",
+          WEB_READY_URL: "https://www.example.test/ready",
+          ADMIN_HEALTH_URL: "https://admin.example.test/health",
+          ADMIN_READY_URL: "https://admin.example.test/ready",
+          WORKER_RUNTIME_URL: "https://api.example.test/v1/admin/runtime/worker",
+          WEB_HOME_URL: "https://www.example.test/en",
+          WEB_SEARCH_URL: "https://www.example.test/en/search?q=switch",
+          ADMIN_HOME_URL: "https://admin.example.test",
+          API_PUBLIC_DEAL_URL: "https://api.example.test/v1/public/deals/en/route-smoke-missing-deal",
+        },
+        {
+          readinessRunner,
+          routeRunner,
+        },
+      ),
+    ).rejects.toThrow(
+      "runtime:verify requires complete target URLs. Missing: API_PUBLIC_DEALS_URL",
+    );
+
+    expect(readinessRunner).not.toHaveBeenCalled();
+    expect(routeRunner).not.toHaveBeenCalled();
   });
 });

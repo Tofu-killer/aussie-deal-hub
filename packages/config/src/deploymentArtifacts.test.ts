@@ -248,7 +248,8 @@ describe("deployment artifacts", () => {
     expect(packageJson).toContain("\"smoke:routes\": \"node scripts/smoke-routes.mjs\"");
     expect(smokeScript).toContain("/en");
     expect(smokeScript).toContain("/en/search?q=switch");
-    expect(smokeScript).toContain("/v1/public/deals/en/nintendo-switch-oled-amazon-au");
+    expect(smokeScript).toContain("/v1/public/deals/en");
+    expect(smokeScript).toContain("route-smoke-missing-deal");
     expect(smokeScript).toContain("http://127.0.0.1:3002/");
     expect(smokeScript).toContain("requiredText");
     expect(smokeScript).toContain("requiredJson");
@@ -259,8 +260,9 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("Search deals");
     expect(smokeScript).toContain("Admin review dashboard");
     expect(smokeScript).toContain("Workflow shortcuts");
-    expect(smokeScript).toContain("api-public-deal-en");
-    expect(smokeScript).toContain("Nintendo Switch OLED for A$399 at Amazon AU");
+    expect(smokeScript).toContain("api-public-deals-en");
+    expect(smokeScript).toContain("api-public-deal-missing-en");
+    expect(smokeScript).toContain("Deal not found.");
     expect(workflow).toContain("pnpm smoke:routes");
   });
 
@@ -569,18 +571,23 @@ describe("deployment artifacts", () => {
     );
     expect(readme).toContain("reuses the readiness and route smoke checks");
     expect(readme).toContain(
-      "checks the public deal detail API contract at `/v1/public/deals/{locale}/nintendo-switch-oled-amazon-au`",
+      "the public deals list API contract at `/v1/public/deals/{locale}`",
+    );
+    expect(readme).toContain(
+      "the stable missing-detail 404 JSON contract at `/v1/public/deals/{locale}/route-smoke-missing-deal`",
     );
     expect(readme).toContain("RUNTIME_API_BASE_URL");
     expect(readme).toContain("RUNTIME_WEB_BASE_URL");
     expect(readme).toContain("RUNTIME_ADMIN_BASE_URL");
     expect(readme).toContain("RUNTIME_LOCALE");
+    expect(readme).toContain("API_PUBLIC_DEALS_URL");
     expect(readme).toContain("API_PUBLIC_DEAL_URL");
     expect(readme).toContain("The `Runtime verify` GitHub Actions workflow");
     expect(script).toContain("resolveRuntimeVerifyEnv");
     expect(script).toContain("runRuntimeVerifyScript");
     expect(script).toContain("validateRuntimeVerifyEnv");
     expect(script).toContain("runtime:verify requires complete target URLs");
+    expect(script).toContain("API_PUBLIC_DEALS_URL");
     expect(script).toContain("API_PUBLIC_DEAL_URL");
     expect(workflow).toContain("name: Runtime verify");
     expect(workflow).toContain("workflow_dispatch:");

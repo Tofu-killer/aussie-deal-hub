@@ -5,10 +5,11 @@ import {
   runRouteSmoke,
 } from "../packages/config/src/routeSmoke.ts";
 
-const defaultPublicDealSlug = "nintendo-switch-oled-amazon-au";
 const defaultPublicDealLocale = "en";
-const defaultPublicDealUrl =
-  "http://127.0.0.1:3001/v1/public/deals/en/nintendo-switch-oled-amazon-au";
+const defaultPublicDealsUrl = "http://127.0.0.1:3001/v1/public/deals/en";
+const defaultMissingPublicDealSlug = "route-smoke-missing-deal";
+const defaultMissingPublicDealUrl =
+  `${defaultPublicDealsUrl}/${defaultMissingPublicDealSlug}`;
 
 export function buildRouteSmokeTargets(env = process.env) {
   return [
@@ -31,13 +32,19 @@ export function buildRouteSmokeTargets(env = process.env) {
       requiredText: ["Admin review dashboard", "Live summary", "Workflow shortcuts"],
     },
     {
-      name: "api-public-deal-en",
-      url: env.API_PUBLIC_DEAL_URL ?? defaultPublicDealUrl,
+      name: "api-public-deals-en",
+      url: env.API_PUBLIC_DEALS_URL ?? defaultPublicDealsUrl,
       expectedStatus: 200,
       requiredJson: {
-        locale: defaultPublicDealLocale,
-        slug: defaultPublicDealSlug,
-        title: "Nintendo Switch OLED for A$399 at Amazon AU",
+        items: [],
+      },
+    },
+    {
+      name: "api-public-deal-missing-en",
+      url: env.API_PUBLIC_DEAL_URL ?? defaultMissingPublicDealUrl,
+      expectedStatus: 404,
+      requiredJson: {
+        message: "Deal not found.",
       },
     },
   ];

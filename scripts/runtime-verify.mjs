@@ -6,6 +6,7 @@ import { runRouteSmokeScript } from "./smoke-routes.mjs";
 const REQUIRED_RUNTIME_VERIFY_TARGETS = [
   "API_HEALTH_URL",
   "API_READY_URL",
+  "API_PUBLIC_DEALS_URL",
   "API_PUBLIC_DEAL_URL",
   "WORKER_RUNTIME_URL",
   "WEB_HEALTH_URL",
@@ -54,8 +55,14 @@ export function resolveRuntimeVerifyEnv(env = process.env) {
   setDefault(resolvedEnv, "API_READY_URL", apiBaseUrl && joinBaseUrl(apiBaseUrl, "/v1/ready"));
   setDefault(
     resolvedEnv,
+    "API_PUBLIC_DEALS_URL",
+    apiBaseUrl && joinBaseUrl(apiBaseUrl, `/v1/public/deals/${locale}`),
+  );
+  setDefault(
+    resolvedEnv,
     "API_PUBLIC_DEAL_URL",
-    apiBaseUrl && joinBaseUrl(apiBaseUrl, `/v1/public/deals/${locale}/nintendo-switch-oled-amazon-au`),
+    apiBaseUrl &&
+      joinBaseUrl(apiBaseUrl, `/v1/public/deals/${locale}/route-smoke-missing-deal`),
   );
   setDefault(
     resolvedEnv,
