@@ -116,6 +116,7 @@ The liveness/readiness split is:
 
 When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.
 The worker runtime readiness target is stricter than the startup grace window: the smoke only passes after `/v1/admin/runtime/worker` reports `ok: true` with `status: "ok"` from a fresh completed worker pass, so `status: "starting"` or an attempted-but-not-completed first pass do not count as a verified deploy.
+The admin dashboard follows the same contract: a worker in `status: "starting"` is shown as still booting its first pass, not as healthy.
 Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.
 
 ## Database bootstrap

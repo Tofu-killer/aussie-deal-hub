@@ -255,6 +255,14 @@ function summarizeWorkerRuntime(result: LoadSummaryResult): SummaryCardState {
     return createErrorCard("Worker", "Worker heartbeat is stale.");
   }
 
+  if (status === "starting") {
+    return createErrorCard("Worker", "Worker is still starting its first pass.");
+  }
+
+  if (status !== "ok") {
+    return createErrorCard("Worker", "Failed to load worker runtime.");
+  }
+
   const reviewedCount = typeof lastSummary.reviewedCount === "number" ? lastSummary.reviewedCount : 0;
   const publishedCount =
     typeof lastSummary.publishedCount === "number" ? lastSummary.publishedCount : 0;

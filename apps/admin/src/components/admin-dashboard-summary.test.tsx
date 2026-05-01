@@ -305,4 +305,28 @@ describe("admin dashboard summary", () => {
     expect(screen.getByText("1 published")).toBeTruthy();
     expect(screen.getByText("Worker heartbeat is stale.")).toBeTruthy();
   });
+
+  it("does not present a starting worker as healthy", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          ok: true,
+          status: "starting",
+          ageMs: null,
+          lastSummary: null,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderAdminHomePage();
+
+    expect(await screen.findByText("0 leads in queue")).toBeTruthy();
+    expect(screen.getByText("Worker is still starting its first pass.")).toBeTruthy();
+    expect(screen.queryByText("Healthy")).toBeNull();
+  });
 });
