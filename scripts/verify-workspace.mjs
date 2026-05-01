@@ -7,6 +7,8 @@ function normalizeEnvValue(rawValue) {
   return trimmedValue ? trimmedValue : undefined;
 }
 
+const localDatabaseUrlFallbackEnvName = "ALLOW_LOCAL_DATABASE_URL_FALLBACK";
+
 function parseBooleanEnv(rawValue) {
   const normalizedValue = normalizeEnvValue(rawValue)?.toLowerCase();
 
@@ -32,7 +34,10 @@ export function shouldRunDbBackedVerification(env = process.env) {
     return explicitVerifyDb;
   }
 
-  return normalizeEnvValue(env.DATABASE_URL) !== undefined;
+  return (
+    normalizeEnvValue(env.DATABASE_URL) !== undefined ||
+    parseBooleanEnv(env[localDatabaseUrlFallbackEnvName]) === true
+  );
 }
 
 function runCommand(command, args, options = {}) {
@@ -59,6 +64,24 @@ function withoutDatabaseUrl(env) {
   return commandEnv;
 }
 
+function validateDbBackedVerificationEnv(env = process.env) {
+  if (!shouldRunDbBackedVerification(env)) {
+    return;
+  }
+
+  if (normalizeEnvValue(env.DATABASE_URL) !== undefined) {
+    return;
+  }
+
+  if (parseBooleanEnv(env[localDatabaseUrlFallbackEnvName]) === true) {
+    return;
+  }
+
+  throw new Error(
+    `VERIFY_DB requires DATABASE_URL. Set ${localDatabaseUrlFallbackEnvName}=1 to opt into the local PostgreSQL fallback for local-only development, or set VERIFY_DB=0 to skip DB-backed verification.`,
+  );
+}
+
 export async function runVerifyWorkspaceScript(
   env = process.env,
   dependencies = {},
@@ -66,6 +89,7 @@ export async function runVerifyWorkspaceScript(
   const commandRunner = dependencies.runCommand ?? runCommand;
   const standardVerificationEnv = withoutDatabaseUrl(env);
 
+  validateDbBackedVerificationEnv(env);
   commandRunner("pnpm", ["build"], { env: standardVerificationEnv });
   commandRunner("pnpm", ["test"], { env: standardVerificationEnv });
 

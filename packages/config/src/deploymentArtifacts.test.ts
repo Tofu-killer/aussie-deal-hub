@@ -303,6 +303,9 @@ describe("deployment artifacts", () => {
     const packageJson = readRepoFile("package.json");
     const workflow = readRepoFile(".github/workflows/verify.yml");
     const readme = readRepoFile("README.md");
+    const prismaPackageJson = readRepoFile("packages/db/package.json");
+    const prismaConfig = readRepoFile("packages/db/prisma.config.ts");
+    const prismaBuildScript = readRepoFile("packages/db/src/build.ts");
     const testDbScript = readRepoFile("scripts/test-db.mjs");
     const verifyWorkspaceScript = readRepoFile("scripts/verify-workspace.mjs");
     const dbBootstrapMigrationBlock = [
@@ -324,6 +327,11 @@ describe("deployment artifacts", () => {
 
     expect(packageJson).toContain("\"verify\": \"node scripts/verify-workspace.mjs\"");
     expect(packageJson).toContain("\"test:db\": \"node scripts/test-db.mjs\"");
+    expect(prismaPackageJson).toContain("\"build\": \"node --import tsx ./src/build.ts\"");
+    expect(prismaConfig).toContain("ALLOW_LOCAL_DATABASE_URL_FALLBACK");
+    expect(prismaConfig).toContain("DATABASE_URL is required for Prisma commands.");
+    expect(prismaBuildScript).toContain("prismaBuildPlaceholderDatabaseUrl");
+    expect(prismaBuildScript).toContain('DATABASE_URL: normalizeEnvValue(process.env.DATABASE_URL) ?? prismaBuildPlaceholderDatabaseUrl');
     expect(workflow).toContain("Create shadow database for migration drift check");
     expect(workflow).toContain("Check migration drift against schema");
     expect(workflow).toContain("CREATE DATABASE aussie_deals_hub_shadow");
@@ -348,12 +356,16 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("pnpm test:db");
     expect(readme).toContain("docker compose up -d postgres redis");
     expect(readme).toContain("export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub");
+    expect(readme).toContain("ALLOW_LOCAL_DATABASE_URL_FALLBACK=1");
     expect(readme).toContain("SHADOW_DATABASE_URL");
     expect(readme).toContain("CREATE DATABASE aussie_deals_hub_shadow");
     expect(readme).toContain("docker compose up -d postgres redis");
     expect(readme).toContain("pnpm --filter @aussie-deal-hub/db db:migrate");
     expect(readme).toContain(
       "`pnpm verify` will automatically run `pnpm --filter @aussie-deal-hub/db db:migrate` and include the DB-backed persistence suite whenever `DATABASE_URL` is set.",
+    );
+    expect(readme).toContain(
+      "If you want the old localhost convenience explicitly, set `ALLOW_LOCAL_DATABASE_URL_FALLBACK=1` for local-only development.",
     );
     expect(readme).toContain(dbBootstrapMigrationBlock);
     expect(readme).toContain(dbBootstrapTestBlock);
@@ -366,11 +378,27 @@ describe("deployment artifacts", () => {
     expect(readme).not.toContain("pnpm --filter @aussie-deal-hub/db db:push");
     expect(readme).not.toContain("pnpm --filter @aussie-deal-hub/db seed");
     expect(testDbScript).toContain("RUN_DB_TESTS: \"1\"");
+    expect(testDbScript).toContain("test:db requires DATABASE_URL.");
+    expect(testDbScript).toContain("ALLOW_LOCAL_DATABASE_URL_FALLBACK");
     expect(testDbScript).toContain("\"vitest\"");
     expect(verifyWorkspaceScript).toContain("VERIFY_DB");
+    expect(verifyWorkspaceScript).toContain("ALLOW_LOCAL_DATABASE_URL_FALLBACK");
+    expect(verifyWorkspaceScript).toContain("VERIFY_DB requires DATABASE_URL.");
     expect(verifyWorkspaceScript).toContain("\"db:migrate\"");
     expect(verifyWorkspaceScript).toContain("\"test:db\"");
     expect(verifyWorkspaceScript).toContain("withoutDatabaseUrl");
+  });
+
+  it("keeps runtime API test setup scoped to admin and web suites instead of a global workspace shim", () => {
+    const vitestConfig = readRepoFile("vitest.config.ts");
+    const adminSetup = readRepoFile("vitest.admin.setup.ts");
+    const webSetup = readRepoFile("vitest.web.setup.ts");
+
+    expect(vitestConfig).toContain("./vitest.admin.setup.ts");
+    expect(vitestConfig).toContain("./vitest.web.setup.ts");
+    expect(vitestConfig).not.toContain("./vitest.setup.ts");
+    expect(adminSetup).toContain('process.env.ADMIN_API_BASE_URL ??= "http://127.0.0.1:3001"');
+    expect(webSetup).toContain('process.env.API_BASE_URL ??= "http://127.0.0.1:3001"');
   });
 
   it("documents a runtime backup entrypoint and ignores generated dump artifacts", () => {

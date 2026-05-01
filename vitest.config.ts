@@ -8,7 +8,27 @@ export default defineConfig({
           include: ["apps/admin/**/*.test.tsx"],
           exclude: ["**/node_modules/**"],
           environment: "jsdom",
-          setupFiles: ["./vitest.setup.ts"],
+          setupFiles: ["./vitest.admin.setup.ts"],
+        },
+      },
+      {
+        test: {
+          include: ["apps/admin/**/*.test.ts"],
+          exclude: ["**/node_modules/**"],
+          environment: "node",
+          setupFiles: ["./vitest.admin.setup.ts"],
+        },
+      },
+      {
+        test: {
+          include: [
+            "apps/web/src/components/**/*.test.ts",
+            "apps/web/src/components/**/*.test.tsx",
+            "apps/web/src/lib/serverApi.test.ts",
+          ],
+          exclude: ["**/node_modules/**"],
+          environment: "node",
+          setupFiles: ["./vitest.web.setup.ts"],
         },
       },
       {
@@ -19,9 +39,15 @@ export default defineConfig({
             "apps/**/*.test.ts",
             "apps/**/*.test.tsx",
           ],
-          exclude: ["apps/admin/**/*.test.tsx", "**/node_modules/**"],
+          exclude: [
+            "apps/admin/**/*.test.ts",
+            "apps/admin/**/*.test.tsx",
+            "apps/web/src/components/**/*.test.ts",
+            "apps/web/src/components/**/*.test.tsx",
+            "apps/web/src/lib/serverApi.test.ts",
+            "**/node_modules/**",
+          ],
           environment: "node",
-          setupFiles: ["./vitest.setup.ts"],
         },
       },
     ],

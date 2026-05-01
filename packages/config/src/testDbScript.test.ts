@@ -63,6 +63,69 @@ async function installFakePnpm(repoRootPath: string, captureFilePath: string) {
 }
 
 describe("test-db script", () => {
+  it("fails fast when DATABASE_URL is missing without an explicit local fallback opt-in", async () => {
+    const tempRepoRoot = await createTempRepo();
+
+    await writeRepoFile(
+      tempRepoRoot,
+      "apps/api/tests/real-db.test.ts",
+      'const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;\n' +
+        'describeDb("real db suite", () => {});\n',
+    );
+
+    const env = { ...process.env };
+    delete env.DATABASE_URL;
+    delete env.ALLOW_LOCAL_DATABASE_URL_FALLBACK;
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      cwd: tempRepoRoot,
+      env,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("test:db requires DATABASE_URL.");
+    expect(result.stderr).toContain("ALLOW_LOCAL_DATABASE_URL_FALLBACK=1");
+  });
+
+  it("allows an explicit local fallback opt-in when DATABASE_URL is missing", async () => {
+    const tempRepoRoot = await createTempRepo();
+    const captureFilePath = path.join(tempRepoRoot, "pnpm-invocation.json");
+    const binDir = await installFakePnpm(tempRepoRoot, captureFilePath);
+
+    await writeRepoFile(
+      tempRepoRoot,
+      "apps/api/tests/real-db.test.ts",
+      'const describeDb = process.env.RUN_DB_TESTS === "1" ? describe : describe.skip;\n' +
+        'describeDb("real db suite", () => {});\n',
+    );
+
+    const env = { ...process.env };
+    delete env.DATABASE_URL;
+    env.ALLOW_LOCAL_DATABASE_URL_FALLBACK = "1";
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      cwd: tempRepoRoot,
+      env: {
+        ...env,
+        CAPTURE_FILE: captureFilePath,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+      },
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(0);
+
+    const capture = JSON.parse(await readFile(captureFilePath, "utf8")) as {
+      env: { DATABASE_URL?: string; RUN_DB_TESTS?: string };
+    };
+
+    expect(capture.env.DATABASE_URL).toBe(
+      "postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+    );
+    expect(capture.env.RUN_DB_TESTS).toBe("1");
+  });
+
   it("discovers db-backed api tests from RUN_DB_TESTS and describeDb markers", async () => {
     const tempRepoRoot = await createTempRepo();
     const captureFilePath = path.join(tempRepoRoot, "pnpm-invocation.json");
@@ -98,6 +161,7 @@ describe("test-db script", () => {
       cwd: tempRepoRoot,
       env: {
         ...process.env,
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
         CAPTURE_FILE: captureFilePath,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       },
@@ -150,6 +214,7 @@ describe("test-db script", () => {
       cwd: tempRepoRoot,
       env: {
         ...process.env,
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
         CAPTURE_FILE: captureFilePath,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       },
@@ -202,6 +267,7 @@ describe("test-db script", () => {
       cwd: tempRepoRoot,
       env: {
         ...process.env,
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
         CAPTURE_FILE: captureFilePath,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       },
@@ -242,6 +308,7 @@ describe("test-db script", () => {
       cwd: tempRepoRoot,
       env: {
         ...process.env,
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
         CAPTURE_FILE: captureFilePath,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       },
@@ -276,6 +343,7 @@ describe("test-db script", () => {
       cwd: repoRoot,
       env: {
         ...process.env,
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
         CAPTURE_FILE: captureFilePath,
         PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       },

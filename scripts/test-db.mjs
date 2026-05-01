@@ -3,12 +3,49 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
-const databaseUrl =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub";
+const defaultLocalDatabaseUrl = "postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub";
+const localDatabaseUrlFallbackEnvName = "ALLOW_LOCAL_DATABASE_URL_FALLBACK";
 const testFilePattern = /\.test\.[cm]?[jt]sx?$/;
 const missingTestsDirectoryMessage = "DB test directory not found: apps/api/tests";
 const noDbTestsDiscoveredMessage =
   "No DB-backed tests were discovered under apps/api/tests. Expected describeDb suites.";
+
+function normalizeEnvValue(rawValue) {
+  const trimmedValue = rawValue?.trim();
+
+  return trimmedValue ? trimmedValue : undefined;
+}
+
+function parseBooleanEnv(rawValue) {
+  const normalizedValue = normalizeEnvValue(rawValue)?.toLowerCase();
+
+  if (normalizedValue === undefined) {
+    return false;
+  }
+
+  return ["1", "true", "yes", "on"].includes(normalizedValue);
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+function resolveDatabaseUrl(env = process.env) {
+  const configuredDatabaseUrl = normalizeEnvValue(env.DATABASE_URL);
+
+  if (configuredDatabaseUrl) {
+    return configuredDatabaseUrl;
+  }
+
+  if (parseBooleanEnv(env[localDatabaseUrlFallbackEnvName])) {
+    return defaultLocalDatabaseUrl;
+  }
+
+  fail(
+    `test:db requires DATABASE_URL. Set ${localDatabaseUrlFallbackEnvName}=1 to opt into ${defaultLocalDatabaseUrl} for local-only development.`,
+  );
+}
 
 function listFiles(directoryPath) {
   const discoveredFiles = [];
@@ -98,6 +135,8 @@ if (testFiles.length === 0) {
   console.error(noDbTestsDiscoveredMessage);
   process.exit(1);
 }
+
+const databaseUrl = resolveDatabaseUrl(process.env);
 
 const result = spawnSync(
   process.platform === "win32" ? "pnpm.cmd" : "pnpm",

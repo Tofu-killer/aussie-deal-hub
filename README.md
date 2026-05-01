@@ -45,6 +45,8 @@ export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_h
 pnpm test:db
 ```
 
+`test:db`, `db:migrate`, and other Prisma entrypoints now fail fast when `DATABASE_URL` is missing instead of silently pointing at localhost. If you want the old localhost convenience explicitly, set `ALLOW_LOCAL_DATABASE_URL_FALLBACK=1` for local-only development.
+
 `pnpm build` includes:
 
 - Prisma schema validation through `@aussie-deal-hub/db`
@@ -60,6 +62,7 @@ Set runtime variables in your process manager or deployment platform before star
 | `API_HOST` | api | yes | Bind host for the Express server. |
 | `API_PORT` | api | yes | API listen port. |
 | `DATABASE_URL` | api, db | yes | PostgreSQL connection string used by Prisma. |
+| `ALLOW_LOCAL_DATABASE_URL_FALLBACK` | db, test only | optional | Local-only escape hatch that re-enables the default localhost Postgres URL when `DATABASE_URL` is otherwise missing. |
 | `REDIS_URL` | api | yes | Redis connection string. |
 | `SESSION_SECRET` | api | yes | Must be at least 16 characters. |
 | `EMAIL_FROM` | api, worker | yes | Sender address for outbound mail flows. |

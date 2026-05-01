@@ -120,4 +120,40 @@ describe("verify workspace script", () => {
       }),
     ).toBe(true);
   });
+
+  it("allows the explicit local DB fallback flag to opt into DB-backed verification", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?fallback-db`)) as {
+      shouldRunDbBackedVerification?: (env: Record<string, string | undefined>) => boolean;
+    };
+
+    expect(
+      scriptModule.shouldRunDbBackedVerification?.({
+        ALLOW_LOCAL_DATABASE_URL_FALLBACK: "1",
+      }),
+    ).toBe(true);
+  });
+
+  it("fails fast when VERIFY_DB is enabled without DATABASE_URL or an explicit local fallback", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-db-config`)) as {
+      runVerifyWorkspaceScript?: (
+        env: Record<string, string | undefined>,
+        dependencies?: {
+          runCommand?: (command: string, args: string[], options?: { env?: NodeJS.ProcessEnv }) => void;
+        },
+      ) => Promise<void>;
+    };
+    const runCommand = vi.fn();
+
+    await expect(
+      scriptModule.runVerifyWorkspaceScript?.(
+        {
+          VERIFY_DB: "1",
+        },
+        { runCommand },
+      ),
+    ).rejects.toThrow(
+      "VERIFY_DB requires DATABASE_URL. Set ALLOW_LOCAL_DATABASE_URL_FALLBACK=1 to opt into the local PostgreSQL fallback for local-only development, or set VERIFY_DB=0 to skip DB-backed verification.",
+    );
+    expect(runCommand).not.toHaveBeenCalled();
+  });
 });
