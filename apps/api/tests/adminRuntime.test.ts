@@ -160,6 +160,33 @@ describe("admin runtime routes", () => {
     });
   });
 
+  it("returns 503 until the worker completes its first pass", async () => {
+    await writeWorkerStateFile({
+      serviceStartedAt: "2026-04-24T00:00:00.000Z",
+      status: "idle",
+      lastAttemptedAt: new Date().toISOString(),
+      lastCompletedAt: null,
+      lastErrorAt: null,
+      lastErrorMessage: null,
+      lastSummary: null,
+    });
+    process.env.WORKER_STALE_AFTER_MS = "60000";
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/runtime/worker",
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.body).toMatchObject({
+      ok: false,
+      status: "stale",
+      ageMs: null,
+      lastCompletedAt: null,
+    });
+  });
+
   it("returns 503 for a stale worker heartbeat", async () => {
     await writeWorkerStateFile({
       serviceStartedAt: "2026-04-24T00:00:00.000Z",

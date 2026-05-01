@@ -99,4 +99,23 @@ describe("worker healthcheck script", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Worker runtime is stale.");
   });
+
+  it("fails when the worker has attempts but no completed pass yet", async () => {
+    const statePath = await writeWorkerStateFile({
+      serviceStartedAt: "2026-04-20T00:00:00.000Z",
+      status: "idle",
+      lastAttemptedAt: new Date().toISOString(),
+      lastCompletedAt: null,
+      lastErrorAt: null,
+      lastErrorMessage: null,
+      lastSummary: null,
+    });
+
+    const result = runWorkerHealthScript(statePath, {
+      WORKER_STALE_AFTER_MS: "60000",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Worker runtime is stale.");
+  });
 });

@@ -85,6 +85,26 @@ describe("worker runtime health", () => {
     });
   });
 
+  it("does not treat a worker as healthy until it completes a pass", () => {
+    const result = evaluateWorkerRuntimeHealth(
+      createState({
+        status: "idle",
+        lastAttemptedAt: "2026-04-27T00:00:15.000Z",
+        lastCompletedAt: null,
+      }),
+      {
+        now: Date.parse("2026-04-27T00:00:20.000Z"),
+        staleAfterMs: 60_000,
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: "stale",
+      ageMs: null,
+    });
+  });
+
   it("treats a fresh error state as unhealthy", () => {
     const result = evaluateWorkerRuntimeHealth(
       createState({

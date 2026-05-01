@@ -65,20 +65,25 @@ export function evaluateWorkerRuntimeHealth(
 ): WorkerRuntimeHealthResult {
   const staleAfterMs = options.staleAfterMs ?? 120_000;
   const now = options.now ?? Date.now();
-  const lastTimestamp = state.lastCompletedAt ?? state.lastAttemptedAt;
-  const ageMs = lastTimestamp ? Math.max(now - Date.parse(lastTimestamp), 0) : null;
+  const lastCompletedAgeMs = state.lastCompletedAt
+    ? Math.max(now - Date.parse(state.lastCompletedAt), 0)
+    : null;
   const startupAgeMs = Math.max(now - Date.parse(state.serviceStartedAt), 0);
   const isStarting =
     state.status === "idle" &&
-    ageMs === null &&
+    state.lastAttemptedAt === null &&
+    state.lastCompletedAt === null &&
     !Number.isNaN(startupAgeMs) &&
     startupAgeMs <= staleAfterMs;
-  const isStale = ageMs === null || Number.isNaN(ageMs) || ageMs > staleAfterMs;
+  const isStale =
+    lastCompletedAgeMs === null ||
+    Number.isNaN(lastCompletedAgeMs) ||
+    lastCompletedAgeMs > staleAfterMs;
   const isError = state.status === "error";
 
   return {
     ok: !isError && (isStarting || !isStale),
     status: isError ? "error" : isStarting ? "starting" : isStale ? "stale" : "ok",
-    ageMs,
+    ageMs: lastCompletedAgeMs,
   };
 }
