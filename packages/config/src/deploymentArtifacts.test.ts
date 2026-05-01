@@ -174,6 +174,9 @@ describe("deployment artifacts", () => {
     expect(readme).toContain(
       "When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.",
     );
+    expect(readme).toContain(
+      "Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.",
+    );
   });
 
   it("keeps the postgres container bootstrap compatible with POSTGRES_DB initialization", () => {

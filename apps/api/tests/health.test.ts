@@ -64,7 +64,7 @@ describe("health endpoint", () => {
     await expect(healthCheck()).resolves.toEqual({
       ok: false,
       dependencies: {
-        dbPublishingSchema: "unavailable",
+        dbPublishingSchema: "schema_mismatch",
       },
     });
   });
@@ -83,8 +83,31 @@ describe("health endpoint", () => {
     await expect(healthCheck()).resolves.toEqual({
       ok: false,
       dependencies: {
-        dbCatalogSchema: "unavailable",
-        dbPublishingSchema: "unavailable",
+        dbCatalogSchema: "schema_mismatch",
+        dbPublishingSchema: "schema_mismatch",
+      },
+    });
+  });
+
+  it("keeps dependency failures coarse but distinguishes connection and timeout issues", async () => {
+    const healthCheck = createDependencyHealthChecker({
+      db: async () => {
+        throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
+      },
+      redis: async () => {
+        throw new Error("Redis health check timed out.");
+      },
+      email: async () => {
+        throw new Error("password authentication failed for user deploy");
+      },
+    });
+
+    await expect(healthCheck()).resolves.toEqual({
+      ok: false,
+      dependencies: {
+        db: "connection_failed",
+        redis: "timeout",
+        email: "authentication_failed",
       },
     });
   });

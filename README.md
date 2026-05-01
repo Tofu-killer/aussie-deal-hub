@@ -115,6 +115,7 @@ The liveness/readiness split is:
   - `admin`: `/ready`
 
 When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.
+Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.
 
 ## Database bootstrap
 
