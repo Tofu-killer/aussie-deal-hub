@@ -1,5 +1,7 @@
 import React from "react";
 
+import { buildAdminApiUrl } from "../../lib/runtimeApi";
+
 interface PublishingQueueRow {
   id: string;
   deal: string;
@@ -12,10 +14,6 @@ interface PublishingQueueRow {
 interface PublishingQueueLoadResult {
   items: PublishingQueueRow[];
   error: string | null;
-}
-
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -69,7 +67,7 @@ function extractPublishingQueueItems(body: unknown) {
 
 async function loadPublishingQueue(): Promise<PublishingQueueLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/publishing`, {
+    const response = await fetch(buildAdminApiUrl("/v1/admin/publishing"), {
       cache: "no-store",
     });
 

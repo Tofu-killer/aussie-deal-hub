@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { listPublicDealsWithLocaleFallback } from "./serverApi";
+import { listPublicDeals, listPublicDealsWithLocaleFallback } from "./serverApi";
 
 function createJsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -14,6 +14,7 @@ function createJsonResponse(body: unknown, status = 200) {
 describe("serverApi locale fallback", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("deduplicates locale fallback lists by stable deal id when locale slugs differ", async () => {
@@ -108,5 +109,18 @@ describe("serverApi locale fallback", () => {
         },
       ],
     });
+  });
+
+  it("fails fast when API_BASE_URL is missing for server-side requests", async () => {
+    const originalValue = process.env.API_BASE_URL;
+    delete process.env.API_BASE_URL;
+
+    try {
+      await expect(listPublicDeals("en")).rejects.toThrow(
+        "API_BASE_URL is required for server-side web API requests.",
+      );
+    } finally {
+      process.env.API_BASE_URL = originalValue;
+    }
   });
 });

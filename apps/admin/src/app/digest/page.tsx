@@ -1,5 +1,7 @@
 import React from "react";
 
+import { buildAdminApiUrl } from "../../lib/runtimeApi";
+
 interface DigestLocalePreview {
   locale?: string;
   subject?: string;
@@ -24,10 +26,8 @@ interface DigestPreviewResult {
 }
 
 async function loadDigestPreview(): Promise<DigestPreviewResult> {
-  const apiBaseUrl = process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-
   try {
-    const response = await fetch(`${apiBaseUrl}/v1/admin/digest-preview`, {
+    const response = await fetch(buildAdminApiUrl("/v1/admin/digest-preview"), {
       cache: "no-store",
     });
 

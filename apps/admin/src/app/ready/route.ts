@@ -1,6 +1,6 @@
-export const dynamic = "force-dynamic";
+import { buildAdminApiUrl, isAdminApiConfigurationError } from "../../lib/runtimeApi";
 
-const DEFAULT_ADMIN_API_BASE_URL = "http://127.0.0.1:3001";
+export const dynamic = "force-dynamic";
 
 interface ReadyPayload {
   ok: boolean;
@@ -8,11 +8,7 @@ interface ReadyPayload {
 }
 
 function buildReadyUrl() {
-  const apiBaseUrl = (process.env.ADMIN_API_BASE_URL ?? DEFAULT_ADMIN_API_BASE_URL).replace(
-    /\/+$/,
-    "",
-  );
-  return `${apiBaseUrl}/v1/ready`;
+  return buildAdminApiUrl("/v1/ready");
 }
 
 function isReadyPayload(payload: unknown): payload is ReadyPayload {
@@ -50,7 +46,17 @@ export async function GET() {
     });
 
     return await buildReadyResponse(response);
-  } catch {
+  } catch (error) {
+    if (isAdminApiConfigurationError(error)) {
+      return Response.json(
+        {
+          ok: false,
+          error: error.message,
+        },
+        { status: 503 },
+      );
+    }
+
     return Response.json({ ok: false }, { status: 503 });
   }
 }

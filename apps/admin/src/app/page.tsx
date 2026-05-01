@@ -1,5 +1,7 @@
 import React from "react";
 
+import { buildAdminApiUrl } from "../lib/runtimeApi";
+
 interface SummaryCardState {
   title: string;
   lines: string[];
@@ -23,10 +25,6 @@ type LeadQueueStatus =
   | "draft_saved"
   | "queued_to_publish"
   | "published";
-
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
@@ -287,7 +285,7 @@ function summarizeWorkerRuntime(result: LoadSummaryResult): SummaryCardState {
 
 async function loadSummary(path: string, error: string): Promise<LoadSummaryResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}${path}`, {
+    const response = await fetch(buildAdminApiUrl(path), {
       cache: "no-store",
     });
 

@@ -8,6 +8,7 @@ export default defineConfig({
           include: ["apps/admin/**/*.test.tsx"],
           exclude: ["**/node_modules/**"],
           environment: "jsdom",
+          setupFiles: ["./vitest.setup.ts"],
         },
       },
       {
@@ -20,6 +21,7 @@ export default defineConfig({
           ],
           exclude: ["apps/admin/**/*.test.tsx", "**/node_modules/**"],
           environment: "node",
+          setupFiles: ["./vitest.setup.ts"],
         },
       },
     ],

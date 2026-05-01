@@ -68,11 +68,11 @@ Set runtime variables in your process manager or deployment platform before star
 | `SMTP_SECURE` | api, worker | optional | Set to `1`/`true` for implicit TLS; defaults to `0`. |
 | `SMTP_USER` | api, worker | optional | SMTP auth username; must be paired with `SMTP_PASS`. |
 | `SMTP_PASS` | api, worker | optional | SMTP auth password; must be paired with `SMTP_USER`. |
-| `API_BASE_URL` | web | yes | Server-side base URL that web uses to call the API. |
+| `API_BASE_URL` | web | yes | Server-side base URL that web uses to call the API. Missing values now fail fast instead of falling back to localhost. |
 | `NEXT_PUBLIC_SITE_URL` | web | yes | Public site origin used for canonical URLs and sitemap output. |
 | `SITE_URL` | web | optional | Legacy fallback for `NEXT_PUBLIC_SITE_URL`. |
 | `PUBLIC_SEEDED_DEALS_ENABLED` | web | optional | Force-enable (`1`) or disable (`0`) seeded fallback deals. Production defaults to disabled. |
-| `ADMIN_API_BASE_URL` | admin | yes | Base URL that admin uses to call the API. |
+| `ADMIN_API_BASE_URL` | admin | yes | Base URL that admin uses to call the API. Missing values now fail fast instead of falling back to localhost. |
 | `ADMIN_BASIC_AUTH_USERNAME` | admin | optional | Enables HTTP Basic Auth on the admin app when paired with a password. |
 | `ADMIN_BASIC_AUTH_PASSWORD` | admin | optional | Password for admin HTTP Basic Auth. |
 | `ADMIN_BASIC_AUTH_REALM` | admin | optional | Override the HTTP Basic Auth browser prompt realm. |

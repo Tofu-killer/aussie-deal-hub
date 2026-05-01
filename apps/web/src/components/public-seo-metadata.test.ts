@@ -398,6 +398,34 @@ describe("public SEO metadata and discovery files", () => {
     expect(enGiftCardCategory?.lastModified).toBe("2026-04-19T09:00:00.000Z");
   });
 
+  it("falls back to seeded sitemap entries when API_BASE_URL is missing at build time", async () => {
+    const originalApiBaseUrl = process.env.API_BASE_URL;
+    delete process.env.API_BASE_URL;
+
+    try {
+      const sitemapModule = await import("../app/sitemap");
+      const entries = await sitemapModule.default();
+      const urls = entries.map((entry) => entry.url);
+
+      expect(urls).toEqual(
+        expect.arrayContaining([
+          `${SITE_URL}/en`,
+          `${SITE_URL}/zh`,
+          ...CATEGORY_URLS.flatMap((path) => [`${SITE_URL}/en${path}`, `${SITE_URL}/zh${path}`]),
+          ...DEAL_SLUGS.flatMap((slug) => [
+            `${SITE_URL}/en/deals/${slug}`,
+            `${SITE_URL}/zh/deals/${slug}`,
+          ]),
+        ]),
+      );
+      expect(urls).not.toContain(`${SITE_URL}/en/deals/live-only-coffee-subscription`);
+    } finally {
+      if (originalApiBaseUrl) {
+        process.env.API_BASE_URL = originalApiBaseUrl;
+      }
+    }
+  });
+
   it("publishes robots rules that point crawlers at the sitemap", async () => {
     const robotsModule = await import("../app/robots");
 

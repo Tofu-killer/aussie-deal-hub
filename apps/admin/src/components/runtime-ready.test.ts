@@ -97,4 +97,17 @@ describe("admin runtime ready route", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ ok: false });
   });
+
+  it("returns a 503 JSON payload with config error details when ADMIN_API_BASE_URL is missing", async () => {
+    delete process.env.ADMIN_API_BASE_URL;
+
+    const { GET } = await import("../app/ready/route");
+    const response = await GET();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "ADMIN_API_BASE_URL is required for admin runtime API requests.",
+    });
+  });
 });

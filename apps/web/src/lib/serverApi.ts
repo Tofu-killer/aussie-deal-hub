@@ -1,3 +1,8 @@
+import {
+  buildServerApiUrl,
+  isServerApiConfigurationError,
+} from "./runtimeApi";
+
 interface FavoriteRecord {
   dealId: string;
 }
@@ -55,16 +60,7 @@ export interface DigestPreferencesRecord {
   locale: string;
 }
 
-const DEFAULT_SERVER_API_BASE_URL = "http://127.0.0.1:3001";
 const PUBLIC_DEAL_LOCALES = ["en", "zh"] as const;
-
-function getServerApiBaseUrl() {
-  return process.env.API_BASE_URL ?? DEFAULT_SERVER_API_BASE_URL;
-}
-
-function buildServerApiUrl(path: string) {
-  return new URL(path, getServerApiBaseUrl()).toString();
-}
 
 async function fetchServerJson<T>(path: string, init?: RequestInit) {
   const response = await fetch(buildServerApiUrl(path), {
@@ -134,7 +130,11 @@ export async function listPublicDeals(locale: string) {
     );
 
     return response?.items ?? [];
-  } catch {
+  } catch (error) {
+    if (isServerApiConfigurationError(error)) {
+      throw error;
+    }
+
     return [];
   }
 }
@@ -144,7 +144,11 @@ export async function getPublicDealFromApi(locale: string, slug: string) {
     return await fetchServerJson<PublicApiDealRecord>(
       `/v1/public/deals/${encodeURIComponent(locale)}/${encodeURIComponent(slug)}`,
     );
-  } catch {
+  } catch (error) {
+    if (isServerApiConfigurationError(error)) {
+      throw error;
+    }
+
     return null;
   }
 }

@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import DealDiscoveryCard from "../../../../components/DealDiscoveryCard";
 import RecentViewTracker from "../../../../components/RecentViewTracker";
 import { getRelatedDeals } from "../../../../lib/discovery";
+import { buildServerApiUrl } from "../../../../lib/runtimeApi";
 import { LocaleSwitch, PriceCard } from "../../../../lib/ui";
 import {
   getPublicDealFromApiWithLocaleFallback,
@@ -33,12 +34,6 @@ interface DealDetailPageProps {
 }
 
 type FavoriteStatus = "success" | "error";
-
-const DEFAULT_SERVER_API_BASE_URL = "http://127.0.0.1:3001";
-
-function buildServerApiUrl(path: string) {
-  return new URL(path, process.env.API_BASE_URL ?? DEFAULT_SERVER_API_BASE_URL).toString();
-}
 
 function formatSnapshotPrice(price: string) {
   return price.startsWith("A$") ? price : `A$${price}`;

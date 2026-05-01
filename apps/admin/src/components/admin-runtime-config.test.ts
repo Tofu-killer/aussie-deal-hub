@@ -87,4 +87,18 @@ describe("admin runtime config", () => {
       message: "Admin API unavailable.",
     });
   });
+
+  it("returns JSON 503 when ADMIN_API_BASE_URL is missing", async () => {
+    delete process.env.ADMIN_API_BASE_URL;
+
+    const { GET } = await import("../app/v1/[...path]/route");
+    const response = await GET(new Request("http://admin.example/v1/admin/leads"), {
+      params: Promise.resolve({ path: ["admin", "leads"] }),
+    });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      message: "ADMIN_API_BASE_URL is required for admin runtime API requests.",
+    });
+  });
 });

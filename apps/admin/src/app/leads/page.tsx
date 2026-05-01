@@ -1,5 +1,7 @@
 import React from "react";
 
+import { buildAdminApiUrl } from "../../lib/runtimeApi";
+
 interface LeadQueueItem {
   id: string;
   sourceId: string;
@@ -21,10 +23,6 @@ interface LeadQueueResponse {
 interface LeadQueueLoadResult {
   items: LeadQueueItem[];
   error: string | null;
-}
-
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -112,7 +110,7 @@ function extractLeadQueueItems(body: unknown) {
 
 async function loadLeadQueue(): Promise<LeadQueueLoadResult> {
   try {
-    const response = await fetch(`${getAdminApiBaseUrl()}/v1/admin/leads`, {
+    const response = await fetch(buildAdminApiUrl("/v1/admin/leads"), {
       cache: "no-store",
     });
 

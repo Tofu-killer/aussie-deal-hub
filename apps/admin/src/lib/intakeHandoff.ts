@@ -1,5 +1,7 @@
 import { resolveLeadSourceEvidence } from "@aussie-deal-hub/config/leadSourceEvidence";
 
+import { getAdminApiBaseUrl } from "./runtimeApi";
+
 export interface LeadHandoffInput {
   sourceId: string;
   originalTitle: string;
@@ -40,10 +42,6 @@ interface LeadHandoffSuccess {
 
 interface LeadHandoffError {
   status: "error";
-}
-
-function getAdminApiBaseUrl() {
-  return process.env.ADMIN_API_BASE_URL ?? "http://127.0.0.1:3001";
 }
 
 function isNonEmptyString(value: unknown): value is string {

@@ -97,4 +97,17 @@ describe("web runtime ready route", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({ ok: false });
   });
+
+  it("returns a 503 JSON payload with config error details when API_BASE_URL is missing", async () => {
+    delete process.env.API_BASE_URL;
+
+    const { GET } = await import("../app/ready/route");
+    const response = await GET();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      error: "API_BASE_URL is required for server-side web API requests.",
+    });
+  });
 });

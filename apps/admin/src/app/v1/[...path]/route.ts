@@ -1,10 +1,9 @@
+import {
+  getAdminApiBaseUrl,
+  isAdminApiConfigurationError,
+} from "../../../lib/runtimeApi";
+
 export const dynamic = "force-dynamic";
-
-const DEFAULT_ADMIN_API_BASE_URL = "http://127.0.0.1:3001";
-
-function getAdminApiBaseUrl() {
-  return (process.env.ADMIN_API_BASE_URL ?? DEFAULT_ADMIN_API_BASE_URL).replace(/\/+$/, "");
-}
 
 function buildProxyUrl(request: Request, path: string[]) {
   const incomingUrl = new URL(request.url);
@@ -40,7 +39,16 @@ async function forwardRequest(
       status: upstream.status,
       headers: upstream.headers,
     });
-  } catch {
+  } catch (error) {
+    if (isAdminApiConfigurationError(error)) {
+      return Response.json(
+        {
+          message: error.message,
+        },
+        { status: 503 },
+      );
+    }
+
     return Response.json({ message: "Admin API unavailable." }, { status: 503 });
   }
 }
