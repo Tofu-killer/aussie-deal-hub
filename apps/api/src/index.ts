@@ -67,14 +67,26 @@ async function checkReadiness() {
     db: async () => {
       await prisma.$queryRawUnsafe("SELECT 1");
     },
-    dbSchema: async () => {
+    dbCatalogSchema: async () => {
       await prisma.$transaction([
         prisma.source.findFirst({ select: { id: true } }),
+        prisma.merchantCatalog.findFirst({ select: { id: true } }),
+        prisma.tagCatalog.findFirst({ select: { id: true } }),
+        prisma.topicCatalog.findFirst({ select: { id: true } }),
+      ]);
+    },
+    dbPublishingSchema: async () => {
+      await prisma.$transaction([
         prisma.lead.findFirst({ select: { id: true } }),
         prisma.deal.findFirst({ select: { id: true } }),
         prisma.dealLocale.findFirst({ select: { id: true } }),
         prisma.leadReviewDraft.findFirst({ select: { id: true } }),
         prisma.leadReviewDraftLocale.findFirst({ select: { id: true } }),
+        prisma.priceSnapshot.findFirst({ select: { id: true } }),
+      ]);
+    },
+    dbUserEngagementSchema: async () => {
+      await prisma.$transaction([
         prisma.favorite.findFirst({
           select: {
             normalizedEmail: true,
@@ -86,10 +98,6 @@ async function checkReadiness() {
             normalizedEmail: true,
           },
         }),
-        prisma.merchantCatalog.findFirst({ select: { id: true } }),
-        prisma.priceSnapshot.findFirst({ select: { id: true } }),
-        prisma.tagCatalog.findFirst({ select: { id: true } }),
-        prisma.topicCatalog.findFirst({ select: { id: true } }),
       ]);
     },
     redis: checkRedisHealth,

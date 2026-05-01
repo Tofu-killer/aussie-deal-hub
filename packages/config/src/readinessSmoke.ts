@@ -26,6 +26,24 @@ function describeError(error: unknown) {
   return String(error);
 }
 
+function describeReadinessDependencies(payload: Record<string, unknown>) {
+  const dependencies = payload.dependencies;
+
+  if (typeof dependencies !== "object" || dependencies === null) {
+    return undefined;
+  }
+
+  const entries = Object.entries(dependencies).filter(([, value]) => value !== undefined);
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return entries
+    .map(([dependencyName, status]) => `${dependencyName}=${String(status)}`)
+    .join(", ");
+}
+
 export async function checkReadinessTarget(
   target: ReadinessTarget,
   fetchImpl: typeof fetch = fetch,
@@ -56,7 +74,20 @@ export async function checkReadinessTarget(
     !("ok" in payload) ||
     (payload as { ok?: unknown }).ok !== target.expectedOk
   ) {
-    throw new Error(`${target.name} expected readiness payload ok=${target.expectedOk}`);
+    const actualOk =
+      typeof payload === "object" && payload !== null && "ok" in payload
+        ? String((payload as { ok?: unknown }).ok)
+        : "missing";
+    const dependenciesSummary =
+      typeof payload === "object" && payload !== null
+        ? describeReadinessDependencies(payload as Record<string, unknown>)
+        : undefined;
+
+    throw new Error(
+      `${target.name} expected readiness payload ok=${target.expectedOk}, got ok=${actualOk}${
+        dependenciesSummary ? ` with dependencies: ${dependenciesSummary}` : ""
+      }`,
+    );
   }
 }
 

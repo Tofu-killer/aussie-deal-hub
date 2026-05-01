@@ -54,7 +54,18 @@ describe("readiness smoke", () => {
   it("treats a 200 response with an unhealthy readiness payload as a failed attempt", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify({ ok: false }), { status: 200 }));
+      .mockImplementation(async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            dependencies: {
+              dbPublishingSchema: "unavailable",
+              redis: "unavailable",
+            },
+          }),
+          { status: 200 },
+        ),
+      );
     const sleep = vi.fn().mockResolvedValue(undefined);
 
     await expect(
@@ -64,9 +75,26 @@ describe("readiness smoke", () => {
         maxAttempts: 2,
         delayMs: 10,
       }),
-    ).rejects.toThrow("api-ready failed after 2 attempts");
+    ).rejects.toThrow(
+      "api-ready failed after 2 attempts: api-ready expected readiness payload ok=true, got ok=false with dependencies: dbPublishingSchema=unavailable, redis=unavailable",
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails with the raw unexpected ok value when the payload shape is otherwise valid", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: "yes" }), { status: 200 }));
+
+    await expect(
+      runReadinessSmoke(targets, {
+        fetchImpl: fetchMock,
+        maxAttempts: 1,
+      }),
+    ).rejects.toThrow(
+      "api-ready failed after 1 attempts: api-ready expected readiness payload ok=true, got ok=yes",
+    );
   });
 });

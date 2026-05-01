@@ -114,6 +114,8 @@ The liveness/readiness split is:
   - `web`: `/ready`
   - `admin`: `/ready`
 
+When `/v1/ready` returns `ok: false`, the readiness smoke surfaces the failing `dependencies` keys directly in the error output.
+
 ## Database bootstrap
 
 If you want to run only Postgres and Redis locally instead of the full app stack:

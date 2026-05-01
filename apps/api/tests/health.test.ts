@@ -56,7 +56,7 @@ describe("health endpoint", () => {
   it("builds a dependency health checker that reports the failing dependency key", async () => {
     const healthCheck = createDependencyHealthChecker({
       db: async () => {},
-      dbSchema: async () => {
+      dbPublishingSchema: async () => {
         throw new Error("relation missing");
       },
     });
@@ -64,7 +64,27 @@ describe("health endpoint", () => {
     await expect(healthCheck()).resolves.toEqual({
       ok: false,
       dependencies: {
-        dbSchema: "unavailable",
+        dbPublishingSchema: "unavailable",
+      },
+    });
+  });
+
+  it("reports multiple failing dependency groups without hiding the specific readiness buckets", async () => {
+    const healthCheck = createDependencyHealthChecker({
+      db: async () => {},
+      dbCatalogSchema: async () => {
+        throw new Error("catalog relation missing");
+      },
+      dbPublishingSchema: async () => {
+        throw new Error("publishing relation missing");
+      },
+    });
+
+    await expect(healthCheck()).resolves.toEqual({
+      ok: false,
+      dependencies: {
+        dbCatalogSchema: "unavailable",
+        dbPublishingSchema: "unavailable",
       },
     });
   });

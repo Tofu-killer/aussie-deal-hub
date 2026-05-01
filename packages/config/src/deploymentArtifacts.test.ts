@@ -171,6 +171,9 @@ describe("deployment artifacts", () => {
       "| `SMTP_PASS` | api, worker | optional | SMTP auth password; must be paired with `SMTP_USER`. |",
     );
     expect(readme).toContain("The compose stack keeps `SMTP_*` on local placeholders for smoke verification only.");
+    expect(readme).toContain(
+      "When `/v1/ready` returns `ok: false`, the readiness smoke surfaces the failing `dependencies` keys directly in the error output.",
+    );
   });
 
   it("keeps the postgres container bootstrap compatible with POSTGRES_DB initialization", () => {
@@ -227,6 +230,7 @@ describe("deployment artifacts", () => {
   it("exposes a readiness smoke script at the repo root", () => {
     const packageJson = readRepoFile("package.json");
     const smokeScript = readRepoFile("scripts/smoke-readiness.mjs");
+    const readinessSmoke = readRepoFile("packages/config/src/readinessSmoke.ts");
     const workerHealthScript = readRepoFile("scripts/check-worker-health.mjs");
     const workerBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "worker");
 
@@ -235,6 +239,9 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("/health");
     expect(smokeScript).toContain("/ready");
     expect(smokeScript).toContain("/v1/admin/runtime/worker");
+    expect(readinessSmoke).toContain("did not return a valid JSON readiness payload");
+    expect(readinessSmoke).toContain("expected readiness payload ok=");
+    expect(readinessSmoke).toContain("with dependencies:");
     expect(workerHealthScript).toContain("WORKER_STATE_PATH");
     expect(workerHealthScript).toContain("workerRuntimeHealth");
     expect(workerBlock).toContain("node scripts/check-worker-health.mjs");
