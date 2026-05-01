@@ -27,11 +27,20 @@ describe("admin runtime ready route", () => {
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
-  it("returns a 503 JSON payload when the admin API upstream returns a non-2xx response", async () => {
+  it("preserves the upstream readiness payload when the admin API reports an unhealthy dependency", async () => {
     process.env.ADMIN_API_BASE_URL = "https://admin-api.example";
+    const unhealthyPayload = {
+      ok: false,
+      dependencies: {
+        dbCatalogSchema: "unavailable",
+      },
+    };
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response("upstream error", {
-        status: 500,
+      new Response(JSON.stringify(unhealthyPayload), {
+        status: 503,
+        headers: {
+          "content-type": "application/json",
+        },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -43,7 +52,35 @@ describe("admin runtime ready route", () => {
       cache: "no-store",
     });
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ ok: false });
+    await expect(response.json()).resolves.toEqual(unhealthyPayload);
+  });
+
+  it("normalizes an unhealthy readiness payload even when the admin API responds with 200", async () => {
+    process.env.ADMIN_API_BASE_URL = "https://admin-api.example";
+    const unhealthyPayload = {
+      ok: false,
+      dependencies: {
+        dbUserEngagementSchema: "unavailable",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(unhealthyPayload), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("../app/ready/route");
+    const response = await GET();
+
+    expect(fetchMock).toHaveBeenCalledWith("https://admin-api.example/v1/ready", {
+      cache: "no-store",
+    });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual(unhealthyPayload);
   });
 
   it("returns a 503 JSON payload when the admin API upstream is unreachable", async () => {

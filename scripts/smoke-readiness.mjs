@@ -2,6 +2,18 @@ import { runReadinessSmoke } from "../packages/config/src/readinessSmoke.ts";
 
 import { pathToFileURL } from "node:url";
 
+function readPositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(value ?? "", 10);
+
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readNonNegativeInteger(value, fallback) {
+  const parsed = Number.parseInt(value ?? "", 10);
+
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export function buildReadinessSmokeTargets(env = process.env) {
   return [
     {
@@ -49,8 +61,15 @@ export function buildReadinessSmokeTargets(env = process.env) {
   ];
 }
 
+export function buildReadinessSmokeOptions(env = process.env) {
+  return {
+    maxAttempts: readPositiveInteger(env.READINESS_SMOKE_MAX_ATTEMPTS, 10),
+    delayMs: readNonNegativeInteger(env.READINESS_SMOKE_DELAY_MS, 1000),
+  };
+}
+
 export async function runReadinessSmokeScript(env = process.env, runner = runReadinessSmoke) {
-  await runner(buildReadinessSmokeTargets(env));
+  await runner(buildReadinessSmokeTargets(env), buildReadinessSmokeOptions(env));
 }
 
 const isEntrypoint =

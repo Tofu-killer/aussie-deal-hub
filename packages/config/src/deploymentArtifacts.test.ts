@@ -172,7 +172,7 @@ describe("deployment artifacts", () => {
     );
     expect(readme).toContain("The compose stack keeps `SMTP_*` on local placeholders for smoke verification only.");
     expect(readme).toContain(
-      "When `/v1/ready` returns `ok: false`, the readiness smoke surfaces the failing `dependencies` keys directly in the error output.",
+      "When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.",
     );
   });
 
@@ -239,6 +239,8 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("/health");
     expect(smokeScript).toContain("/ready");
     expect(smokeScript).toContain("/v1/admin/runtime/worker");
+    expect(smokeScript).toContain("READINESS_SMOKE_MAX_ATTEMPTS");
+    expect(smokeScript).toContain("READINESS_SMOKE_DELAY_MS");
     expect(readinessSmoke).toContain("did not return a valid JSON readiness payload");
     expect(readinessSmoke).toContain("expected readiness payload ok=");
     expect(readinessSmoke).toContain("with dependencies:");
