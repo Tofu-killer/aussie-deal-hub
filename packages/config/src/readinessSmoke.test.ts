@@ -97,4 +97,37 @@ describe("readiness smoke", () => {
       "api-ready failed after 1 attempts: api-ready expected readiness payload ok=true, got ok=yes",
     );
   });
+
+  it("fails when the readiness payload is healthy but misses a required JSON subset", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          status: "starting",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(
+      runReadinessSmoke(
+        [
+          {
+            ...targets[0],
+            name: "worker-runtime-ready",
+            url: "http://127.0.0.1:3001/v1/admin/runtime/worker",
+            requiredJson: {
+              status: "ok",
+            },
+          },
+        ],
+        {
+          fetchImpl: fetchMock,
+          maxAttempts: 1,
+        },
+      ),
+    ).rejects.toThrow(
+      'worker-runtime-ready failed after 1 attempts: worker-runtime-ready missing expected readiness JSON at $.status: expected "ok", got "starting"',
+    );
+  });
 });

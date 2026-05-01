@@ -57,6 +57,9 @@ export function buildReadinessSmokeTargets(env = process.env) {
       url: env.WORKER_RUNTIME_URL ?? "http://127.0.0.1:3001/v1/admin/runtime/worker",
       expectedStatus: 200,
       expectedOk: true,
+      requiredJson: {
+        status: "ok",
+      },
     },
   ];
 }

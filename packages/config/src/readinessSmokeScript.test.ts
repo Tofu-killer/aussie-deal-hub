@@ -60,6 +60,8 @@ describe("readiness smoke script", () => {
 
   it("accepts healthy readiness targets once every endpoint returns 200", () => {
     const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
+    const healthyWorkerPayload =
+      "data:application/json,%7B%22ok%22%3Atrue%2C%22status%22%3A%22ok%22%7D";
     const result = runReadinessSmokeScript({
       API_HEALTH_URL: healthyPayload,
       API_READY_URL: healthyPayload,
@@ -67,7 +69,7 @@ describe("readiness smoke script", () => {
       WEB_READY_URL: healthyPayload,
       ADMIN_HEALTH_URL: healthyPayload,
       ADMIN_READY_URL: healthyPayload,
-      WORKER_RUNTIME_URL: healthyPayload,
+      WORKER_RUNTIME_URL: healthyWorkerPayload,
     });
 
     expect(result.status).toBe(0);
@@ -146,6 +148,9 @@ describe("readiness smoke script", () => {
         url: "https://api.example.test/v1/admin/runtime/worker",
         expectedStatus: 200,
         expectedOk: true,
+        requiredJson: {
+          status: "ok",
+        },
       },
     ], {
       maxAttempts: 3,
@@ -174,5 +179,26 @@ describe("readiness smoke script", () => {
     expect(result.stderr).toContain("api-ready failed after 1 attempts");
     expect(result.stderr).toContain("expected readiness payload ok=true, got ok=false");
     expect(result.stderr).toContain("dbPublishingSchema=unavailable");
+  });
+
+  it("waits for the worker runtime endpoint to report status ok, not just ok=true", () => {
+    const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
+    const workerStartingPayload =
+      "data:application/json,%7B%22ok%22%3Atrue%2C%22status%22%3A%22starting%22%7D";
+    const result = runReadinessSmokeScript({
+      API_HEALTH_URL: healthyPayload,
+      API_READY_URL: healthyPayload,
+      WEB_HEALTH_URL: healthyPayload,
+      WEB_READY_URL: healthyPayload,
+      ADMIN_HEALTH_URL: healthyPayload,
+      ADMIN_READY_URL: healthyPayload,
+      WORKER_RUNTIME_URL: workerStartingPayload,
+      READINESS_SMOKE_MAX_ATTEMPTS: "1",
+      READINESS_SMOKE_DELAY_MS: "0",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("worker-runtime-ready failed after 1 attempts");
+    expect(result.stderr).toContain('missing expected readiness JSON at $.status: expected "ok", got "starting"');
   });
 });

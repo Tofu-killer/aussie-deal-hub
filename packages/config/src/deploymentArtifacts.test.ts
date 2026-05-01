@@ -244,8 +244,10 @@ describe("deployment artifacts", () => {
     expect(smokeScript).toContain("/v1/admin/runtime/worker");
     expect(smokeScript).toContain("READINESS_SMOKE_MAX_ATTEMPTS");
     expect(smokeScript).toContain("READINESS_SMOKE_DELAY_MS");
+    expect(smokeScript).toContain('status: "ok"');
     expect(readinessSmoke).toContain("did not return a valid JSON readiness payload");
     expect(readinessSmoke).toContain("expected readiness payload ok=");
+    expect(readinessSmoke).toContain("missing expected readiness JSON at");
     expect(readinessSmoke).toContain("with dependencies:");
     expect(workerHealthScript).toContain("WORKER_STATE_PATH");
     expect(workerHealthScript).toContain("workerRuntimeHealth");
