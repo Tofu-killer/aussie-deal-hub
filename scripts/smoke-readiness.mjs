@@ -1,6 +1,11 @@
 import { runReadinessSmoke } from "../packages/config/src/readinessSmoke.ts";
 
 import { pathToFileURL } from "node:url";
+import {
+  READINESS_RUNTIME_TARGETS,
+  resolveRuntimeTargetEnv,
+  validateRuntimeTargets,
+} from "./lib/runtime-targets.mjs";
 
 function readPositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -18,43 +23,43 @@ export function buildReadinessSmokeTargets(env = process.env) {
   return [
     {
       name: "api-health",
-      url: env.API_HEALTH_URL ?? "http://127.0.0.1:3001/v1/health",
+      url: env.API_HEALTH_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "api-ready",
-      url: env.API_READY_URL ?? "http://127.0.0.1:3001/v1/ready",
+      url: env.API_READY_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "web-health",
-      url: env.WEB_HEALTH_URL ?? "http://127.0.0.1:3000/health",
+      url: env.WEB_HEALTH_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "web-ready",
-      url: env.WEB_READY_URL ?? "http://127.0.0.1:3000/ready",
+      url: env.WEB_READY_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "admin-health",
-      url: env.ADMIN_HEALTH_URL ?? "http://127.0.0.1:3002/health",
+      url: env.ADMIN_HEALTH_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "admin-ready",
-      url: env.ADMIN_READY_URL ?? "http://127.0.0.1:3002/ready",
+      url: env.ADMIN_READY_URL,
       expectedStatus: 200,
       expectedOk: true,
     },
     {
       name: "worker-runtime-ready",
-      url: env.WORKER_RUNTIME_URL ?? "http://127.0.0.1:3001/v1/admin/runtime/worker",
+      url: env.WORKER_RUNTIME_URL,
       expectedStatus: 200,
       expectedOk: true,
       requiredJson: {
@@ -72,7 +77,9 @@ export function buildReadinessSmokeOptions(env = process.env) {
 }
 
 export async function runReadinessSmokeScript(env = process.env, runner = runReadinessSmoke) {
-  await runner(buildReadinessSmokeTargets(env), buildReadinessSmokeOptions(env));
+  const resolvedEnv = resolveRuntimeTargetEnv(env);
+  validateRuntimeTargets(resolvedEnv, "smoke:readiness", READINESS_RUNTIME_TARGETS);
+  await runner(buildReadinessSmokeTargets(resolvedEnv), buildReadinessSmokeOptions(resolvedEnv));
 }
 
 const isEntrypoint =

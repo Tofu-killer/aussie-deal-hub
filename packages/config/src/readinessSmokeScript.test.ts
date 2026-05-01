@@ -158,6 +158,30 @@ describe("readiness smoke script", () => {
     });
   });
 
+  it("fails fast when the runtime readiness target URLs are incomplete", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-target-test`)) as {
+      runReadinessSmokeScript?: (
+        env: Record<string, string | undefined>,
+        runner?: (targets: unknown[], options: unknown) => Promise<void>,
+      ) => Promise<void>;
+    };
+    const runner = vi.fn(async () => undefined);
+
+    await expect(
+      scriptModule.runReadinessSmokeScript?.(
+        {
+          RUNTIME_API_BASE_URL: "https://api.example.test",
+          RUNTIME_WEB_BASE_URL: "https://www.example.test",
+        },
+        runner,
+      ),
+    ).rejects.toThrow(
+      "smoke:readiness requires complete target URLs. Missing: ADMIN_HEALTH_URL, ADMIN_READY_URL",
+    );
+
+    expect(runner).not.toHaveBeenCalled();
+  });
+
   it("prints failing readiness dependency details when a target returns ok=false", () => {
     const healthyPayload = "data:application/json,%7B%22ok%22%3Atrue%7D";
     const unhealthyPayload =

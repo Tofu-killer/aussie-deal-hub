@@ -71,6 +71,11 @@ async function installFakeCommand(
     `  command: ${JSON.stringify(commandName)},`,
     "  cwd: process.cwd(),",
     "  argv: process.argv.slice(2),",
+    "  env: {",
+    "    RUNTIME_API_BASE_URL: process.env.RUNTIME_API_BASE_URL,",
+    "    RUNTIME_WEB_BASE_URL: process.env.RUNTIME_WEB_BASE_URL,",
+    "    RUNTIME_ADMIN_BASE_URL: process.env.RUNTIME_ADMIN_BASE_URL,",
+    "  },",
     "});",
     "appendFileSync(process.env.CAPTURE_FILE, `${entry}\\n`);",
     "const failToken = process.env.FAIL_COMMAND;",
@@ -142,6 +147,7 @@ describe("release rehearse script", () => {
           argv: string[];
           command: string;
           cwd: string;
+          env: Record<string, string | undefined>;
         },
       );
     const resolvedNewerBundleRoot = await realpath(newerBundleRoot);
@@ -151,31 +157,61 @@ describe("release rehearse script", () => {
         command: "pnpm",
         cwd: resolvedNewerBundleRoot,
         argv: ["install", "--frozen-lockfile"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedNewerBundleRoot,
         argv: ["compose", "up", "-d", "--build"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "pnpm",
         cwd: resolvedNewerBundleRoot,
         argv: ["smoke:container-health"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "pnpm",
         cwd: resolvedNewerBundleRoot,
         argv: ["smoke:readiness"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "pnpm",
         cwd: resolvedNewerBundleRoot,
         argv: ["smoke:routes"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedNewerBundleRoot,
         argv: ["compose", "down", "-v"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
     ]);
   });
@@ -217,31 +253,61 @@ describe("release rehearse script", () => {
         command: "pnpm",
         cwd: resolvedBundleRoot,
         argv: ["install", "--frozen-lockfile"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "up", "-d", "--build"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "pnpm",
         cwd: resolvedBundleRoot,
         argv: ["smoke:container-health"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "pnpm",
         cwd: resolvedBundleRoot,
         argv: ["smoke:readiness"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "logs", "postgres", "redis", "db-init", "api", "web", "admin", "worker"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "down", "-v"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
     ]);
   });
@@ -283,21 +349,41 @@ describe("release rehearse script", () => {
         command: "pnpm",
         cwd: resolvedBundleRoot,
         argv: ["install", "--frozen-lockfile"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "up", "-d", "--build"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "logs", "postgres", "redis", "db-init", "api", "web", "admin", "worker"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
       {
         command: "docker",
         cwd: resolvedBundleRoot,
         argv: ["compose", "down", "-v"],
+        env: expect.objectContaining({
+          RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+          RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+          RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+        }),
       },
     ]);
   });

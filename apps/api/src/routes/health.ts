@@ -3,6 +3,7 @@ import { Router } from "express";
 export interface HealthPayload {
   ok: boolean;
   dependencies?: Record<string, string>;
+  error?: string;
 }
 
 export type HealthChecker = () => Promise<HealthPayload> | HealthPayload;
@@ -100,7 +101,7 @@ export function createHealthRouter(checkHealth?: HealthChecker) {
       const payload = await healthChecker();
       response.status(payload.ok ? 200 : 503).json(payload);
     } catch {
-      response.status(503).json({ ok: false });
+      response.status(503).json({ ok: false, error: "health_check_failed" });
     }
   });
 

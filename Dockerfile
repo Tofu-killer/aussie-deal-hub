@@ -15,6 +15,8 @@ WORKDIR /app
 COPY . .
 
 ARG PRISMA_BUILD_DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/aussie_deals_hub
+ARG NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
+ARG SITE_URL=$NEXT_PUBLIC_SITE_URL
 
 RUN pnpm install --frozen-lockfile
 RUN DATABASE_URL=$PRISMA_BUILD_DATABASE_URL pnpm --filter @aussie-deal-hub/db prisma:generate
@@ -31,8 +33,8 @@ RUN ./node_modules/.bin/tsc -p packages/config/tsconfig.json \
      validate --schema packages/db/prisma/schema.prisma \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/api/src/index.ts \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/worker/src/index.ts apps/worker/src/runtime.ts apps/worker/src/jobs/buildDigest.ts apps/worker/src/jobs/reviewPendingLeads.ts apps/worker/src/jobs/publishDueReviews.ts apps/worker/src/jobs/ingestEnabledSources.ts \
-  && pnpm --filter @aussie-deal-hub/admin build \
-  && pnpm --filter @aussie-deal-hub/web build
+  && NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL SITE_URL=$SITE_URL pnpm --filter @aussie-deal-hub/admin build \
+  && NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL SITE_URL=$SITE_URL pnpm --filter @aussie-deal-hub/web build
 
 FROM workspace AS api
 

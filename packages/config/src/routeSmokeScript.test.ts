@@ -203,29 +203,27 @@ describe("route smoke script", () => {
     expect(runner).toHaveBeenCalledTimes(1);
   });
 
-  it("fails fast when either public API route target is omitted", async () => {
-    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-route-test`)) as {
-      buildRouteSmokeTargets?: (
+  it("fails fast when the runtime route target URLs are incomplete", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?missing-route-target-test`)) as {
+      runRouteSmokeScript?: (
         env: Record<string, string | undefined>,
-      ) => Array<Record<string, unknown>>;
+        runner?: (...args: unknown[]) => Promise<void>,
+      ) => Promise<void>;
     };
+    const runner = vi.fn(async () => undefined);
 
-    expect(
-      scriptModule.buildRouteSmokeTargets?.({
-        WEB_HOME_URL: "https://example.test/en",
-        WEB_SEARCH_URL: "https://example.test/en/search?q=switch",
-        ADMIN_HOME_URL: "https://example.test/admin",
-        API_PUBLIC_DEALS_URL: "https://api.example.test/v1/public/deals/en",
-      }),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: "api-public-deals-en",
-        }),
-        expect.objectContaining({
-          name: "api-public-deal-missing-en",
-        }),
-      ]),
+    await expect(
+      scriptModule.runRouteSmokeScript?.(
+        {
+          RUNTIME_API_BASE_URL: "https://api.example.test",
+          RUNTIME_WEB_BASE_URL: "https://www.example.test",
+        },
+        runner,
+      ),
+    ).rejects.toThrow(
+      "smoke:routes requires complete target URLs. Missing: ADMIN_HOME_URL",
     );
+
+    expect(runner).not.toHaveBeenCalled();
   });
 });

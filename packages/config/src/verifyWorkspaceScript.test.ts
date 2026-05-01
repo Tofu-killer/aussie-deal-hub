@@ -42,6 +42,7 @@ describe("verify workspace script", () => {
           runCommand?: (command: string, args: string[], options?: { env?: NodeJS.ProcessEnv }) => void;
         },
       ) => Promise<void>;
+      BUILD_TIME_SITE_URL?: string;
     };
     const calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }> = [];
 
@@ -55,8 +56,22 @@ describe("verify workspace script", () => {
     );
 
     expect(calls).toEqual([
-      { command: "pnpm", args: ["build"], env: {} },
-      { command: "pnpm", args: ["test"], env: {} },
+      {
+        command: "pnpm",
+        args: ["build"],
+        env: {
+          NEXT_PUBLIC_SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+          SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+        },
+      },
+      {
+        command: "pnpm",
+        args: ["test"],
+        env: {
+          NEXT_PUBLIC_SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+          SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+        },
+      },
     ]);
   });
 
@@ -68,6 +83,7 @@ describe("verify workspace script", () => {
           runCommand?: (command: string, args: string[], options?: { env?: NodeJS.ProcessEnv }) => void;
         },
       ) => Promise<void>;
+      BUILD_TIME_SITE_URL?: string;
     };
     const calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }> = [];
     const env = {
@@ -85,14 +101,72 @@ describe("verify workspace script", () => {
     );
 
     expect(calls).toEqual([
-      { command: "pnpm", args: ["build"], env: { VERIFY_DB: "1" } },
-      { command: "pnpm", args: ["test"], env: { VERIFY_DB: "1" } },
+      {
+        command: "pnpm",
+        args: ["build"],
+        env: {
+          VERIFY_DB: "1",
+          NEXT_PUBLIC_SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+          SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+        },
+      },
+      {
+        command: "pnpm",
+        args: ["test"],
+        env: {
+          VERIFY_DB: "1",
+          NEXT_PUBLIC_SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+          SITE_URL: scriptModule.BUILD_TIME_SITE_URL,
+        },
+      },
       {
         command: "pnpm",
         args: ["--filter", "@aussie-deal-hub/db", "db:migrate"],
         env,
       },
       { command: "pnpm", args: ["test:db"], env },
+    ]);
+  });
+
+  it("preserves an explicit public site origin instead of overwriting it with the build-time placeholder", async () => {
+    const scriptModule = (await import(`${pathToFileURL(scriptPath).href}?preserve-site-url`)) as {
+      runVerifyWorkspaceScript?: (
+        env: Record<string, string | undefined>,
+        dependencies?: {
+          runCommand?: (command: string, args: string[], options?: { env?: NodeJS.ProcessEnv }) => void;
+        },
+      ) => Promise<void>;
+    };
+    const calls: Array<{ command: string; args: string[]; env?: NodeJS.ProcessEnv }> = [];
+
+    await scriptModule.runVerifyWorkspaceScript?.(
+      {
+        NEXT_PUBLIC_SITE_URL: "https://deals.example",
+      },
+      {
+        runCommand: (command, args, options) => {
+          calls.push({ command, args, env: options?.env });
+        },
+      },
+    );
+
+    expect(calls).toEqual([
+      {
+        command: "pnpm",
+        args: ["build"],
+        env: {
+          NEXT_PUBLIC_SITE_URL: "https://deals.example",
+          SITE_URL: "https://deals.example",
+        },
+      },
+      {
+        command: "pnpm",
+        args: ["test"],
+        env: {
+          NEXT_PUBLIC_SITE_URL: "https://deals.example",
+          SITE_URL: "https://deals.example",
+        },
+      },
     ]);
   });
 

@@ -44,6 +44,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify workspace
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          SITE_URL: http://127.0.0.1:3000
         run: pnpm verify
 
       - name: Create shadow database for migration drift check
@@ -94,16 +97,16 @@ jobs:
         run: docker compose config
 
       - name: Build API image target
-        run: docker build . --target api
+        run: docker build . --target api --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000
 
       - name: Build Web image target
-        run: docker build . --target web
+        run: docker build . --target web --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000
 
       - name: Build Admin image target
-        run: docker build . --target admin
+        run: docker build . --target admin --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000
 
       - name: Build Worker image target
-        run: docker build . --target worker
+        run: docker build . --target worker --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000
 
       - name: Start container stack
         run: docker compose up -d --build
@@ -112,9 +115,17 @@ jobs:
         run: pnpm smoke:container-health
 
       - name: Run readiness smoke
+        env:
+          RUNTIME_API_BASE_URL: http://127.0.0.1:3001
+          RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000
+          RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002
         run: pnpm smoke:readiness
 
       - name: Run route smoke
+        env:
+          RUNTIME_API_BASE_URL: http://127.0.0.1:3001
+          RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000
+          RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002
         run: pnpm smoke:routes
 
       - name: Dump container logs on failure

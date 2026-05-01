@@ -29,6 +29,7 @@ const DEAL_SLUGS = [
 ];
 
 const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const originalLegacySiteUrl = process.env.SITE_URL;
 
 describe("public SEO metadata and discovery files", () => {
   beforeEach(() => {
@@ -40,21 +41,44 @@ describe("public SEO metadata and discovery files", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
 
     if (originalSiteUrl) {
       process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+    } else {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    }
+
+    if (originalLegacySiteUrl) {
+      process.env.SITE_URL = originalLegacySiteUrl;
       return;
     }
 
-    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.SITE_URL;
   });
 
   it("exposes metadataBase from the locale layout", async () => {
     const layoutModule = await import("../app/[locale]/layout");
 
-    expect(layoutModule.metadata).toMatchObject({
+    expect(layoutModule.generateMetadata()).toMatchObject({
       metadataBase: new URL(SITE_URL),
     });
+  });
+
+  it("fails fast when no public site origin is configured for metadata or sitemap output", async () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.SITE_URL;
+    const layoutModule = await import("../app/[locale]/layout?missing-public-site-url");
+    const robotsModule = await import("../app/robots?missing-public-site-url");
+
+    expect(layoutModule.generateMetadata).toBeTypeOf("function");
+    await expect(Promise.resolve().then(() => layoutModule.generateMetadata())).rejects.toThrow(
+      "NEXT_PUBLIC_SITE_URL or SITE_URL is required for public SEO URLs and sitemap output.",
+    );
+    expect(robotsModule.default).toBeTypeOf("function");
+    await expect(Promise.resolve().then(() => robotsModule.default())).rejects.toThrow(
+      "NEXT_PUBLIC_SITE_URL or SITE_URL is required for public SEO URLs and sitemap output.",
+    );
   });
 
   it("returns localized home metadata with canonical and en/zh alternates", async () => {

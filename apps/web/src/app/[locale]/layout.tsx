@@ -12,9 +12,11 @@ interface LocaleLayoutProps {
   }>;
 }
 
-export const metadata: Metadata = {
-  metadataBase: getPublicMetadataBase(),
-};
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: getPublicMetadataBase(),
+  };
+}
 
 export default async function LocaleLayout({ children, params }: LocaleLayoutProps) {
   const { locale } = await params;

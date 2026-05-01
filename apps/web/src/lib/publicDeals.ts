@@ -1186,11 +1186,23 @@ export function getHomeLocaleSwitchLinks() {
 }
 
 const PUBLIC_SITE_NAME = "Aussie Deal Hub";
-const DEFAULT_PUBLIC_SITE_URL = "https://aussie-deal-hub.test";
+const PUBLIC_SITE_URL_ENV_NAMES = ["NEXT_PUBLIC_SITE_URL", "SITE_URL"] as const;
+
+export class PublicSiteConfigurationError extends Error {
+  constructor() {
+    super(
+      `${PUBLIC_SITE_URL_ENV_NAMES.join(" or ")} is required for public SEO URLs and sitemap output.`,
+    );
+    this.name = "PublicSiteConfigurationError";
+  }
+}
 
 function getPublicSiteBaseUrl() {
-  const configuredSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL ?? DEFAULT_PUBLIC_SITE_URL;
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.SITE_URL;
+
+  if (!configuredSiteUrl?.trim()) {
+    throw new PublicSiteConfigurationError();
+  }
 
   return configuredSiteUrl.endsWith("/") ? configuredSiteUrl : `${configuredSiteUrl}/`;
 }

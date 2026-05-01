@@ -45,6 +45,8 @@ export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_h
 pnpm test:db
 ```
 
+When `NEXT_PUBLIC_SITE_URL` and `SITE_URL` are both unset, the verify wrapper injects a build-only `http://127.0.0.1:3000` placeholder so `next build` can prerender `metadataBase`, `robots.txt`, and `sitemap.xml` without weakening the runtime fail-fast contract.
+
 `test:db`, `db:migrate`, and other Prisma entrypoints now fail fast when `DATABASE_URL` is missing instead of silently pointing at localhost. If you want the old localhost convenience explicitly, set `ALLOW_LOCAL_DATABASE_URL_FALLBACK=1` for local-only development.
 
 `pnpm build` includes:
@@ -184,7 +186,9 @@ The script stages a curated deployment bundle under `release/`, copies the check
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact` while preserving the checked-in dotfiles that the bundle needs at runtime.
 
-Run `pnpm release:rehearse` from the repo root to resolve the newest staged bundle under `release/`, reinstalls workspace dependencies there, boots the staged stack with `docker compose up -d --build`, reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes`, then dumps compose logs on failure and tears the stack back down. Override the bundle root with `RELEASE_REHEARSE_ROOT` when you want to rehearse a specific extracted artifact directory.
+Run `pnpm release:rehearse` from the repo root to resolve the newest staged bundle under `release/`, reinstalls workspace dependencies there, boots the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against explicit `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL` targets. It defaults those rehearse-only runtime bases to the local compose ports and then dumps compose logs on failure before tearing the stack back down. Override the bundle root with `RELEASE_REHEARSE_ROOT` when you want to rehearse a specific extracted artifact directory.
+
+The Docker workspace build also requires a public site origin for the prerendered SEO outputs, so the Dockerfile and compose targets accept explicit `NEXT_PUBLIC_SITE_URL` and `SITE_URL` build args instead of relying on an in-app fallback domain.
 
 The same workflow then downloads the uploaded artifact into a clean directory and runs `RELEASE_REHEARSE_ROOT=. pnpm release:rehearse` inside that extracted bundle so the uploaded deployment artifact itself is what gets rebuilt and smoke-tested.
 
@@ -221,6 +225,8 @@ RUNTIME_API_BASE_URL=http://127.0.0.1:13001 RUNTIME_WEB_BASE_URL=http://127.0.0.
 ```
 
 The script reuses the readiness and route smoke checks, derives the default endpoint URLs from `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL`, and defaults the public landing checks to the `en` locale. The route phase checks the web landing pages, the admin dashboard shell, the public deals list API contract at `/v1/public/deals/{locale}`, and the stable missing-detail 404 JSON contract at `/v1/public/deals/{locale}/route-smoke-missing-deal`. Override the landing locale with `RUNTIME_LOCALE`, or pass explicit `API_PUBLIC_DEALS_URL`, `API_PUBLIC_DEAL_URL`, other `API_*`, `WEB_*`, `ADMIN_*`, or `WORKER_RUNTIME_URL` values when a deployed stack exposes different paths.
+
+The standalone `pnpm smoke:readiness` and `pnpm smoke:routes` entrypoints now use that same target resolution contract instead of silently defaulting to localhost URLs. Pass the three `RUNTIME_*_BASE_URL` values, or provide the full `API_*`, `WEB_*`, `ADMIN_*`, and `WORKER_RUNTIME_URL` targets directly when you run those scripts outside `pnpm runtime:verify`.
 
 The `Runtime verify` GitHub Actions workflow is also available through `workflow_dispatch` when you want to rerun the same deployed-stack verification remotely by supplying `runtime_api_base_url`, `runtime_web_base_url`, `runtime_admin_base_url`, and an optional `runtime_locale`.
 

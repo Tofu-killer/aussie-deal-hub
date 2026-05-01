@@ -53,6 +53,25 @@ describe("health endpoint", () => {
     });
   });
 
+  it("returns a safe top-level error code when the readiness checker itself throws", async () => {
+    const app = buildApp({
+      readyCheck: async () => {
+        throw new Error("boom");
+      },
+    });
+
+    const readyResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/ready",
+    });
+
+    expect(readyResponse.status).toBe(503);
+    expect(readyResponse.body).toEqual({
+      ok: false,
+      error: "health_check_failed",
+    });
+  });
+
   it("builds a dependency health checker that reports the failing dependency key", async () => {
     const healthCheck = createDependencyHealthChecker({
       db: async () => {},

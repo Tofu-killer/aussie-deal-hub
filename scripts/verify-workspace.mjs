@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+export const BUILD_TIME_SITE_URL = "http://127.0.0.1:3000";
+
 function normalizeEnvValue(rawValue) {
   const trimmedValue = rawValue?.trim();
 
@@ -64,6 +66,20 @@ function withoutDatabaseUrl(env) {
   return commandEnv;
 }
 
+function withBuildTimeSiteUrl(env) {
+  const commandEnv = { ...env };
+
+  if (normalizeEnvValue(commandEnv.NEXT_PUBLIC_SITE_URL) === undefined) {
+    commandEnv.NEXT_PUBLIC_SITE_URL = BUILD_TIME_SITE_URL;
+  }
+
+  if (normalizeEnvValue(commandEnv.SITE_URL) === undefined) {
+    commandEnv.SITE_URL = commandEnv.NEXT_PUBLIC_SITE_URL;
+  }
+
+  return commandEnv;
+}
+
 function validateDbBackedVerificationEnv(env = process.env) {
   if (!shouldRunDbBackedVerification(env)) {
     return;
@@ -87,7 +103,7 @@ export async function runVerifyWorkspaceScript(
   dependencies = {},
 ) {
   const commandRunner = dependencies.runCommand ?? runCommand;
-  const standardVerificationEnv = withoutDatabaseUrl(env);
+  const standardVerificationEnv = withBuildTimeSiteUrl(withoutDatabaseUrl(env));
 
   validateDbBackedVerificationEnv(env);
   commandRunner("pnpm", ["build"], { env: standardVerificationEnv });

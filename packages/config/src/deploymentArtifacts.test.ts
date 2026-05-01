@@ -199,6 +199,8 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain(
       "ARG PRISMA_BUILD_DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/aussie_deals_hub",
     );
+    expect(dockerfile).toContain("ARG NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000");
+    expect(dockerfile).toContain("ARG SITE_URL=$NEXT_PUBLIC_SITE_URL");
     expect(dockerfile).toContain(
       "DATABASE_URL=$PRISMA_BUILD_DATABASE_URL pnpm --filter @aussie-deal-hub/db prisma:generate",
     );
@@ -206,6 +208,7 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("apps/worker/src/index.ts");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/admin build");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/web build");
+    expect(dockerfile).toContain("NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL SITE_URL=$SITE_URL");
     expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
     expect(dockerfile).toContain("DATABASE_URL=$PRISMA_BUILD_DATABASE_URL");
     expect(dockerfile).toContain("validate --schema packages/db/prisma/schema.prisma");
@@ -223,34 +226,51 @@ describe("deployment artifacts", () => {
   it("verifies container artifacts in CI before merge", () => {
     const workflow = readRepoFile(".github/workflows/verify.yml");
 
-    expect(workflow).toContain("docker build . --target api");
-    expect(workflow).toContain("docker build . --target web");
-    expect(workflow).toContain("docker build . --target admin");
-    expect(workflow).toContain("docker build . --target worker");
+    expect(workflow).toContain(
+      "docker build . --target api --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000",
+    );
+    expect(workflow).toContain(
+      "docker build . --target web --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000",
+    );
+    expect(workflow).toContain(
+      "docker build . --target admin --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000",
+    );
+    expect(workflow).toContain(
+      "docker build . --target worker --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000",
+    );
     expect(workflow).toContain("docker compose config");
     expect(workflow).toContain("docker compose up -d --build");
     expect(workflow).toContain("pnpm smoke:container-health");
     expect(workflow).toContain("Dump container logs on failure");
     expect(workflow).toContain("docker compose logs postgres redis db-init api web admin worker");
     expect(workflow).toContain("pnpm smoke:readiness");
+    expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
+    expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
+    expect(workflow).toContain("pnpm smoke:routes");
     expect(workflow).toContain("docker compose down -v");
   });
 
   it("exposes a readiness smoke script at the repo root", () => {
     const packageJson = readRepoFile("package.json");
     const smokeScript = readRepoFile("scripts/smoke-readiness.mjs");
+    const runtimeTargets = readRepoFile("scripts/lib/runtime-targets.mjs");
     const readinessSmoke = readRepoFile("packages/config/src/readinessSmoke.ts");
     const workerHealthScript = readRepoFile("scripts/check-worker-health.mjs");
     const workerBlock = readComposeServiceBlock(readRepoFile("docker-compose.yml"), "worker");
 
     expect(packageJson).toContain("\"smoke:readiness\": \"node scripts/smoke-readiness.mjs\"");
-    expect(smokeScript).toContain("/v1/ready");
-    expect(smokeScript).toContain("/health");
-    expect(smokeScript).toContain("/ready");
-    expect(smokeScript).toContain("/v1/admin/runtime/worker");
+    expect(smokeScript).toContain("resolveRuntimeTargetEnv");
+    expect(smokeScript).toContain("validateRuntimeTargets");
+    expect(smokeScript).toContain("smoke:readiness");
     expect(smokeScript).toContain("READINESS_SMOKE_MAX_ATTEMPTS");
     expect(smokeScript).toContain("READINESS_SMOKE_DELAY_MS");
     expect(smokeScript).toContain('status: "ok"');
+    expect(runtimeTargets).toContain("/v1/ready");
+    expect(runtimeTargets).toContain("/health");
+    expect(runtimeTargets).toContain("/ready");
+    expect(runtimeTargets).toContain("/v1/admin/runtime/worker");
+    expect(runtimeTargets).toContain("READINESS_RUNTIME_TARGETS");
     expect(readinessSmoke).toContain("did not return a valid JSON readiness payload");
     expect(readinessSmoke).toContain("expected readiness payload ok=");
     expect(readinessSmoke).toContain("missing expected readiness JSON at");
@@ -263,16 +283,21 @@ describe("deployment artifacts", () => {
   it("exposes a route smoke script at the repo root", () => {
     const packageJson = readRepoFile("package.json");
     const smokeScript = readRepoFile("scripts/smoke-routes.mjs");
+    const runtimeTargets = readRepoFile("scripts/lib/runtime-targets.mjs");
     const workflow = readRepoFile(".github/workflows/verify.yml");
 
     expect(packageJson).toContain("\"smoke:routes\": \"node scripts/smoke-routes.mjs\"");
-    expect(smokeScript).toContain("/en");
-    expect(smokeScript).toContain("/en/search?q=switch");
-    expect(smokeScript).toContain("/v1/public/deals/en");
-    expect(smokeScript).toContain("route-smoke-missing-deal");
-    expect(smokeScript).toContain("http://127.0.0.1:3002/");
+    expect(smokeScript).toContain("resolveRuntimeTargetEnv");
+    expect(smokeScript).toContain("validateRuntimeTargets");
+    expect(smokeScript).toContain("smoke:routes");
     expect(smokeScript).toContain("requiredText");
     expect(smokeScript).toContain("requiredJson");
+    expect(runtimeTargets).toContain('return trimmedValue ? trimmedValue.replace(/^\\/+|\\/+$/gu, "") : "en"');
+    expect(runtimeTargets).toContain("`/${locale}`");
+    expect(runtimeTargets).toContain("`/${locale}/search`");
+    expect(runtimeTargets).toContain("`/v1/public/deals/${locale}`");
+    expect(runtimeTargets).toContain("route-smoke-missing-deal");
+    expect(runtimeTargets).toContain("ROUTE_RUNTIME_TARGETS");
     expect(smokeScript).toContain("Latest deals");
     expect(smokeScript).toContain("Trending merchants");
     expect(smokeScript).toContain("Open Favorites");
@@ -338,6 +363,8 @@ describe("deployment artifacts", () => {
     expect(prismaConfig).toContain("DATABASE_URL is required for Prisma commands.");
     expect(prismaBuildScript).toContain("prismaBuildPlaceholderDatabaseUrl");
     expect(prismaBuildScript).toContain('DATABASE_URL: normalizeEnvValue(process.env.DATABASE_URL) ?? prismaBuildPlaceholderDatabaseUrl');
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("SITE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("Create shadow database for migration drift check");
     expect(workflow).toContain("Check migration drift against schema");
     expect(workflow).toContain("CREATE DATABASE aussie_deals_hub_shadow");
@@ -392,6 +419,9 @@ describe("deployment artifacts", () => {
     expect(verifyWorkspaceScript).toContain("VERIFY_DB requires DATABASE_URL.");
     expect(verifyWorkspaceScript).toContain("\"db:migrate\"");
     expect(verifyWorkspaceScript).toContain("\"test:db\"");
+    expect(verifyWorkspaceScript).toContain("BUILD_TIME_SITE_URL");
+    expect(verifyWorkspaceScript).toContain("NEXT_PUBLIC_SITE_URL");
+    expect(verifyWorkspaceScript).toContain("SITE_URL");
     expect(verifyWorkspaceScript).toContain("withoutDatabaseUrl");
   });
 
@@ -620,6 +650,7 @@ describe("deployment artifacts", () => {
     const packageJson = readRepoFile("package.json");
     const readme = readRepoFile("README.md");
     const script = readRepoFile("scripts/runtime-verify.mjs");
+    const runtimeTargets = readRepoFile("scripts/lib/runtime-targets.mjs");
     const workflow = readRepoFile(".github/workflows/runtime-verify.yml");
 
     expect(packageJson).toContain("\"runtime:verify\": \"node scripts/runtime-verify.mjs\"");
@@ -628,6 +659,7 @@ describe("deployment artifacts", () => {
       "RUNTIME_API_BASE_URL=http://127.0.0.1:13001 RUNTIME_WEB_BASE_URL=http://127.0.0.1:13000 RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:13002 pnpm runtime:verify",
     );
     expect(readme).toContain("reuses the readiness and route smoke checks");
+    expect(readme).toContain("standalone `pnpm smoke:readiness` and `pnpm smoke:routes` entrypoints now use that same target resolution contract");
     expect(readme).toContain(
       "the public deals list API contract at `/v1/public/deals/{locale}`",
     );
@@ -644,9 +676,11 @@ describe("deployment artifacts", () => {
     expect(script).toContain("resolveRuntimeVerifyEnv");
     expect(script).toContain("runRuntimeVerifyScript");
     expect(script).toContain("validateRuntimeVerifyEnv");
-    expect(script).toContain("runtime:verify requires complete target URLs");
-    expect(script).toContain("API_PUBLIC_DEALS_URL");
-    expect(script).toContain("API_PUBLIC_DEAL_URL");
+    expect(script).toContain('validateRuntimeTargets(env, "runtime:verify")');
+    expect(runtimeTargets).toContain("runtime target check");
+    expect(runtimeTargets).toContain("requires complete target URLs. Missing:");
+    expect(runtimeTargets).toContain("API_PUBLIC_DEALS_URL");
+    expect(runtimeTargets).toContain("API_PUBLIC_DEAL_URL");
     expect(workflow).toContain("name: Runtime verify");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("runtime_api_base_url:");
@@ -665,10 +699,14 @@ describe("deployment artifacts", () => {
   it("keeps compose runtime settings overridable for deployed bundles", () => {
     const compose = readRepoFile("docker-compose.yml");
     const postgresBlock = readComposeServiceBlock(compose, "postgres");
+    const apiBlock = readComposeServiceBlock(compose, "api");
     const dbInitEnvironment = readComposeServiceEnvironmentBlock(compose, "db-init");
     const apiEnvironment = readComposeServiceEnvironmentBlock(compose, "api");
+    const webBlock = readComposeServiceBlock(compose, "web");
     const webEnvironment = readComposeServiceEnvironmentBlock(compose, "web");
+    const adminBlock = readComposeServiceBlock(compose, "admin");
     const adminEnvironment = readComposeServiceEnvironmentBlock(compose, "admin");
+    const workerBlock = readComposeServiceBlock(compose, "worker");
     const workerEnvironment = readComposeServiceEnvironmentBlock(compose, "worker");
 
     expect(postgresBlock).toContain('      - "${POSTGRES_HOST_PORT:-5432}:5432"');
@@ -687,10 +725,16 @@ describe("deployment artifacts", () => {
     expect(apiEnvironment).toContain(
       "SESSION_SECRET: ${SESSION_SECRET:-change-me-to-at-least-16-characters}",
     );
+    expect(apiBlock).toContain("args:");
+    expect(apiBlock).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}");
+    expect(apiBlock).toContain("SITE_URL: ${SITE_URL:-http://localhost:3000}");
+    expect(webBlock).toContain("args:");
     expect(webEnvironment).toContain("API_BASE_URL: ${API_BASE_URL:-http://api:3001}");
     expect(webEnvironment).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}");
     expect(webEnvironment).toContain("SITE_URL: ${SITE_URL:-http://localhost:3000}");
+    expect(adminBlock).toContain("args:");
     expect(adminEnvironment).toContain("ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}");
+    expect(workerBlock).toContain("args:");
     expect(workerEnvironment).toContain(
       "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",
     );
