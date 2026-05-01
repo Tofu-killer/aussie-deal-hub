@@ -14,8 +14,10 @@ WORKDIR /app
 
 COPY . .
 
+ARG PRISMA_BUILD_DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/aussie_deals_hub
+
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @aussie-deal-hub/db prisma:generate
+RUN DATABASE_URL=$PRISMA_BUILD_DATABASE_URL pnpm --filter @aussie-deal-hub/db prisma:generate
 RUN ./node_modules/.bin/tsc -p packages/config/tsconfig.json \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports packages/ai/src/reviewLead.ts \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports packages/scraping/src/normalizeLead.ts packages/scraping/src/extractLeadCandidates.ts \
@@ -24,7 +26,7 @@ RUN ./node_modules/.bin/tsc -p packages/config/tsconfig.json \
   && ./node_modules/.bin/tsc -p "$temp_config" \
   && rm -f "$temp_config" \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports packages/email/src/buildDailyDigest.ts \
-  && DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub \
+  && DATABASE_URL=$PRISMA_BUILD_DATABASE_URL \
      node "$(node -p "require.resolve('prisma/build/index.js', { paths: ['./packages/db'] })")" \
      validate --schema packages/db/prisma/schema.prisma \
   && ./node_modules/.bin/tsc --noEmit --allowImportingTsExtensions --module esnext --moduleResolution bundler --target es2022 --strict --esModuleInterop --forceConsistentCasingInFileNames --skipLibCheck --resolveJsonModule --allowSyntheticDefaultImports apps/api/src/index.ts \

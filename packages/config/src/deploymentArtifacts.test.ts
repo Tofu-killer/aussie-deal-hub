@@ -196,12 +196,18 @@ describe("deployment artifacts", () => {
     expect(dockerfile).toContain("FROM workspace AS admin");
     expect(dockerfile).toContain("FROM workspace AS worker");
     expect(dockerfile).toContain("apt-get install -y --no-install-recommends openssl");
-    expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/db prisma:generate");
+    expect(dockerfile).toContain(
+      "ARG PRISMA_BUILD_DATABASE_URL=postgresql://placeholder:placeholder@127.0.0.1:5432/aussie_deals_hub",
+    );
+    expect(dockerfile).toContain(
+      "DATABASE_URL=$PRISMA_BUILD_DATABASE_URL pnpm --filter @aussie-deal-hub/db prisma:generate",
+    );
     expect(dockerfile).toContain("apps/api/src/index.ts");
     expect(dockerfile).toContain("apps/worker/src/index.ts");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/admin build");
     expect(dockerfile).toContain("pnpm --filter @aussie-deal-hub/web build");
     expect(dockerfile).toContain("require.resolve('prisma/build/index.js'");
+    expect(dockerfile).toContain("DATABASE_URL=$PRISMA_BUILD_DATABASE_URL");
     expect(dockerfile).toContain("validate --schema packages/db/prisma/schema.prisma");
   });
 
