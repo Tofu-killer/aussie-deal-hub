@@ -175,6 +175,9 @@ describe("deployment artifacts", () => {
       "When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.",
     );
     expect(readme).toContain(
+      "Expect the API readiness `dependencies` map to stay explicit about scope: `dbConnectivity` only proves the primary database connection, while `dbCatalogSchema`, `dbPublishingSchema`, and `dbUserEngagementSchema` cover the higher-level Prisma model groups.",
+    );
+    expect(readme).toContain(
       "Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.",
     );
   });

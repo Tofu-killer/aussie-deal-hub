@@ -28,7 +28,7 @@ describe("health endpoint", () => {
       readyCheck: async () => ({
         ok: false,
         dependencies: {
-          db: "unavailable",
+          dbConnectivity: "unavailable",
         },
       }),
     });
@@ -48,7 +48,7 @@ describe("health endpoint", () => {
     expect(readyResponse.body).toEqual({
       ok: false,
       dependencies: {
-        db: "unavailable",
+        dbConnectivity: "unavailable",
       },
     });
   });
@@ -74,7 +74,7 @@ describe("health endpoint", () => {
 
   it("builds a dependency health checker that reports the failing dependency key", async () => {
     const healthCheck = createDependencyHealthChecker({
-      db: async () => {},
+      dbConnectivity: async () => {},
       dbPublishingSchema: async () => {
         throw new Error("relation missing");
       },
@@ -90,7 +90,7 @@ describe("health endpoint", () => {
 
   it("reports multiple failing dependency groups without hiding the specific readiness buckets", async () => {
     const healthCheck = createDependencyHealthChecker({
-      db: async () => {},
+      dbConnectivity: async () => {},
       dbCatalogSchema: async () => {
         throw new Error("catalog relation missing");
       },
@@ -110,7 +110,7 @@ describe("health endpoint", () => {
 
   it("keeps dependency failures coarse but distinguishes connection and timeout issues", async () => {
     const healthCheck = createDependencyHealthChecker({
-      db: async () => {
+      dbConnectivity: async () => {
         throw new Error("connect ECONNREFUSED 127.0.0.1:5432");
       },
       redis: async () => {
@@ -124,7 +124,7 @@ describe("health endpoint", () => {
     await expect(healthCheck()).resolves.toEqual({
       ok: false,
       dependencies: {
-        db: "connection_failed",
+        dbConnectivity: "connection_failed",
         redis: "timeout",
         email: "authentication_failed",
       },

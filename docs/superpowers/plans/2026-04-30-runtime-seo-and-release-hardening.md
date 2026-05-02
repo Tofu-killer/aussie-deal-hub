@@ -20,20 +20,20 @@
 - Test: `packages/config/src/testDbScript.test.ts`
 - Test: `packages/config/src/releaseBundleScript.test.ts`
 
-- [ ] **Step 1: 先写失败断言，锁住显式 `--config` 应该走根配置文件**
+- [x] **Step 1: 先写失败断言，锁住显式 `--config` 应该走根配置文件**
 
 在 `packages/config/src/testDbScript.test.ts` 里把期望从 `vitest.workspace.ts` 改成 `vitest.config.ts`；在 `packages/config/src/releaseBundleScript.test.ts` 里要求 release bundle 包含新的根配置文件。
 
-- [ ] **Step 2: 运行针对性测试，确认当前实现失败**
+- [x] **Step 2: 运行针对性测试，确认当前实现失败**
 
 Run: `pnpm exec vitest run packages/config/src/testDbScript.test.ts packages/config/src/releaseBundleScript.test.ts`
 Expected: FAIL，报错点要么是脚本仍引用 `vitest.workspace.ts`，要么是 bundle 清单不含 `vitest.config.ts`
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 新增 `vitest.config.ts` 导出对象配置承载 `test.projects`；保留 `vitest.workspace.ts` 作为 workspace 数组供自动发现；把 `package.json`、`scripts/test-db.mjs`、release bundle 清单统一切到 `vitest.config.ts`。
 
-- [ ] **Step 4: 重新运行针对性测试，确认转绿**
+- [x] **Step 4: 重新运行针对性测试，确认转绿**
 
 Run: `pnpm exec vitest run packages/config/src/testDbScript.test.ts packages/config/src/releaseBundleScript.test.ts`
 Expected: PASS
@@ -46,20 +46,20 @@ Expected: PASS
 - Modify: `apps/web/src/lib/publicDeals.ts`
 - Modify: `apps/web/src/components/public-seo-metadata.test.ts`
 
-- [ ] **Step 1: 先补失败测试**
+- [x] **Step 1: 先补失败测试**
 
 保持 `runtime:verify` 缺少任一目标 URL 时必须 fail-fast；详情页 metadata 和 sitemap 只暴露真实 sibling locale。测试文件分别锁住缺失 `ADMIN_*` URL 的报错，以及 fallback locale 只保留真实 alternates / detail URLs。
 
-- [ ] **Step 2: 运行这些测试，确认它们先红**
+- [x] **Step 2: 运行这些测试，确认它们先红**
 
 Run: `pnpm exec vitest run packages/config/src/runtimeVerifyScript.test.ts apps/web/src/components/public-seo-metadata.test.ts`
 Expected: FAIL，失败原因与静默回退或伪双语 URL 合同一致
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 在 `scripts/runtime-verify.mjs` 里显式校验完整目标矩阵；在 `apps/web/src/lib/publicDeals.ts` 里按真实 `localeSlugs` 推导可索引 locale，仅对这些 locale 输出 canonical / alternates / sitemap detail URLs。
 
-- [ ] **Step 4: 重新跑测试确认转绿**
+- [x] **Step 4: 重新跑测试确认转绿**
 
 Run: `pnpm exec vitest run packages/config/src/runtimeVerifyScript.test.ts apps/web/src/components/public-seo-metadata.test.ts`
 Expected: PASS
@@ -72,20 +72,20 @@ Expected: PASS
 - Modify: `.github/workflows/verify.yml`
 - Modify: `packages/config/src/deploymentArtifacts.test.ts`
 
-- [ ] **Step 1: 先写失败断言**
+- [x] **Step 1: 先写失败断言**
 
 在 `packages/config/src/deploymentArtifacts.test.ts` 里要求 `Dockerfile`、`docker-compose.yml`、CI postgres service 都使用 digest pin。
 
-- [ ] **Step 2: 运行部署合同测试，确认当前实现失败**
+- [x] **Step 2: 运行部署合同测试，确认当前实现失败**
 
 Run: `pnpm exec vitest run packages/config/src/deploymentArtifacts.test.ts`
 Expected: FAIL，提示存在浮动 tag
 
-- [ ] **Step 3: 写最小实现**
+- [x] **Step 3: 写最小实现**
 
 把 `node:22-slim`、`postgres:16`、`redis:7` 替换成带 sha256 digest 的镜像引用。
 
-- [ ] **Step 4: 重新运行部署合同测试**
+- [x] **Step 4: 重新运行部署合同测试**
 
 Run: `pnpm exec vitest run packages/config/src/deploymentArtifacts.test.ts`
 Expected: PASS
@@ -95,12 +95,12 @@ Expected: PASS
 **Files:**
 - Modify: `docs/superpowers/plans/2026-04-30-runtime-seo-and-release-hardening.md`
 
-- [ ] **Step 1: 跑本地回归**
+- [x] **Step 1: 跑本地回归**
 
 Run: `pnpm exec vitest run apps/web/src/components/public-seo-metadata.test.ts packages/config/src/runtimeVerifyScript.test.ts packages/config/src/deploymentArtifacts.test.ts packages/config/src/testDbScript.test.ts packages/config/src/releaseBundleScript.test.ts`
 Expected: PASS
 
-- [ ] **Step 2: 跑全量验证**
+- [x] **Step 2: 跑全量验证**
 
 Run: `pnpm verify`
 Expected: PASS
@@ -109,7 +109,7 @@ Expected: PASS
 
 找两路独立 reviewer，只收 blocking findings；若有问题先修完再回收 review。
 
-- [ ] **Step 4: 提交、push、监控 GitHub Actions**
+- [x] **Step 4: 提交、push、监控 GitHub Actions**
 
 Run: `git add ... && git commit -m "..." && git push origin main`
 Then: 监控 `Verify` 与相关 workflow，直到成功或修到成功为止。
