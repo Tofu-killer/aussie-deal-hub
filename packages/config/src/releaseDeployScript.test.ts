@@ -407,6 +407,7 @@ describe("release deploy script", () => {
       await readFile(path.join(diagnosticsRoot, "metadata.json"), "utf8"),
     ) as {
       currentReleaseRoot: string;
+      failureStage: string | null;
       previousReleaseRoot: string | null;
       releaseActivated: boolean;
       remoteReleaseRoot: string;
@@ -421,6 +422,7 @@ describe("release deploy script", () => {
     expect(metadata).toEqual(
       expect.objectContaining({
         currentReleaseRoot: remoteReleaseRoot,
+        failureStage: "post-deploy-runtime-verify",
         previousReleaseRoot: null,
         releaseActivated: true,
         remoteReleaseRoot,
@@ -437,6 +439,24 @@ describe("release deploy script", () => {
     );
     await expect(readFile(path.join(diagnosticsRoot, "compose-logs.txt"), "utf8")).resolves.toBe(
       "api-1  | unhealthy\nworker-1  | ready\n",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "phase: post-deploy",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "apiBaseUrl: https://api.example.com",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "webBaseUrl: https://www.example.com",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "adminBaseUrl: https://admin.example.com",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "Running runtime verify (post-deploy).",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).resolves.toContain(
+      "outcome:\nfailed",
     );
     await expect(readFile(path.join(diagnosticsRoot, "deploy-error.txt"), "utf8")).resolves.toContain(
       "runtime verify failed",
@@ -553,6 +573,7 @@ describe("release deploy script", () => {
         ],
       },
     ]);
+
   });
 
   it("rolls back to the previous current release when runtime verification fails after activation", async () => {
@@ -697,6 +718,25 @@ describe("release deploy script", () => {
         ],
       },
     ]);
+
+    const diagnosticsRoot = path.join(
+      workspaceRoot,
+      "artifacts",
+      "release-deploy",
+      "aussie-deal-hub-release-20260430T140000Z-candidate",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "rollback-result.txt"), "utf8")).resolves.toBe(
+      `Rolled back to ${previousReleaseRoot} and runtime verification passed.\n`,
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "rollback-runtime-verify.txt"), "utf8")).resolves.toContain(
+      "phase: rollback",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "rollback-runtime-verify.txt"), "utf8")).resolves.toContain(
+      "Runtime verify (rollback) passed.",
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "rollback-runtime-verify.txt"), "utf8")).resolves.toContain(
+      "outcome:\npassed",
+    );
   });
 
   it("rolls back when activation fails after current changes", async () => {
@@ -841,6 +881,18 @@ describe("release deploy script", () => {
         ],
       },
     ]);
+
+    const diagnosticsRoot = path.join(workspaceRoot, "artifacts", "release-deploy", releaseName);
+    const metadata = JSON.parse(
+      await readFile(path.join(diagnosticsRoot, "metadata.json"), "utf8"),
+    ) as {
+      failureStage: string | null;
+    };
+
+    expect(metadata.failureStage).toBe("deploy-activation");
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-verify.txt"), "utf8")).rejects.toThrow(
+      /ENOENT/u,
+    );
   });
 
   it("surfaces rollback failures after activation", async () => {

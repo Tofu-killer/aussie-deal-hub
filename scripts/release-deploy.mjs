@@ -186,6 +186,97 @@ function writeDiagnosticsFile(diagnosticsRoot, fileName, contents) {
   writeFileSync(path.join(diagnosticsRoot, fileName), contents, "utf8");
 }
 
+function renderStreamChunk(chunk, encoding) {
+  if (typeof chunk === "string") {
+    return chunk;
+  }
+
+  return Buffer.from(chunk).toString(typeof encoding === "string" ? encoding : "utf8");
+}
+
+async function captureProcessOutput(operation) {
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  let capturedStdout = "";
+  let capturedStderr = "";
+
+  process.stdout.write = function patchedStdoutWrite(chunk, encoding, callback) {
+    capturedStdout += renderStreamChunk(chunk, encoding);
+    return originalStdoutWrite(chunk, encoding, callback);
+  };
+  process.stderr.write = function patchedStderrWrite(chunk, encoding, callback) {
+    capturedStderr += renderStreamChunk(chunk, encoding);
+    return originalStderrWrite(chunk, encoding, callback);
+  };
+
+  try {
+    await operation();
+    return {
+      stderr: capturedStderr,
+      stdout: capturedStdout,
+    };
+  } catch (error) {
+    return {
+      error,
+      stderr: capturedStderr,
+      stdout: capturedStdout,
+    };
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
+}
+
+function buildRuntimeVerifyReport({
+  error,
+  phase,
+  runtimeVerifyEnv,
+  stderr,
+  stdout,
+}) {
+  const lines = [
+    `phase: ${phase}`,
+    `apiBaseUrl: ${runtimeVerifyEnv.RUNTIME_API_BASE_URL}`,
+    `webBaseUrl: ${runtimeVerifyEnv.RUNTIME_WEB_BASE_URL}`,
+    `adminBaseUrl: ${runtimeVerifyEnv.RUNTIME_ADMIN_BASE_URL}`,
+    `locale: ${runtimeVerifyEnv.RUNTIME_LOCALE ?? "(unset)"}`,
+    "",
+    "stdout:",
+    stdout ? stdout.replace(/\s+$/u, "") : "(empty)",
+    "",
+    "stderr:",
+    stderr ? stderr.replace(/\s+$/u, "") : "(empty)",
+    "",
+    "outcome:",
+    error ? "failed" : "passed",
+  ];
+
+  if (error) {
+    lines.push("", "error:", serializeError(error).replace(/\s+$/u, ""));
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+async function runRuntimeVerifyWithReport(runtimeVerifyRunner, runtimeVerifyEnv, phase) {
+  const capture = await captureProcessOutput(async () => {
+    process.stdout.write(`Running runtime verify (${phase}).\n`);
+    await runtimeVerifyRunner(runtimeVerifyEnv);
+    process.stdout.write(`Runtime verify (${phase}) passed.\n`);
+  });
+
+  return {
+    error: capture.error,
+    report: buildRuntimeVerifyReport({
+      error: capture.error,
+      phase,
+      runtimeVerifyEnv,
+      stderr: capture.stderr,
+      stdout: capture.stdout,
+    }),
+  };
+}
+
 function persistReleaseDeployDiagnostics(context) {
   const diagnosticsRoot = resolveReleaseDeployDiagnosticsRoot(
     context.cwd,
@@ -201,6 +292,7 @@ function persistReleaseDeployDiagnostics(context) {
     remoteReleaseRoot: context.remoteReleaseRoot,
     remoteSharedEnvFile: context.remoteSharedEnvFile,
     releaseName: context.releaseName,
+    failureStage: context.failureStage ?? null,
     runtimeVerifyTargets: {
       adminBaseUrl: context.deployRuntimeAdminBaseUrl,
       apiBaseUrl: context.deployRuntimeApiBaseUrl,
@@ -233,11 +325,15 @@ function persistReleaseDeployDiagnostics(context) {
     );
   }
 
+  if (context.runtimeVerifyReport) {
+    writeDiagnosticsFile(diagnosticsRoot, "runtime-verify.txt", context.runtimeVerifyReport);
+  }
+
   return diagnosticsRoot;
 }
 
 function writeRollbackDiagnostics(diagnosticsRoot, fileName, contents) {
-  if (!diagnosticsRoot) {
+  if (!diagnosticsRoot || contents === undefined || contents === null) {
     return;
   }
 
@@ -307,6 +403,8 @@ export async function runReleaseDeployScript(
     `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} ps --all`,
   ].join(" && ");
   let previousReleaseRoot;
+  let runtimeVerifyFailureStage;
+  let runtimeVerifyReport;
   let stackAttempted = false;
 
   console.log(
@@ -356,11 +454,22 @@ export async function runReleaseDeployScript(
       }),
       { cwd: workingDirectory, env },
     );
-    await runtimeVerifyRunner(runtimeVerifyEnv);
+    const runtimeVerifyResult = await runRuntimeVerifyWithReport(
+      runtimeVerifyRunner,
+      runtimeVerifyEnv,
+      "post-deploy",
+    );
+    runtimeVerifyReport = runtimeVerifyResult.report;
+
+    if (runtimeVerifyResult.error) {
+      runtimeVerifyFailureStage = "post-deploy-runtime-verify";
+      throw runtimeVerifyResult.error;
+    }
   } catch (error) {
     let currentReleaseRoot;
     let diagnosticsRoot;
     let releaseActivated = false;
+    let rollbackRuntimeVerifyReport;
     let rollbackPerformed = false;
 
     if (stackAttempted) {
@@ -431,12 +540,14 @@ export async function runReleaseDeployScript(
             deployRuntimeWebBaseUrl,
             env,
             error,
+            failureStage: runtimeVerifyFailureStage ?? "deploy-activation",
             previousReleaseRoot,
             releaseActivated,
             releaseName: manifest.releaseName,
             remoteCurrentRoot,
             remoteReleaseRoot,
             remoteSharedEnvFile,
+            runtimeVerifyReport,
           });
           console.error(
             `Saved deploy diagnostics to ${path.relative(workingDirectory, diagnosticsRoot) || "."}`,
@@ -465,15 +576,35 @@ export async function runReleaseDeployScript(
               }),
               { cwd: workingDirectory, env },
             );
-            await runtimeVerifyRunner(runtimeVerifyEnv);
+            const rollbackRuntimeVerifyResult = await runRuntimeVerifyWithReport(
+              runtimeVerifyRunner,
+              runtimeVerifyEnv,
+              "rollback",
+            );
+            rollbackRuntimeVerifyReport = rollbackRuntimeVerifyResult.report;
+
+            if (rollbackRuntimeVerifyResult.error) {
+              throw rollbackRuntimeVerifyResult.error;
+            }
+
             rollbackPerformed = true;
             writeRollbackDiagnostics(
               diagnosticsRoot,
               "rollback-result.txt",
               `Rolled back to ${previousReleaseRoot} and runtime verification passed.\n`,
             );
+            writeRollbackDiagnostics(
+              diagnosticsRoot,
+              "rollback-runtime-verify.txt",
+              rollbackRuntimeVerifyReport,
+            );
           } catch (rollbackError) {
             try {
+              writeRollbackDiagnostics(
+                diagnosticsRoot,
+                "rollback-runtime-verify.txt",
+                rollbackRuntimeVerifyReport,
+              );
               writeRollbackDiagnostics(
                 diagnosticsRoot,
                 "rollback-error.txt",

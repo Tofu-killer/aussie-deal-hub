@@ -65,7 +65,7 @@ async function checkRedisHealth() {
 async function checkReadiness() {
   return createDependencyHealthChecker({
     dbConnectivity: async () => {
-      await prisma.$queryRawUnsafe("SELECT 1");
+      await prisma.$queryRaw`SELECT 1`;
     },
     dbCatalogSchema: async () => {
       await prisma.$transaction([

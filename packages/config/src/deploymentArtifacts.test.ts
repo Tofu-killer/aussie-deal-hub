@@ -563,11 +563,14 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("captures remote compose status and compose logs for the failing stack");
     expect(readme).toContain("writes local failure diagnostics to `artifacts/release-deploy/<release-name>/`");
     expect(readme).toContain("`metadata.json`");
+    expect(readme).toContain("`runtime-verify.txt`");
     expect(readme).toContain("`compose-ps.txt`");
     expect(readme).toContain("`compose-logs.txt`");
     expect(readme).toContain("`deploy-error.txt`");
+    expect(readme).toContain("`failureStage`");
     expect(readme).toContain("repoints `/srv/aussie-deal-hub/current` back to the previous release");
     expect(readme).toContain("reruns `pnpm runtime:verify`");
+    expect(readme).toContain("stores that rollback verification output as `rollback-runtime-verify.txt`");
     expect(readme).toContain("surfaces both the original deployment failure and the rollback failure");
     expect(readme).toContain("The `Deploy release bundle` GitHub Actions workflow");
     expect(readme).toContain(
