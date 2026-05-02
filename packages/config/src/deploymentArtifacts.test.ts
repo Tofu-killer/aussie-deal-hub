@@ -486,7 +486,13 @@ describe("deployment artifacts", () => {
     const readme = readRepoFile("README.md");
     const gitignore = readRepoFile(".gitignore");
     const workflow = readRepoFile(".github/workflows/release-bundle.yml");
-    const releaseBundleBlock = ["pnpm release:bundle", "pnpm release:rehearse"].join("\n");
+    const releaseBundleBlock = [
+      "pnpm release:bundle",
+      "RUNTIME_API_BASE_URL=http://127.0.0.1:3001 \\",
+      "RUNTIME_WEB_BASE_URL=http://127.0.0.1:3000 \\",
+      "RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:3002 \\",
+      "pnpm release:rehearse",
+    ].join("\n");
 
     expect(packageJson).toContain("\"release:bundle\": \"node scripts/release-bundle.mjs\"");
     expect(packageJson).toContain("\"release:rehearse\": \"node scripts/release-rehearse.mjs\"");
@@ -502,6 +508,8 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("smoke:container-health");
     expect(readme).toContain("smoke:readiness");
     expect(readme).toContain("smoke:routes");
+    expect(readme).toContain("same explicit runtime target contract used by `pnpm runtime:verify`");
+    expect(readme).toContain("WORKER_RUNTIME_URL");
     expect(gitignore).toContain("release");
     expect(workflow).toContain("name: Release bundle");
     expect(workflow).toContain("workflow_dispatch:");
@@ -517,6 +525,9 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
     expect(workflow).toContain("permissions:\n  contents: read\n  actions: read");
+    expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
+    expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
     expect(workflow).toContain("pnpm release:rehearse");
   });
 
@@ -630,6 +641,9 @@ describe("deployment artifacts", () => {
     );
     expect(workflow).toContain("RELEASE_BUNDLE_ROOT");
     expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
+    expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
+    expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
     expect(workflow).toContain("RELEASE_REHEARSE_ROOT=.");
     expect(workflow).toContain("pnpm release:rehearse");
     expect(workflow).not.toContain("name: Install bundle dependencies");

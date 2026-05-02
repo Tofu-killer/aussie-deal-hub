@@ -6,6 +6,10 @@ import {
   resolveConfiguredBundleRoot,
   resolveNewestBundleRoot,
 } from "./lib/release-bundle-root.mjs";
+import {
+  resolveRuntimeTargetEnv,
+  validateRuntimeTargets,
+} from "./lib/runtime-targets.mjs";
 
 function resolveReleaseRehearseRoot(cwd = process.cwd(), env = process.env) {
   const configuredRoot = env.RELEASE_REHEARSE_ROOT?.trim();
@@ -39,14 +43,18 @@ function runCommand(command, args, options = {}) {
   }
 }
 
+export function resolveReleaseRehearseEnv(env = process.env) {
+  return resolveRuntimeTargetEnv(env);
+}
+
+export function validateReleaseRehearseEnv(env = process.env) {
+  return validateRuntimeTargets(env, "release:rehearse");
+}
+
 export async function runReleaseRehearseScript(cwd = process.cwd(), env = process.env) {
   const bundleRoot = resolveReleaseRehearseRoot(cwd, env);
-  const runtimeEnv = {
-    ...env,
-    RUNTIME_API_BASE_URL: env.RUNTIME_API_BASE_URL ?? "http://127.0.0.1:3001",
-    RUNTIME_WEB_BASE_URL: env.RUNTIME_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-    RUNTIME_ADMIN_BASE_URL: env.RUNTIME_ADMIN_BASE_URL ?? "http://127.0.0.1:3002",
-  };
+  const runtimeEnv = resolveReleaseRehearseEnv(env);
+  validateReleaseRehearseEnv(runtimeEnv);
   let stackAttempted = false;
   let failed = false;
 

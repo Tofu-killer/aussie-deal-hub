@@ -180,6 +180,9 @@ Create a curated deployment bundle from the current checkout with:
 
 ```bash
 pnpm release:bundle
+RUNTIME_API_BASE_URL=http://127.0.0.1:3001 \
+RUNTIME_WEB_BASE_URL=http://127.0.0.1:3000 \
+RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:3002 \
 pnpm release:rehearse
 ```
 
@@ -187,11 +190,11 @@ The script stages a curated deployment bundle under `release/`, copies the check
 
 The `Release bundle` GitHub Actions workflow is available through `workflow_dispatch`. It reruns `pnpm verify`, invokes `pnpm release:bundle`, and uploads the staged `release/` directory with `actions/upload-artifact` while preserving the checked-in dotfiles that the bundle needs at runtime.
 
-Run `pnpm release:rehearse` from the repo root to resolve the newest staged bundle under `release/`, reinstalls workspace dependencies there, boots the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against explicit `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL` targets. It defaults those rehearse-only runtime bases to the local compose ports and then dumps compose logs on failure before tearing the stack back down. Override the bundle root with `RELEASE_REHEARSE_ROOT` when you want to rehearse a specific extracted artifact directory.
+Run `pnpm release:rehearse` from the repo root to resolve the newest staged bundle under `release/`, reinstalls workspace dependencies there, boots the staged stack with `docker compose up -d --build`, and reruns `smoke:container-health`, `smoke:readiness`, and `smoke:routes` against the same explicit runtime target contract used by `pnpm runtime:verify`. Set `RUNTIME_API_BASE_URL`, `RUNTIME_WEB_BASE_URL`, and `RUNTIME_ADMIN_BASE_URL` for the staged stack, or provide the fully resolved `API_*`, `WEB_*`, `ADMIN_*`, and `WORKER_RUNTIME_URL` targets directly when a rehearse environment exposes different paths. The script dumps compose logs on failure before tearing the stack back down. Override the bundle root with `RELEASE_REHEARSE_ROOT` when you want to rehearse a specific extracted artifact directory.
 
 The Docker workspace build also requires a public site origin for the prerendered SEO outputs, so the Dockerfile and compose targets accept explicit `NEXT_PUBLIC_SITE_URL` and `SITE_URL` build args instead of relying on an in-app fallback domain.
 
-The same workflow then downloads the uploaded artifact into a clean directory and runs `RELEASE_REHEARSE_ROOT=. pnpm release:rehearse` inside that extracted bundle so the uploaded deployment artifact itself is what gets rebuilt and smoke-tested.
+The same workflow then downloads the uploaded artifact into a clean directory, sets `RUNTIME_API_BASE_URL=http://127.0.0.1:3001`, `RUNTIME_WEB_BASE_URL=http://127.0.0.1:3000`, and `RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:3002`, and runs `RELEASE_REHEARSE_ROOT=. pnpm release:rehearse` inside that extracted bundle so the uploaded deployment artifact itself is what gets rebuilt and smoke-tested.
 
 ## Deploy release bundle
 
