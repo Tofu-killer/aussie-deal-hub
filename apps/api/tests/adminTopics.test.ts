@@ -22,6 +22,22 @@ describe("admin topic routes", () => {
     expect(firstResponse.body).toEqual({
       items: [
         {
+          id: "gaming-setup",
+          name: "Gaming Setup",
+          slug: "gaming-setup",
+          spotlightDeals: 9,
+          status: "Active",
+          owner: "Discovery desk",
+        },
+        {
+          id: "school-savings",
+          name: "School Savings",
+          slug: "school-savings",
+          spotlightDeals: 4,
+          status: "Seasonal",
+          owner: "Everyday desk",
+        },
+        {
           id: "work-from-home",
           name: "Work From Home",
           slug: "work-from-home",
@@ -29,6 +45,37 @@ describe("admin topic routes", () => {
           status: "Active",
           owner: "Discovery desk",
         },
+      ],
+    });
+  });
+
+  it("creates a topic row and returns it in subsequent topic requests", async () => {
+    const app = buildApp();
+
+    const createResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/topics",
+      body: {
+        name: "Travel Hacks",
+      },
+    });
+    const listResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/topics",
+    });
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body).toEqual({
+      id: "travel-hacks",
+      name: "Travel Hacks",
+      slug: "travel-hacks",
+      spotlightDeals: 0,
+      status: "Draft",
+      owner: "Admin topics",
+    });
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toEqual({
+      items: [
         {
           id: "gaming-setup",
           name: "Gaming Setup",
@@ -45,46 +92,23 @@ describe("admin topic routes", () => {
           status: "Seasonal",
           owner: "Everyday desk",
         },
-      ],
-    });
-  });
-
-  it("creates a topic row and returns it in subsequent topic requests", async () => {
-    const app = buildApp();
-
-    const createResponse = await dispatchRequest(app, {
-      method: "POST",
-      path: "/v1/admin/topics",
-      body: {
-        name: "EOFY Tech",
-      },
-    });
-    const listResponse = await dispatchRequest(app, {
-      method: "GET",
-      path: "/v1/admin/topics",
-    });
-
-    expect(createResponse.status).toBe(201);
-    expect(createResponse.body).toEqual({
-      id: "eofy-tech",
-      name: "EOFY Tech",
-      slug: "eofy-tech",
-      spotlightDeals: 0,
-      status: "Draft",
-      owner: "Admin topics",
-    });
-    expect(listResponse.status).toBe(200);
-    expect(listResponse.body).toEqual({
-      items: expect.arrayContaining([
         {
-          id: "eofy-tech",
-          name: "EOFY Tech",
-          slug: "eofy-tech",
+          id: "travel-hacks",
+          name: "Travel Hacks",
+          slug: "travel-hacks",
           spotlightDeals: 0,
           status: "Draft",
           owner: "Admin topics",
         },
-      ]),
+        {
+          id: "work-from-home",
+          name: "Work From Home",
+          slug: "work-from-home",
+          spotlightDeals: 6,
+          status: "Active",
+          owner: "Discovery desk",
+        },
+      ],
     });
   });
 
@@ -147,7 +171,15 @@ describe("admin topic routes", () => {
     });
     expect(listResponse.status).toBe(200);
     expect(listResponse.body).toEqual({
-      items: expect.arrayContaining([
+      items: [
+        {
+          id: "gaming-setup",
+          name: "Gaming Setup",
+          slug: "gaming-setup",
+          spotlightDeals: 9,
+          status: "Active",
+          owner: "Discovery desk",
+        },
         {
           id: "work-from-home",
           name: "Remote Work",
@@ -156,7 +188,15 @@ describe("admin topic routes", () => {
           status: "Archived",
           owner: "Editorial desk",
         },
-      ]),
+        {
+          id: "school-savings",
+          name: "School Savings",
+          slug: "school-savings",
+          spotlightDeals: 4,
+          status: "Seasonal",
+          owner: "Everyday desk",
+        },
+      ],
     });
   });
 

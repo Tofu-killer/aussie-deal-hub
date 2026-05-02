@@ -356,6 +356,121 @@ describeDb("admin catalog persistence", () => {
     }
   });
 
+  it("keeps merchant and tag lists sorted by name on the database-backed catalog store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const merchantCreateResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/merchants",
+        body: {
+          name: "JB Hi-Fi",
+        },
+      });
+      const tagCreateResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/tags",
+        body: {
+          name: "Home Office",
+        },
+      });
+      const merchantsResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/merchants",
+      });
+      const tagsResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/tags",
+      });
+
+      expect(merchantCreateResponse.status).toBe(201);
+      expect(tagCreateResponse.status).toBe(201);
+      expect(merchantsResponse.status).toBe(200);
+      expect(merchantsResponse.body).toEqual({
+        items: [
+          {
+            id: "amazon-au",
+            name: "Amazon AU",
+            activeDeals: 42,
+            primaryCategory: "Electronics",
+            status: "Active",
+            owner: "Marketplace desk",
+          },
+          {
+            id: "chemist-warehouse",
+            name: "Chemist Warehouse",
+            activeDeals: 17,
+            primaryCategory: "Health",
+            status: "Needs review",
+            owner: "Retail desk",
+          },
+          {
+            id: "jb-hi-fi",
+            name: "JB Hi-Fi",
+            activeDeals: 0,
+            primaryCategory: "Unassigned",
+            status: "Draft",
+            owner: "Admin catalog",
+          },
+          {
+            id: "the-iconic",
+            name: "The Iconic",
+            activeDeals: 9,
+            primaryCategory: "Fashion",
+            status: "Active",
+            owner: "Lifestyle desk",
+          },
+        ],
+      });
+      expect(tagsResponse.status).toBe(200);
+      expect(tagsResponse.body).toEqual({
+        items: [
+          {
+            id: "gaming",
+            name: "Gaming",
+            slug: "gaming",
+            visibleDeals: 18,
+            localization: "EN + ZH ready",
+            owner: "Discovery desk",
+          },
+          {
+            id: "grocery",
+            name: "Grocery",
+            slug: "grocery",
+            visibleDeals: 25,
+            localization: "EN + ZH ready",
+            owner: "Everyday desk",
+          },
+          {
+            id: "home-office",
+            name: "Home Office",
+            slug: "home-office",
+            visibleDeals: 0,
+            localization: "Needs localization",
+            owner: "Admin catalog",
+          },
+          {
+            id: "travel",
+            name: "Travel",
+            slug: "travel",
+            visibleDeals: 7,
+            localization: "Needs ZH review",
+            owner: "Lifestyle desk",
+          },
+        ],
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
   it("creates a tag row and persists it to the database-backed catalog store", async () => {
     const suffix = randomUUID();
     const tagName = `Home Office ${suffix}`;

@@ -122,14 +122,6 @@ describe("admin catalog routes", () => {
     expect(listResponse.body).toEqual({
       items: [
         {
-          id: "jb-hi-fi",
-          name: "JB Hi-Fi",
-          activeDeals: 0,
-          primaryCategory: "Unassigned",
-          status: "Draft",
-          owner: "Admin catalog",
-        },
-        {
           id: "amazon-au",
           name: "Amazon AU",
           activeDeals: 42,
@@ -144,6 +136,14 @@ describe("admin catalog routes", () => {
           primaryCategory: "Health",
           status: "Needs review",
           owner: "Retail desk",
+        },
+        {
+          id: "jb-hi-fi",
+          name: "JB Hi-Fi",
+          activeDeals: 0,
+          primaryCategory: "Unassigned",
+          status: "Draft",
+          owner: "Admin catalog",
         },
         {
           id: "the-iconic",
@@ -185,14 +185,6 @@ describe("admin catalog routes", () => {
     expect(listResponse.body).toEqual({
       items: [
         {
-          id: "home-office",
-          name: "Home Office",
-          slug: "home-office",
-          visibleDeals: 0,
-          localization: "Needs localization",
-          owner: "Admin catalog",
-        },
-        {
           id: "gaming",
           name: "Gaming",
           slug: "gaming",
@@ -207,6 +199,14 @@ describe("admin catalog routes", () => {
           visibleDeals: 25,
           localization: "EN + ZH ready",
           owner: "Everyday desk",
+        },
+        {
+          id: "home-office",
+          name: "Home Office",
+          slug: "home-office",
+          visibleDeals: 0,
+          localization: "Needs localization",
+          owner: "Admin catalog",
         },
         {
           id: "travel",

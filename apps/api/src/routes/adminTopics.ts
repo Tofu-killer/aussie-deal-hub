@@ -113,12 +113,16 @@ function createUniqueId(name: string, existingIds: string[]) {
   return nextId;
 }
 
+function sortRowsByName<T extends { name: string }>(rows: T[]) {
+  return [...rows].sort((left, right) => left.name.localeCompare(right.name));
+}
+
 function createInMemoryTopicsStore(): TopicsStore {
   const topicRows = TOPIC_ROWS.map((row) => ({ ...row }));
 
   return {
     async listTopics() {
-      return topicRows;
+      return sortRowsByName(topicRows);
     },
     async createTopic(input) {
       const id = createUniqueId(

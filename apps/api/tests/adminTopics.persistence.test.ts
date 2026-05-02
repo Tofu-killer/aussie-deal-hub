@@ -261,6 +261,78 @@ describeDb("admin topics persistence", () => {
     }
   });
 
+  it("keeps topic lists sorted by name after database-backed creates", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const adminCatalogStore = createAdminCatalogRepository();
+    const app = buildApp({
+      adminTopicsStore: {
+        listTopics: adminCatalogStore.listTopics,
+        createTopic: adminCatalogStore.createTopic,
+        updateTopic: adminCatalogStore.updateTopic,
+        deleteTopic: adminCatalogStore.deleteTopic,
+      },
+    } as never);
+
+    try {
+      await restoreTopicBaseline();
+
+      const createResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/topics",
+        body: {
+          name: "Travel Hacks",
+        },
+      });
+      const listResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/topics",
+      });
+
+      expect(createResponse.status).toBe(201);
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toEqual({
+        items: [
+          {
+            id: "gaming-setup",
+            name: "Gaming Setup",
+            slug: "gaming-setup",
+            spotlightDeals: 9,
+            status: "Active",
+            owner: "Discovery desk",
+          },
+          {
+            id: "school-savings",
+            name: "School Savings",
+            slug: "school-savings",
+            spotlightDeals: 4,
+            status: "Seasonal",
+            owner: "Everyday desk",
+          },
+          {
+            id: "travel-hacks",
+            name: "Travel Hacks",
+            slug: "travel-hacks",
+            spotlightDeals: 0,
+            status: "Draft",
+            owner: "Admin topics",
+          },
+          {
+            id: "work-from-home",
+            name: "Work From Home",
+            slug: "work-from-home",
+            spotlightDeals: 6,
+            status: "Active",
+            owner: "Discovery desk",
+          },
+        ],
+      });
+    } finally {
+      await restoreTopicBaseline();
+    }
+  });
+
   it("creates a topic row with a unique slug when an existing topic already uses the base slug", async () => {
     const { createAdminCatalogRepository } = await import(
       "@aussie-deal-hub/db/repositories/catalog"
@@ -346,6 +418,11 @@ describeDb("admin topics persistence", () => {
         owner: "Editorial desk",
       });
 
+      const listResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/topics",
+      });
+
       const persisted = await prisma.topicCatalog.findUnique({
         where: {
           id: "work-from-home",
@@ -367,6 +444,35 @@ describeDb("admin topics persistence", () => {
         spotlightDeals: 6,
         status: "Archived",
         owner: "Editorial desk",
+      });
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toEqual({
+        items: [
+          {
+            id: "gaming-setup",
+            name: "Gaming Setup",
+            slug: "gaming-setup",
+            spotlightDeals: 9,
+            status: "Active",
+            owner: "Discovery desk",
+          },
+          {
+            id: "work-from-home",
+            name: "Remote Work",
+            slug: "remote-work",
+            spotlightDeals: 6,
+            status: "Archived",
+            owner: "Editorial desk",
+          },
+          {
+            id: "school-savings",
+            name: "School Savings",
+            slug: "school-savings",
+            spotlightDeals: 4,
+            status: "Seasonal",
+            owner: "Everyday desk",
+          },
+        ],
       });
     } finally {
       await restoreTopicBaseline();

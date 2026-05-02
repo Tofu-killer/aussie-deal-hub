@@ -136,6 +136,10 @@ function createUniqueId(name: string, existingIds: string[]) {
   return nextId;
 }
 
+function sortRowsByName<T extends { name: string }>(rows: T[]) {
+  return [...rows].sort((left, right) => left.name.localeCompare(right.name));
+}
+
 export interface AdminCatalogStore {
   listMerchants(): Promise<MerchantCatalogRow[]>;
   createMerchant(input: { name: string }): Promise<MerchantCatalogRow>;
@@ -165,7 +169,7 @@ function createInMemoryAdminCatalogStore(): AdminCatalogStore {
 
   return {
     async listMerchants() {
-      return merchantRows;
+      return sortRowsByName(merchantRows);
     },
     async createMerchant(input) {
       const merchant: MerchantCatalogRow = {
@@ -219,7 +223,7 @@ function createInMemoryAdminCatalogStore(): AdminCatalogStore {
       return true;
     },
     async listTags() {
-      return tagRows;
+      return sortRowsByName(tagRows);
     },
     async createTag(input) {
       const id = createUniqueId(
