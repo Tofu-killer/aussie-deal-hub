@@ -47,8 +47,8 @@ services:
       dockerfile: Dockerfile
       target: api
       args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        SITE_URL: ${SITE_URL}
     environment:
       NODE_ENV: production
       API_HOST: 0.0.0.0
@@ -91,13 +91,13 @@ services:
       dockerfile: Dockerfile
       target: web
       args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        SITE_URL: ${SITE_URL}
     environment:
       NODE_ENV: production
       API_BASE_URL: ${API_BASE_URL:-http://api:3001}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      SITE_URL: ${SITE_URL}
       PUBLIC_SEEDED_DEALS_ENABLED: ${PUBLIC_SEEDED_DEALS_ENABLED:-}
       PORT: 3000
     ports:
@@ -121,8 +121,8 @@ services:
       dockerfile: Dockerfile
       target: admin
       args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        SITE_URL: ${SITE_URL}
     environment:
       NODE_ENV: production
       ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}
@@ -151,8 +151,8 @@ services:
       dockerfile: Dockerfile
       target: worker
       args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
-        SITE_URL: ${SITE_URL:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        SITE_URL: ${SITE_URL}
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}

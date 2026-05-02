@@ -242,6 +242,8 @@ describe("deployment artifacts", () => {
       "docker build . --target worker --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000",
     );
     expect(workflow).toContain("docker compose config");
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("SITE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("docker compose up -d --build");
     expect(workflow).toContain("pnpm smoke:container-health");
     expect(workflow).toContain("Dump container logs on failure");
@@ -488,6 +490,8 @@ describe("deployment artifacts", () => {
     const workflow = readRepoFile(".github/workflows/release-bundle.yml");
     const releaseBundleBlock = [
       "pnpm release:bundle",
+      "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 \\",
+      "SITE_URL=http://127.0.0.1:3000 \\",
       "RUNTIME_API_BASE_URL=http://127.0.0.1:3001 \\",
       "RUNTIME_WEB_BASE_URL=http://127.0.0.1:3000 \\",
       "RUNTIME_ADMIN_BASE_URL=http://127.0.0.1:3002 \\",
@@ -525,6 +529,8 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
     expect(workflow).toContain("permissions:\n  contents: read\n  actions: read");
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("SITE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
     expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
@@ -553,6 +559,7 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("/srv/aussie-deal-hub/releases");
     expect(readme).toContain("/srv/aussie-deal-hub/shared/.env.production");
     expect(readme).toContain("/srv/aussie-deal-hub/current");
+    expect(readme).toContain("requires that shared env file to define either `NEXT_PUBLIC_SITE_URL` or `SITE_URL`");
     expect(readme).toContain("captures remote compose logs for the failing stack");
     expect(readme).toContain("writes local failure diagnostics to `artifacts/release-deploy/<release-name>/`");
     expect(readme).toContain("`metadata.json`");
@@ -641,6 +648,8 @@ describe("deployment artifacts", () => {
     );
     expect(workflow).toContain("RELEASE_BUNDLE_ROOT");
     expect(workflow).toContain("working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}");
+    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
+    expect(workflow).toContain("SITE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
     expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
@@ -743,12 +752,12 @@ describe("deployment artifacts", () => {
       "SESSION_SECRET: ${SESSION_SECRET:-change-me-to-at-least-16-characters}",
     );
     expect(apiBlock).toContain("args:");
-    expect(apiBlock).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}");
-    expect(apiBlock).toContain("SITE_URL: ${SITE_URL:-http://localhost:3000}");
+    expect(apiBlock).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}");
+    expect(apiBlock).toContain("SITE_URL: ${SITE_URL}");
     expect(webBlock).toContain("args:");
     expect(webEnvironment).toContain("API_BASE_URL: ${API_BASE_URL:-http://api:3001}");
-    expect(webEnvironment).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}");
-    expect(webEnvironment).toContain("SITE_URL: ${SITE_URL:-http://localhost:3000}");
+    expect(webEnvironment).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}");
+    expect(webEnvironment).toContain("SITE_URL: ${SITE_URL}");
     expect(adminBlock).toContain("args:");
     expect(adminEnvironment).toContain("ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}");
     expect(workerBlock).toContain("args:");

@@ -109,6 +109,9 @@ jobs:
         run: docker build . --target worker --build-arg NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 --build-arg SITE_URL=http://127.0.0.1:3000
 
       - name: Start container stack
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          SITE_URL: http://127.0.0.1:3000
         run: docker compose up -d --build
 
       - name: Run container health smoke

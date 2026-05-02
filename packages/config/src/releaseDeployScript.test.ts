@@ -37,6 +37,10 @@ type ReleaseDeployScriptModule = {
   ) => Promise<void>;
 };
 
+const deployEnvPresenceCheck =
+  "(grep -Eq '^NEXT_PUBLIC_SITE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production' || " +
+  "grep -Eq '^SITE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production')";
+
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
 });
@@ -225,7 +229,7 @@ describe("release deploy script", () => {
           "-p",
           "2222",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {
@@ -335,7 +339,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {
@@ -489,7 +493,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {
@@ -597,7 +601,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {
@@ -736,7 +740,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {
@@ -875,7 +879,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production'",
+          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
         ],
       },
       {

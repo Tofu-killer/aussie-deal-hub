@@ -17,6 +17,8 @@ const repoRoot = path.join(import.meta.dirname, "../../..");
 const scriptPath = path.join(repoRoot, "scripts/release-rehearse.mjs");
 const tempDirs: string[] = [];
 const explicitRuntimeBaseEnv = {
+  NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3000",
+  SITE_URL: "http://127.0.0.1:3000",
   RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
   RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
   RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
@@ -77,6 +79,8 @@ async function installFakeCommand(
     "  cwd: process.cwd(),",
     "  argv: process.argv.slice(2),",
     "  env: {",
+    "    NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,",
+    "    SITE_URL: process.env.SITE_URL,",
     "    RUNTIME_API_BASE_URL: process.env.RUNTIME_API_BASE_URL,",
     "    RUNTIME_WEB_BASE_URL: process.env.RUNTIME_WEB_BASE_URL,",
     "    RUNTIME_ADMIN_BASE_URL: process.env.RUNTIME_ADMIN_BASE_URL,",
@@ -345,6 +349,8 @@ describe("release rehearse script", () => {
 
     const result = runReleaseRehearseScript(workspaceRoot, {
       CAPTURE_FILE: captureFilePath,
+      NEXT_PUBLIC_SITE_URL: explicitRuntimeBaseEnv.NEXT_PUBLIC_SITE_URL,
+      SITE_URL: explicitRuntimeBaseEnv.SITE_URL,
       PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
       RELEASE_REHEARSE_ROOT: bundleRoot,
     });
@@ -354,6 +360,35 @@ describe("release rehearse script", () => {
       "release:rehearse requires complete target URLs. Missing:",
     );
     expect(result.stderr).toContain("API_HEALTH_URL");
+    await expect(readFile(captureFilePath, "utf8")).rejects.toThrow();
+  });
+
+  it("fails before running commands when the compose build site url is missing", async () => {
+    const workspaceRoot = await createTempWorkspace();
+    const captureFilePath = path.join(workspaceRoot, "command-capture.jsonl");
+    const bundleRoot = await writeReleaseBundle(
+      workspaceRoot,
+      "aussie-deal-hub-release-20260430T041500Z-missing-site-url",
+      "2026-04-30T04:15:00.000Z",
+    );
+    const binDir = await installFakeCommand(workspaceRoot, "pnpm", captureFilePath);
+    await installFakeCommand(workspaceRoot, "docker", captureFilePath);
+
+    const result = runReleaseRehearseScript(workspaceRoot, {
+      CAPTURE_FILE: captureFilePath,
+      NEXT_PUBLIC_SITE_URL: "",
+      SITE_URL: "",
+      PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+      RELEASE_REHEARSE_ROOT: bundleRoot,
+      RUNTIME_API_BASE_URL: "http://127.0.0.1:3001",
+      RUNTIME_WEB_BASE_URL: "http://127.0.0.1:3000",
+      RUNTIME_ADMIN_BASE_URL: "http://127.0.0.1:3002",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "release:rehearse requires NEXT_PUBLIC_SITE_URL so compose builds cannot silently fall back to localhost SEO URLs.",
+    );
     await expect(readFile(captureFilePath, "utf8")).rejects.toThrow();
   });
 

@@ -11,6 +11,28 @@ import {
   validateRuntimeTargets,
 } from "./lib/runtime-targets.mjs";
 
+function normalizeEnvValue(rawValue) {
+  const trimmedValue = rawValue?.trim();
+
+  return trimmedValue ? trimmedValue : undefined;
+}
+
+function applyBuildTimeSiteUrl(env) {
+  const commandEnv = { ...env };
+
+  if (normalizeEnvValue(commandEnv.NEXT_PUBLIC_SITE_URL) === undefined) {
+    throw new Error(
+      "release:rehearse requires NEXT_PUBLIC_SITE_URL so compose builds cannot silently fall back to localhost SEO URLs.",
+    );
+  }
+
+  if (normalizeEnvValue(commandEnv.SITE_URL) === undefined) {
+    commandEnv.SITE_URL = commandEnv.NEXT_PUBLIC_SITE_URL;
+  }
+
+  return commandEnv;
+}
+
 function resolveReleaseRehearseRoot(cwd = process.cwd(), env = process.env) {
   const configuredRoot = env.RELEASE_REHEARSE_ROOT?.trim();
 
@@ -44,7 +66,7 @@ function runCommand(command, args, options = {}) {
 }
 
 export function resolveReleaseRehearseEnv(env = process.env) {
-  return resolveRuntimeTargetEnv(env);
+  return applyBuildTimeSiteUrl(resolveRuntimeTargetEnv(env));
 }
 
 export function validateReleaseRehearseEnv(env = process.env) {

@@ -78,6 +78,8 @@ jobs:
       - name: Rehearse release bundle
         working-directory: ${{ env.RELEASE_BUNDLE_ROOT }}
         env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          SITE_URL: http://127.0.0.1:3000
           RUNTIME_API_BASE_URL: http://127.0.0.1:3001
           RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000
           RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002

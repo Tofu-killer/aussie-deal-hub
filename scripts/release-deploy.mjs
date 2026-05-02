@@ -20,6 +20,8 @@ const REQUIRED_DEPLOY_ENV = [
   "DEPLOY_RUNTIME_ADMIN_BASE_URL",
 ];
 
+const REMOTE_SITE_URL_ENV_KEYS = ["NEXT_PUBLIC_SITE_URL", "SITE_URL"];
+
 function normalizeEnvValue(rawValue) {
   const trimmedValue = rawValue?.trim();
 
@@ -40,6 +42,12 @@ function normalizeRelativeRemotePath(rawValue, fallbackValue) {
 
 function quoteShellArgument(value) {
   return `'${String(value).replace(/'/gu, `'\\''`)}'`;
+}
+
+function buildRemoteEnvPresenceCheck(envFilePath, envKeys) {
+  return envKeys
+    .map((envKey) => `grep -Eq '^${envKey}=.+$' ${quoteShellArgument(envFilePath)}`)
+    .join(" || ");
 }
 
 function resolveReleaseDeployRoot(cwd = process.cwd(), env = process.env) {
@@ -269,6 +277,7 @@ export async function runReleaseDeployScript(
   const preflightCommand = [
     `mkdir -p ${quoteShellArgument(remoteReleasesRoot)} ${quoteShellArgument(remoteSharedRoot)}`,
     `test -f ${quoteShellArgument(remoteSharedEnvFile)}`,
+    `(${buildRemoteEnvPresenceCheck(remoteSharedEnvFile, REMOTE_SITE_URL_ENV_KEYS)})`,
   ].join(" && ");
   const deployCommand = [
     `ln -sfn ${quoteShellArgument(remoteReleaseRoot)} ${quoteShellArgument(remoteCurrentRoot)}`,
