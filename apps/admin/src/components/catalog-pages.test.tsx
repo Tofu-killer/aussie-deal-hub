@@ -32,6 +32,13 @@ function getRowForText(text: string) {
   return row;
 }
 
+function getRenderedRowNames(table: HTMLElement) {
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0]?.textContent?.trim() ?? "");
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -116,6 +123,14 @@ describe("catalog management pages", () => {
               status: "Active",
               owner: "Marketplace desk",
             },
+            {
+              id: "the-iconic",
+              name: "The Iconic",
+              activeDeals: 9,
+              primaryCategory: "Fashion",
+              status: "Active",
+              owner: "Lifestyle desk",
+            },
           ],
         }),
       )
@@ -155,6 +170,11 @@ describe("catalog management pages", () => {
     expect(within(row).getByText("Unassigned")).toBeTruthy();
     expect(within(row).getByText("Draft")).toBeTruthy();
     expect(within(row).getByText("Admin catalog")).toBeTruthy();
+    expect(getRenderedRowNames(screen.getByRole("table"))).toEqual([
+      "Amazon AU",
+      "JB Hi-Fi",
+      "The Iconic",
+    ]);
     expect((screen.getByLabelText("Merchant name") as HTMLInputElement).value).toBe("");
   });
 
@@ -410,15 +430,23 @@ describe("catalog management pages", () => {
               localization: "EN + ZH ready",
               owner: "Discovery desk",
             },
+            {
+              id: "travel",
+              name: "Travel",
+              slug: "travel",
+              visibleDeals: 7,
+              localization: "Needs ZH review",
+              owner: "Lifestyle desk",
+            },
           ],
         }),
       )
       .mockResolvedValueOnce(
         createJsonResponse({
-          id: "gaming",
-          name: "Gaming Deals",
-          slug: "gaming-deals",
-          visibleDeals: 18,
+          id: "travel",
+          name: "Audio",
+          slug: "audio",
+          visibleDeals: 7,
           localization: "EN only",
           owner: "Merch desk",
         }),
@@ -427,12 +455,12 @@ describe("catalog management pages", () => {
 
     await renderCatalogPage(TagsPage);
 
-    const row = await waitFor(() => getRowForText("Gaming"));
+    const row = await waitFor(() => getRowForText("Travel"));
     await user.click(within(row).getByRole("button", { name: "Edit tag" }));
     await user.clear(within(row).getByLabelText("Tag name"));
-    await user.type(within(row).getByLabelText("Tag name"), "Gaming Deals");
+    await user.type(within(row).getByLabelText("Tag name"), "Audio");
     await user.clear(within(row).getByLabelText("Slug"));
-    await user.type(within(row).getByLabelText("Slug"), "gaming-deals");
+    await user.type(within(row).getByLabelText("Slug"), "audio");
     await user.clear(within(row).getByLabelText("Localization"));
     await user.type(within(row).getByLabelText("Localization"), "EN only");
     await user.clear(within(row).getByLabelText("Owner"));
@@ -442,24 +470,25 @@ describe("catalog management pages", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/tags", {
       cache: "no-store",
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/tags/gaming", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/tags/travel", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: "Gaming Deals",
-        slug: "gaming-deals",
+        name: "Audio",
+        slug: "audio",
         localization: "EN only",
         owner: "Merch desk",
       }),
     });
 
     expect(await screen.findByText("Tag updated.")).toBeTruthy();
-    expect(within(row).getByText("Gaming Deals")).toBeTruthy();
-    expect(within(row).getByText("gaming-deals")).toBeTruthy();
-    expect(within(row).getByText("EN only")).toBeTruthy();
-    expect(within(row).getByText("Merch desk")).toBeTruthy();
+    const updatedRow = await waitFor(() => getRowForText("Audio"));
+    expect(within(updatedRow).getByText("audio")).toBeTruthy();
+    expect(within(updatedRow).getByText("EN only")).toBeTruthy();
+    expect(within(updatedRow).getByText("Merch desk")).toBeTruthy();
+    expect(getRenderedRowNames(screen.getByRole("table"))).toEqual(["Audio", "Gaming"]);
   });
 
   it("deletes a tag row and removes it from the rendered table", async () => {

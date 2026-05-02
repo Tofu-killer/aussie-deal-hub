@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  appendSortedRowByName,
+  replaceSortedRowByName,
+  sortRowsByName,
+} from "../../lib/catalogRowOrdering";
 
 interface MerchantRow {
   id: string;
@@ -276,7 +281,7 @@ export default function MerchantsPage() {
         return;
       }
 
-      setMerchants(result.items);
+      setMerchants(sortRowsByName(result.items));
       setError(result.error);
       setIsLoading(false);
     }
@@ -304,7 +309,7 @@ export default function MerchantsPage() {
 
     const { merchant } = result;
 
-    setMerchants((currentMerchants) => [merchant, ...currentMerchants]);
+    setMerchants((currentMerchants) => appendSortedRowByName(currentMerchants, merchant));
     setError(null);
     setCreateMerchantForm(emptyCreateMerchantForm);
     setFeedback("Merchant created.");
@@ -345,9 +350,7 @@ export default function MerchantsPage() {
     }
 
     setMerchants((currentMerchants) =>
-      currentMerchants.map((merchant) =>
-        merchant.id === merchantId ? result.merchant! : merchant,
-      ),
+      replaceSortedRowByName(currentMerchants, result.merchant!),
     );
     setError(null);
     stopEditingMerchant();

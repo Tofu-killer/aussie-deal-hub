@@ -22,6 +22,13 @@ function getRowForText(text: string) {
   return row;
 }
 
+function getRenderedRowNames(table: HTMLElement) {
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0]?.textContent?.trim() ?? "");
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -70,7 +77,28 @@ describe("topics page", () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(createJsonResponse({ items: [] }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "gaming-setup",
+              name: "Gaming Setup",
+              slug: "gaming-setup",
+              spotlightDeals: 9,
+              status: "Active",
+              owner: "Discovery desk",
+            },
+            {
+              id: "work-from-home",
+              name: "Work From Home",
+              slug: "work-from-home",
+              spotlightDeals: 6,
+              status: "Active",
+              owner: "Discovery desk",
+            },
+          ],
+        }),
+      )
       .mockResolvedValueOnce(
         createJsonResponse({
           id: "eofy-tech",
@@ -106,6 +134,11 @@ describe("topics page", () => {
     expect(within(row).getByText("0")).toBeTruthy();
     expect(within(row).getByText("Draft")).toBeTruthy();
     expect(within(row).getByText("Admin topics")).toBeTruthy();
+    expect(getRenderedRowNames(screen.getByRole("table"))).toEqual([
+      "EOFY Tech",
+      "Gaming Setup",
+      "Work From Home",
+    ]);
   });
 
   it("edits a topic row and saves the updated topic fields", async () => {

@@ -122,8 +122,8 @@ The liveness/readiness split is:
 When `/v1/ready` returns `ok: false`, the web and admin `/ready` proxies preserve that readiness payload, and the readiness smoke surfaces the failing `dependencies` keys directly in the error output.
 The worker runtime readiness target is stricter than the startup grace window: the smoke only passes after `/v1/admin/runtime/worker` reports `ok: true` with `status: "ok"` from a fresh completed worker pass, so `status: "starting"` or an attempted-but-not-completed first pass do not count as a verified deploy.
 The admin dashboard follows the same contract: a worker in `status: "starting"` is shown as still booting its first pass, not as healthy.
-The admin catalog pages for merchants, tags, and topics now support create, inline edit/save, and delete flows, and tag/topic slug updates keep the uniqueness contract enforced in both the API and the database-backed store.
-The sources page now supports create, save, poll-now, enable/disable, and delete flows, with source deletion removing the stored source row through the admin API contract.
+The admin catalog pages for merchants, tags, and topics now support create, inline edit/save, and delete flows, keep list ordering aligned with the API's alphabetical contract after client-side mutations, and keep tag/topic slug updates uniqueness-enforced in both the API and the database-backed store.
+The sources page now supports create, save, poll-now, enable/disable, and delete flows, keeps client-side create ordering aligned with the API's alphabetical source contract, and removes deleted source rows through the admin API contract.
 Expect the API readiness `dependencies` map to stay explicit about scope: `dbConnectivity` only proves the primary database connection, while `dbCatalogSchema`, `dbPublishingSchema`, and `dbUserEngagementSchema` cover the higher-level Prisma model groups.
 Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.
 

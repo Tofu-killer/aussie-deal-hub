@@ -31,6 +31,13 @@ function getRowForSource(name: string) {
   return row;
 }
 
+function getRenderedSourceNames(table: HTMLElement) {
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0]?.textContent?.trim() ?? "");
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -230,7 +237,40 @@ describe("sources page", () => {
       .fn()
       .mockResolvedValueOnce(
         createJsonResponse({
-          items: [],
+          items: [
+            {
+              id: "source_1",
+              name: "Amazon AU",
+              sourceType: "community",
+              baseUrl: "https://www.amazon.com.au",
+              fetchMethod: "html",
+              pollIntervalMinutes: 60,
+              trustScore: 91,
+              language: "en-AU",
+              enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+            {
+              id: "source_2",
+              name: "OzBargain",
+              sourceType: "publisher",
+              baseUrl: "https://www.ozbargain.com.au",
+              fetchMethod: "json",
+              pollIntervalMinutes: 180,
+              trustScore: 88,
+              language: "en-AU",
+              enabled: false,
+              pollCount: 1,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+          ],
         }),
       )
       .mockResolvedValueOnce(
@@ -289,6 +329,11 @@ describe("sources page", () => {
     expect(within(row).getByText("Enabled")).toBeTruthy();
     expect(within(row).getByDisplayValue("json")).toBeTruthy();
     expect(within(row).getByDisplayValue("240")).toBeTruthy();
+    expect(getRenderedSourceNames(screen.getByRole("table"))).toEqual([
+      "Amazon AU",
+      "OzBargain",
+      "PriceHipster AU",
+    ]);
     expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Base URL") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Language") as HTMLInputElement).value).toBe("");

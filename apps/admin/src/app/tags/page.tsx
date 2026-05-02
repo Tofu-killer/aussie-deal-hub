@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  appendSortedRowByName,
+  replaceSortedRowByName,
+  sortRowsByName,
+} from "../../lib/catalogRowOrdering";
 
 interface TagRow {
   id: string;
@@ -271,7 +276,7 @@ export default function TagsPage() {
         return;
       }
 
-      setTags(result.items);
+      setTags(sortRowsByName(result.items));
       setError(result.error);
       setIsLoading(false);
     }
@@ -299,7 +304,7 @@ export default function TagsPage() {
 
     const { tag } = result;
 
-    setTags((currentTags) => [tag, ...currentTags]);
+    setTags((currentTags) => appendSortedRowByName(currentTags, tag));
     setError(null);
     setCreateTagForm(emptyCreateTagForm);
     setFeedback("Tag created.");
@@ -339,7 +344,7 @@ export default function TagsPage() {
       return;
     }
 
-    setTags((currentTags) => currentTags.map((tag) => (tag.id === tagId ? result.tag! : tag)));
+    setTags((currentTags) => replaceSortedRowByName(currentTags, result.tag!));
     setError(null);
     stopEditingTag();
     setFeedback("Tag updated.");

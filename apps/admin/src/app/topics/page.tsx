@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  appendSortedRowByName,
+  replaceSortedRowByName,
+  sortRowsByName,
+} from "../../lib/catalogRowOrdering";
 
 interface TopicRow {
   id: string;
@@ -274,7 +279,7 @@ export default function TopicsPage() {
         return;
       }
 
-      setTopics(result.items);
+      setTopics(sortRowsByName(result.items));
       setError(result.error);
       setIsLoading(false);
     }
@@ -300,7 +305,7 @@ export default function TopicsPage() {
       return;
     }
 
-    setTopics((currentTopics) => [result.topic, ...currentTopics]);
+    setTopics((currentTopics) => appendSortedRowByName(currentTopics, result.topic!));
     setError(null);
     setCreateTopicForm(emptyCreateTopicForm);
     setFeedback("Topic created.");
@@ -340,9 +345,7 @@ export default function TopicsPage() {
       return;
     }
 
-    setTopics((currentTopics) =>
-      currentTopics.map((topic) => (topic.id === topicId ? result.topic! : topic)),
-    );
+    setTopics((currentTopics) => replaceSortedRowByName(currentTopics, result.topic!));
     setError(null);
     stopEditingTopic();
     setFeedback("Topic updated.");

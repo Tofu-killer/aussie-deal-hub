@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { appendSortedRowByName, sortRowsByName } from "../../lib/catalogRowOrdering";
 
 const sourceFetchMethods = ["html", "json"] as const;
 
@@ -274,8 +275,10 @@ export default function SourcesPage() {
         return;
       }
 
-      setSources(result.items);
-      setSourceSettingsForms(buildSourceSettingsFormMap(result.items));
+      const sortedItems = sortRowsByName(result.items);
+
+      setSources(sortedItems);
+      setSourceSettingsForms(buildSourceSettingsFormMap(sortedItems));
       setError(result.error);
       setIsLoading(false);
     }
@@ -423,7 +426,7 @@ export default function SourcesPage() {
       return;
     }
 
-    setSources((currentSources) => [result.source!, ...currentSources]);
+    setSources((currentSources) => appendSortedRowByName(currentSources, result.source!));
     setSourceSettingsForms((currentForms) => ({
       [result.source!.id]: buildSourceSettingsForm(result.source!),
       ...currentForms,
