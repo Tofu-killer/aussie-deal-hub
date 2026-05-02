@@ -107,4 +107,117 @@ describe("topics page", () => {
     expect(within(row).getByText("Draft")).toBeTruthy();
     expect(within(row).getByText("Admin topics")).toBeTruthy();
   });
+
+  it("edits a topic row and saves the updated topic fields", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "work-from-home",
+              name: "Work From Home",
+              slug: "work-from-home",
+              spotlightDeals: 6,
+              status: "Active",
+              owner: "Discovery desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "work-from-home",
+          name: "Remote Work",
+          slug: "remote-work",
+          spotlightDeals: 6,
+          status: "Archived",
+          owner: "Editorial desk",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TopicsPage />);
+
+    const row = await waitFor(() => getRowForText("Work From Home"));
+    await user.click(within(row).getByRole("button", { name: "Edit topic" }));
+    await user.clear(within(row).getByLabelText("Topic name"));
+    await user.type(within(row).getByLabelText("Topic name"), "Remote Work");
+    await user.clear(within(row).getByLabelText("Slug"));
+    await user.type(within(row).getByLabelText("Slug"), "remote-work");
+    await user.clear(within(row).getByLabelText("Status"));
+    await user.type(within(row).getByLabelText("Status"), "Archived");
+    await user.clear(within(row).getByLabelText("Owner"));
+    await user.type(within(row).getByLabelText("Owner"), "Editorial desk");
+    await user.click(within(row).getByRole("button", { name: "Save topic" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/topics", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/topics/work-from-home", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Remote Work",
+        slug: "remote-work",
+        status: "Archived",
+        owner: "Editorial desk",
+      }),
+    });
+    expect(await screen.findByText("Topic updated.")).toBeTruthy();
+    expect(within(row).getByText("Remote Work")).toBeTruthy();
+    expect(within(row).getByText("remote-work")).toBeTruthy();
+    expect(within(row).getByText("Archived")).toBeTruthy();
+    expect(within(row).getByText("Editorial desk")).toBeTruthy();
+  });
+
+  it("deletes a topic row and removes it from the rendered table", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "work-from-home",
+              name: "Work From Home",
+              slug: "work-from-home",
+              spotlightDeals: 6,
+              status: "Active",
+              owner: "Discovery desk",
+            },
+            {
+              id: "gaming-setup",
+              name: "Gaming Setup",
+              slug: "gaming-setup",
+              spotlightDeals: 9,
+              status: "Active",
+              owner: "Discovery desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse(undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TopicsPage />);
+
+    const row = await waitFor(() => getRowForText("Work From Home"));
+    await user.click(within(row).getByRole("button", { name: "Delete topic" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/topics", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/topics/work-from-home", {
+      method: "DELETE",
+    });
+    expect(await screen.findByText("Topic deleted.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Work From Home")).toBeNull();
+    });
+    expect(screen.getByText("Gaming Setup")).toBeTruthy();
+  });
 });

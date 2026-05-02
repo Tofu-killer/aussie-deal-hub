@@ -433,4 +433,307 @@ describeDb("admin catalog persistence", () => {
       await restoreCatalogBaseline();
     }
   });
+
+  it("creates a tag row with a unique slug when an existing tag already uses the base slug", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const updateResponse = await dispatchRequest(app, {
+        method: "PATCH",
+        path: "/v1/admin/tags/travel",
+        body: {
+          slug: "home-office",
+        },
+      });
+      const createResponse = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/tags",
+        body: {
+          name: "Home Office",
+        },
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body).toEqual({
+        id: "home-office-2",
+        name: "Home Office",
+        slug: "home-office-2",
+        visibleDeals: 0,
+        localization: "Needs localization",
+        owner: "Admin catalog",
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("updates a merchant row and persists the edited catalog fields", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const updateResponse = await dispatchRequest(app, {
+        method: "PATCH",
+        path: "/v1/admin/merchants/amazon-au",
+        body: {
+          name: "Amazon Australia",
+          primaryCategory: "Marketplace",
+          status: "Paused",
+          owner: "Commerce desk",
+        },
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body).toEqual({
+        id: "amazon-au",
+        name: "Amazon Australia",
+        activeDeals: 42,
+        primaryCategory: "Marketplace",
+        status: "Paused",
+        owner: "Commerce desk",
+      });
+
+      const persisted = await prisma.merchantCatalog.findUnique({
+        where: {
+          id: "amazon-au",
+        },
+        select: {
+          id: true,
+          name: true,
+          activeDeals: true,
+          primaryCategory: true,
+          status: true,
+          owner: true,
+        },
+      });
+
+      expect(persisted).toEqual({
+        id: "amazon-au",
+        name: "Amazon Australia",
+        activeDeals: 42,
+        primaryCategory: "Marketplace",
+        status: "Paused",
+        owner: "Commerce desk",
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("updates a tag row and persists the edited catalog fields", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const updateResponse = await dispatchRequest(app, {
+        method: "PATCH",
+        path: "/v1/admin/tags/travel",
+        body: {
+          name: "Travel Deals",
+          slug: "travel-deals",
+          localization: "EN only",
+          owner: "Merch desk",
+        },
+      });
+
+      expect(updateResponse.status).toBe(200);
+      expect(updateResponse.body).toEqual({
+        id: "travel",
+        name: "Travel Deals",
+        slug: "travel-deals",
+        visibleDeals: 7,
+        localization: "EN only",
+        owner: "Merch desk",
+      });
+
+      const persisted = await prisma.tagCatalog.findUnique({
+        where: {
+          id: "travel",
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          visibleDeals: true,
+          localization: true,
+          owner: true,
+        },
+      });
+
+      expect(persisted).toEqual({
+        id: "travel",
+        name: "Travel Deals",
+        slug: "travel-deals",
+        visibleDeals: 7,
+        localization: "EN only",
+        owner: "Merch desk",
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("deletes a merchant row and persists its removal from the catalog store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const deleteResponse = await dispatchRequest(app, {
+        method: "DELETE",
+        path: "/v1/admin/merchants/amazon-au",
+      });
+
+      expect(deleteResponse.status).toBe(204);
+      expect(deleteResponse.body).toBeUndefined();
+
+      const persisted = await prisma.merchantCatalog.findUnique({
+        where: {
+          id: "amazon-au",
+        },
+      });
+
+      expect(persisted).toBeNull();
+
+      const listResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/merchants",
+      });
+
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toEqual({
+        items: [
+          {
+            id: "chemist-warehouse",
+            name: "Chemist Warehouse",
+            activeDeals: 17,
+            primaryCategory: "Health",
+            status: "Needs review",
+            owner: "Retail desk",
+          },
+          {
+            id: "the-iconic",
+            name: "The Iconic",
+            activeDeals: 9,
+            primaryCategory: "Fashion",
+            status: "Active",
+            owner: "Lifestyle desk",
+          },
+        ],
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("deletes a tag row and persists its removal from the catalog store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const deleteResponse = await dispatchRequest(app, {
+        method: "DELETE",
+        path: "/v1/admin/tags/travel",
+      });
+
+      expect(deleteResponse.status).toBe(204);
+      expect(deleteResponse.body).toBeUndefined();
+
+      const persisted = await prisma.tagCatalog.findUnique({
+        where: {
+          id: "travel",
+        },
+      });
+
+      expect(persisted).toBeNull();
+
+      const listResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/tags",
+      });
+
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body).toEqual({
+        items: [
+          {
+            id: "gaming",
+            name: "Gaming",
+            slug: "gaming",
+            visibleDeals: 18,
+            localization: "EN + ZH ready",
+            owner: "Discovery desk",
+          },
+          {
+            id: "grocery",
+            name: "Grocery",
+            slug: "grocery",
+            visibleDeals: 25,
+            localization: "EN + ZH ready",
+            owner: "Everyday desk",
+          },
+        ],
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("rejects duplicate tag slugs against the database-backed catalog store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const response = await dispatchRequest(app, {
+        method: "PATCH",
+        path: "/v1/admin/tags/travel",
+        body: {
+          slug: "grocery",
+        },
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        message: "Slug already exists.",
+      });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
 });

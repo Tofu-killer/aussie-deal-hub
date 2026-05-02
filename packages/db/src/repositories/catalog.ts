@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../client.ts";
 
 export interface MerchantCatalogRecord {
@@ -108,6 +109,39 @@ const seededTopics: TopicCatalogRecord[] = [
   },
 ];
 
+const merchantCatalogSelect = {
+  id: true,
+  name: true,
+  activeDeals: true,
+  primaryCategory: true,
+  status: true,
+  owner: true,
+} satisfies Prisma.MerchantCatalogSelect;
+
+const tagCatalogSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  visibleDeals: true,
+  localization: true,
+  owner: true,
+} satisfies Prisma.TagCatalogSelect;
+
+const topicCatalogSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  spotlightDeals: true,
+  status: true,
+  owner: true,
+} satisfies Prisma.TopicCatalogSelect;
+
+function createConflictError(name: string, message: string) {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
+
 function slugify(value: string) {
   return value
     .trim()
@@ -158,14 +192,7 @@ export function createAdminCatalogRepository() {
         orderBy: {
           name: "asc",
         },
-        select: {
-          id: true,
-          name: true,
-          activeDeals: true,
-          primaryCategory: true,
-          status: true,
-          owner: true,
-        },
+        select: merchantCatalogSelect,
       });
     },
     async createMerchant(input: {
@@ -185,29 +212,59 @@ export function createAdminCatalogRepository() {
           id,
           name: input.name,
         },
-        select: {
-          id: true,
-          name: true,
-          activeDeals: true,
-          primaryCategory: true,
-          status: true,
-          owner: true,
-        },
+        select: merchantCatalogSelect,
       });
+    },
+    async updateMerchant(input: {
+      id: string;
+      name?: string;
+      primaryCategory?: string;
+      status?: string;
+      owner?: string;
+    }): Promise<MerchantCatalogRecord | null> {
+      try {
+        return await prisma.merchantCatalog.update({
+          where: {
+            id: input.id,
+          },
+          data: {
+            name: input.name,
+            primaryCategory: input.primaryCategory,
+            status: input.status,
+            owner: input.owner,
+          },
+          select: merchantCatalogSelect,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    async deleteMerchant(id: string): Promise<boolean> {
+      try {
+        await prisma.merchantCatalog.delete({
+          where: {
+            id,
+          },
+        });
+        return true;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return false;
+        }
+
+        throw error;
+      }
     },
     async listTags(): Promise<TagCatalogRecord[]> {
       return prisma.tagCatalog.findMany({
         orderBy: {
           name: "asc",
         },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          visibleDeals: true,
-          localization: true,
-          owner: true,
-        },
+        select: tagCatalogSelect,
       });
     },
     async createTag(input: {
@@ -217,9 +274,10 @@ export function createAdminCatalogRepository() {
         await prisma.tagCatalog.findMany({
           select: {
             id: true,
+            slug: true,
           },
         })
-      ).map((row) => row.id);
+      ).flatMap((row) => [row.id, row.slug]);
       const id = createUniqueId(input.name, existingIds);
 
       return prisma.tagCatalog.create({
@@ -228,29 +286,74 @@ export function createAdminCatalogRepository() {
           name: input.name,
           slug: id,
         },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          visibleDeals: true,
-          localization: true,
-          owner: true,
-        },
+        select: tagCatalogSelect,
       });
+    },
+    async updateTag(input: {
+      id: string;
+      name?: string;
+      slug?: string;
+      localization?: string;
+      owner?: string;
+    }): Promise<TagCatalogRecord | null> {
+      if (input.slug) {
+        const existing = await prisma.tagCatalog.findUnique({
+          where: {
+            slug: input.slug,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (existing && existing.id !== input.id) {
+          throw createConflictError("CatalogConflictError", "Slug already exists.");
+        }
+      }
+
+      try {
+        return await prisma.tagCatalog.update({
+          where: {
+            id: input.id,
+          },
+          data: {
+            name: input.name,
+            slug: input.slug,
+            localization: input.localization,
+            owner: input.owner,
+          },
+          select: tagCatalogSelect,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    async deleteTag(id: string): Promise<boolean> {
+      try {
+        await prisma.tagCatalog.delete({
+          where: {
+            id,
+          },
+        });
+        return true;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return false;
+        }
+
+        throw error;
+      }
     },
     async listTopics(): Promise<TopicCatalogRecord[]> {
       return prisma.topicCatalog.findMany({
         orderBy: {
           name: "asc",
         },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          spotlightDeals: true,
-          status: true,
-          owner: true,
-        },
+        select: topicCatalogSelect,
       });
     },
     async createTopic(input: {
@@ -260,9 +363,10 @@ export function createAdminCatalogRepository() {
         await prisma.topicCatalog.findMany({
           select: {
             id: true,
+            slug: true,
           },
         })
-      ).map((row) => row.id);
+      ).flatMap((row) => [row.id, row.slug]);
       const id = createUniqueId(input.name, existingIds);
 
       return prisma.topicCatalog.create({
@@ -271,15 +375,67 @@ export function createAdminCatalogRepository() {
           name: input.name,
           slug: id,
         },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          spotlightDeals: true,
-          status: true,
-          owner: true,
-        },
+        select: topicCatalogSelect,
       });
+    },
+    async updateTopic(input: {
+      id: string;
+      name?: string;
+      slug?: string;
+      status?: string;
+      owner?: string;
+    }): Promise<TopicCatalogRecord | null> {
+      if (input.slug) {
+        const existing = await prisma.topicCatalog.findUnique({
+          where: {
+            slug: input.slug,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (existing && existing.id !== input.id) {
+          throw createConflictError("TopicConflictError", "Slug already exists.");
+        }
+      }
+
+      try {
+        return await prisma.topicCatalog.update({
+          where: {
+            id: input.id,
+          },
+          data: {
+            name: input.name,
+            slug: input.slug,
+            status: input.status,
+            owner: input.owner,
+          },
+          select: topicCatalogSelect,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+    async deleteTopic(id: string): Promise<boolean> {
+      try {
+        await prisma.topicCatalog.delete({
+          where: {
+            id,
+          },
+        });
+        return true;
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+          return false;
+        }
+
+        throw error;
+      }
     },
   };
 }

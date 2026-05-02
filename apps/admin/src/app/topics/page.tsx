@@ -21,12 +21,35 @@ interface TopicCreateResult {
   error: string | null;
 }
 
+interface TopicUpdateResult {
+  topic: TopicRow | null;
+  error: string | null;
+}
+
+interface TopicDeleteResult {
+  error: string | null;
+}
+
 interface CreateTopicFormState {
   name: string;
 }
 
+interface EditTopicFormState {
+  name: string;
+  slug: string;
+  status: string;
+  owner: string;
+}
+
 const emptyCreateTopicForm: CreateTopicFormState = {
   name: "",
+};
+
+const emptyEditTopicForm: EditTopicFormState = {
+  name: "",
+  slug: "",
+  status: "",
+  owner: "",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,6 +62,24 @@ function readString(value: unknown) {
 
 function readNumber(value: unknown) {
   return typeof value === "number" ? value : 0;
+}
+
+async function readResponseMessage(response: Response, fallback: string) {
+  try {
+    const body = await response.json();
+
+    if (isRecord(body)) {
+      const message = readString(body.message).trim();
+
+      if (message) {
+        return message;
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
 }
 
 function normalizeTopicRow(value: unknown): TopicRow | null {
@@ -147,13 +188,80 @@ async function createTopic(name: string): Promise<TopicCreateResult> {
   }
 }
 
+async function updateTopic(
+  topicId: string,
+  input: EditTopicFormState,
+): Promise<TopicUpdateResult> {
+  try {
+    const response = await fetch(`/v1/admin/topics/${topicId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      return {
+        topic: null,
+        error: await readResponseMessage(response, "Failed to update topic."),
+      };
+    }
+
+    const topic = normalizeTopicRow(await response.json());
+
+    if (!topic) {
+      return {
+        topic: null,
+        error: "Failed to update topic.",
+      };
+    }
+
+    return {
+      topic,
+      error: null,
+    };
+  } catch {
+    return {
+      topic: null,
+      error: "Failed to update topic.",
+    };
+  }
+}
+
+async function deleteTopic(topicId: string): Promise<TopicDeleteResult> {
+  try {
+    const response = await fetch(`/v1/admin/topics/${topicId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      return {
+        error: await readResponseMessage(response, "Failed to delete topic."),
+      };
+    }
+
+    return {
+      error: null,
+    };
+  } catch {
+    return {
+      error: "Failed to delete topic.",
+    };
+  }
+}
+
 export default function TopicsPage() {
   const [topics, setTopics] = useState<TopicRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [createTopicForm, setCreateTopicForm] = useState<CreateTopicFormState>(emptyCreateTopicForm);
+  const [editTopicForm, setEditTopicForm] = useState<EditTopicFormState>(emptyEditTopicForm);
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSavingTopicId, setIsSavingTopicId] = useState<string | null>(null);
+  const [isDeletingTopicId, setIsDeletingTopicId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,6 +304,70 @@ export default function TopicsPage() {
     setError(null);
     setCreateTopicForm(emptyCreateTopicForm);
     setFeedback("Topic created.");
+  }
+
+  function startEditingTopic(topic: TopicRow) {
+    setFeedback(null);
+    setEditingTopicId(topic.id);
+    setEditTopicForm({
+      name: topic.name,
+      slug: topic.slug,
+      status: topic.status,
+      owner: topic.owner,
+    });
+  }
+
+  function stopEditingTopic() {
+    setEditingTopicId(null);
+    setEditTopicForm(emptyEditTopicForm);
+  }
+
+  async function handleSaveTopic(topicId: string) {
+    setFeedback(null);
+    setIsSavingTopicId(topicId);
+
+    const result = await updateTopic(topicId, {
+      name: editTopicForm.name.trim(),
+      slug: editTopicForm.slug.trim(),
+      status: editTopicForm.status.trim(),
+      owner: editTopicForm.owner.trim(),
+    });
+
+    setIsSavingTopicId(null);
+
+    if (result.error || !result.topic) {
+      setFeedback(result.error ?? "Failed to update topic.");
+      return;
+    }
+
+    setTopics((currentTopics) =>
+      currentTopics.map((topic) => (topic.id === topicId ? result.topic! : topic)),
+    );
+    setError(null);
+    stopEditingTopic();
+    setFeedback("Topic updated.");
+  }
+
+  async function handleDeleteTopic(topicId: string) {
+    setFeedback(null);
+    setIsDeletingTopicId(topicId);
+
+    const result = await deleteTopic(topicId);
+
+    setIsDeletingTopicId(null);
+
+    if (result.error) {
+      setFeedback(result.error);
+      return;
+    }
+
+    setTopics((currentTopics) => currentTopics.filter((topic) => topic.id !== topicId));
+
+    if (editingTopicId === topicId) {
+      stopEditingTopic();
+    }
+
+    setFeedback("Topic deleted.");
   }
 
   return (
@@ -242,18 +414,136 @@ export default function TopicsPage() {
               <th>Spotlight deals</th>
               <th>Status</th>
               <th>Owner</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {topics.map((topic) => (
-              <tr key={topic.id}>
-                <td>{topic.name}</td>
-                <td>{topic.slug}</td>
-                <td>{topic.spotlightDeals}</td>
-                <td>{topic.status}</td>
-                <td>{topic.owner}</td>
-              </tr>
-            ))}
+            {topics.map((topic) => {
+              const isEditing = topic.id === editingTopicId;
+              const isSaving = topic.id === isSavingTopicId;
+              const isDeleting = topic.id === isDeletingTopicId;
+
+              return (
+                <tr key={topic.id}>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Topic name"
+                        onChange={(event) => {
+                          setEditTopicForm((currentForm) => ({
+                            ...currentForm,
+                            name: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editTopicForm.name}
+                      />
+                    ) : (
+                      topic.name
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Slug"
+                        onChange={(event) => {
+                          setEditTopicForm((currentForm) => ({
+                            ...currentForm,
+                            slug: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editTopicForm.slug}
+                      />
+                    ) : (
+                      topic.slug
+                    )}
+                  </td>
+                  <td>{topic.spotlightDeals}</td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Status"
+                        onChange={(event) => {
+                          setEditTopicForm((currentForm) => ({
+                            ...currentForm,
+                            status: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editTopicForm.status}
+                      />
+                    ) : (
+                      topic.status
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Owner"
+                        onChange={(event) => {
+                          setEditTopicForm((currentForm) => ({
+                            ...currentForm,
+                            owner: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editTopicForm.owner}
+                      />
+                    ) : (
+                      topic.owner
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <>
+                        <button
+                          disabled={isSaving}
+                          onClick={() => {
+                            void handleSaveTopic(topic.id);
+                          }}
+                          type="button"
+                        >
+                          {isSaving ? "Saving topic..." : "Save topic"}
+                        </button>
+                        <button
+                          disabled={isSaving}
+                          onClick={stopEditingTopic}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          disabled={isDeleting}
+                          onClick={() => {
+                            startEditingTopic(topic);
+                          }}
+                          type="button"
+                        >
+                          Edit topic
+                        </button>
+                        <button
+                          disabled={isDeleting}
+                          onClick={() => {
+                            void handleDeleteTopic(topic.id);
+                          }}
+                          type="button"
+                        >
+                          {isDeleting ? "Deleting topic..." : "Delete topic"}
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

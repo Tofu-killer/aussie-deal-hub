@@ -110,6 +110,8 @@ buildApp({
   adminTopicsStore: {
     listTopics: adminCatalogStore.listTopics,
     createTopic: adminCatalogStore.createTopic,
+    updateTopic: adminCatalogStore.updateTopic,
+    deleteTopic: adminCatalogStore.deleteTopic,
   },
   adminLeadStore,
   digestPreferencesStore: {

@@ -102,6 +102,24 @@ export async function updateSource(
   }
 }
 
+export async function deleteSource(sourceId: string): Promise<boolean> {
+  try {
+    await prisma.source.delete({
+      where: {
+        id: sourceId,
+      },
+    });
+
+    return true;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
 export interface SourcePollUpdateInput {
   sourceId: string;
   createdLeadCount: number;

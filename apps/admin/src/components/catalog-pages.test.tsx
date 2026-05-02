@@ -158,6 +158,123 @@ describe("catalog management pages", () => {
     expect((screen.getByLabelText("Merchant name") as HTMLInputElement).value).toBe("");
   });
 
+  it("edits a merchant row and saves the updated catalog fields", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "amazon-au",
+              name: "Amazon AU",
+              activeDeals: 42,
+              primaryCategory: "Electronics",
+              status: "Active",
+              owner: "Marketplace desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "amazon-au",
+          name: "Amazon Australia",
+          activeDeals: 42,
+          primaryCategory: "Marketplace",
+          status: "Paused",
+          owner: "Commerce desk",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(MerchantsPage);
+
+    const row = await waitFor(() => getRowForText("Amazon AU"));
+    await user.click(within(row).getByRole("button", { name: "Edit merchant" }));
+    await user.clear(within(row).getByLabelText("Merchant name"));
+    await user.type(within(row).getByLabelText("Merchant name"), "Amazon Australia");
+    await user.clear(within(row).getByLabelText("Primary category"));
+    await user.type(within(row).getByLabelText("Primary category"), "Marketplace");
+    await user.clear(within(row).getByLabelText("Status"));
+    await user.type(within(row).getByLabelText("Status"), "Paused");
+    await user.clear(within(row).getByLabelText("Owner"));
+    await user.type(within(row).getByLabelText("Owner"), "Commerce desk");
+    await user.click(within(row).getByRole("button", { name: "Save merchant" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/merchants", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/merchants/amazon-au", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Amazon Australia",
+        primaryCategory: "Marketplace",
+        status: "Paused",
+        owner: "Commerce desk",
+      }),
+    });
+
+    expect(await screen.findByText("Merchant updated.")).toBeTruthy();
+    expect(within(row).getByText("Amazon Australia")).toBeTruthy();
+    expect(within(row).getByText("Marketplace")).toBeTruthy();
+    expect(within(row).getByText("Paused")).toBeTruthy();
+    expect(within(row).getByText("Commerce desk")).toBeTruthy();
+  });
+
+  it("deletes a merchant row and removes it from the rendered table", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "amazon-au",
+              name: "Amazon AU",
+              activeDeals: 42,
+              primaryCategory: "Electronics",
+              status: "Active",
+              owner: "Marketplace desk",
+            },
+            {
+              id: "chemist-warehouse",
+              name: "Chemist Warehouse",
+              activeDeals: 17,
+              primaryCategory: "Health",
+              status: "Needs review",
+              owner: "Retail desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse(undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(MerchantsPage);
+
+    const row = await waitFor(() => getRowForText("Amazon AU"));
+    await user.click(within(row).getByRole("button", { name: "Delete merchant" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/merchants", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/merchants/amazon-au", {
+      method: "DELETE",
+    });
+
+    expect(await screen.findByText("Merchant deleted.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Amazon AU")).toBeNull();
+    });
+    expect(screen.getByText("Chemist Warehouse")).toBeTruthy();
+  });
+
   it("renders tag management rows from the live admin tags API", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const fetchMock = vi.fn().mockResolvedValue(
@@ -275,5 +392,122 @@ describe("catalog management pages", () => {
     expect(within(row).getByText("Needs localization")).toBeTruthy();
     expect(within(row).getByText("Admin catalog")).toBeTruthy();
     expect((screen.getByLabelText("Tag name") as HTMLInputElement).value).toBe("");
+  });
+
+  it("edits a tag row and saves the updated catalog fields", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "gaming",
+              name: "Gaming",
+              slug: "gaming",
+              visibleDeals: 18,
+              localization: "EN + ZH ready",
+              owner: "Discovery desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "gaming",
+          name: "Gaming Deals",
+          slug: "gaming-deals",
+          visibleDeals: 18,
+          localization: "EN only",
+          owner: "Merch desk",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(TagsPage);
+
+    const row = await waitFor(() => getRowForText("Gaming"));
+    await user.click(within(row).getByRole("button", { name: "Edit tag" }));
+    await user.clear(within(row).getByLabelText("Tag name"));
+    await user.type(within(row).getByLabelText("Tag name"), "Gaming Deals");
+    await user.clear(within(row).getByLabelText("Slug"));
+    await user.type(within(row).getByLabelText("Slug"), "gaming-deals");
+    await user.clear(within(row).getByLabelText("Localization"));
+    await user.type(within(row).getByLabelText("Localization"), "EN only");
+    await user.clear(within(row).getByLabelText("Owner"));
+    await user.type(within(row).getByLabelText("Owner"), "Merch desk");
+    await user.click(within(row).getByRole("button", { name: "Save tag" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/tags", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/tags/gaming", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "Gaming Deals",
+        slug: "gaming-deals",
+        localization: "EN only",
+        owner: "Merch desk",
+      }),
+    });
+
+    expect(await screen.findByText("Tag updated.")).toBeTruthy();
+    expect(within(row).getByText("Gaming Deals")).toBeTruthy();
+    expect(within(row).getByText("gaming-deals")).toBeTruthy();
+    expect(within(row).getByText("EN only")).toBeTruthy();
+    expect(within(row).getByText("Merch desk")).toBeTruthy();
+  });
+
+  it("deletes a tag row and removes it from the rendered table", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "gaming",
+              name: "Gaming",
+              slug: "gaming",
+              visibleDeals: 18,
+              localization: "EN + ZH ready",
+              owner: "Discovery desk",
+            },
+            {
+              id: "travel",
+              name: "Travel",
+              slug: "travel",
+              visibleDeals: 7,
+              localization: "Needs ZH review",
+              owner: "Lifestyle desk",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse(undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderCatalogPage(TagsPage);
+
+    const row = await waitFor(() => getRowForText("Travel"));
+    await user.click(within(row).getByRole("button", { name: "Delete tag" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/v1/admin/tags", {
+      cache: "no-store",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/tags/travel", {
+      method: "DELETE",
+    });
+
+    expect(await screen.findByText("Tag deleted.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Travel")).toBeNull();
+    });
+    expect(screen.getByText("Gaming")).toBeTruthy();
   });
 });

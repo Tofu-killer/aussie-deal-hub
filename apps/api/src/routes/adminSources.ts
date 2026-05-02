@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { prisma } from "@aussie-deal-hub/db/client";
 import {
+  deleteSource,
   getSourceById,
   getSourceForPolling,
   listSources,
@@ -57,6 +58,7 @@ export interface SourcesStore {
     input: UpdateSourceInput,
   ): Promise<SourceRecord | null>;
   create?(input: CreateSourceInput): Promise<SourceRecord>;
+  delete?(sourceId: string): Promise<boolean>;
   pollNow?(
     sourceId: string,
   ): Promise<{
@@ -299,6 +301,7 @@ export function createAdminSourcesRouter(
     list: store.list ?? listSources,
     update: store.update ?? updateSource,
     create: store.create ?? createSource,
+    delete: store.delete ?? deleteSource,
     pollNow: store.pollNow ?? pollSourceNow,
   };
 
@@ -336,6 +339,17 @@ export function createAdminSourcesRouter(
     }
 
     response.json(source);
+  });
+
+  router.delete("/:sourceId", async (request, response) => {
+    const deleted = await sourceStore.delete(request.params.sourceId ?? "");
+
+    if (!deleted) {
+      response.status(404).json({ message: "Source not found." });
+      return;
+    }
+
+    response.status(204).send();
   });
 
   router.post("/:sourceId/poll", async (request, response) => {

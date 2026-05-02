@@ -43,6 +43,10 @@ interface SourceUpdateResult {
   error: string | null;
 }
 
+interface SourceDeleteResult {
+  error: string | null;
+}
+
 interface SourcePollResult {
   source: SourceItem | null;
   createdLeadCount: number;
@@ -183,6 +187,28 @@ async function createSource(input: CreateSourceInput): Promise<SourceUpdateResul
   }
 }
 
+async function deleteSource(sourceId: string): Promise<SourceDeleteResult> {
+  try {
+    const response = await fetch(`/v1/admin/sources/${sourceId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      return {
+        error: "Failed to delete source.",
+      };
+    }
+
+    return {
+      error: null,
+    };
+  } catch {
+    return {
+      error: "Failed to delete source.",
+    };
+  }
+}
+
 async function pollSourceNow(sourceId: string): Promise<SourcePollResult> {
   try {
     const response = await fetch(`/v1/admin/sources/${sourceId}/poll`, {
@@ -285,6 +311,17 @@ export default function SourcesPage() {
     }));
   }
 
+  function removeSource(sourceId: string) {
+    setSources((currentSources) =>
+      currentSources.filter((currentSource) => currentSource.id !== sourceId),
+    );
+    setSourceSettingsForms((currentForms) => {
+      const nextForms = { ...currentForms };
+      delete nextForms[sourceId];
+      return nextForms;
+    });
+  }
+
   async function handleToggle(source: SourceItem) {
     setFeedback(null);
     markSourceUpdating(source.id);
@@ -346,6 +383,23 @@ export default function SourcesPage() {
 
     applyUpdatedSource(result.source);
     setFeedback("Source polled.");
+  }
+
+  async function handleDeleteSource(source: SourceItem) {
+    setFeedback(null);
+    markSourceUpdating(source.id);
+
+    const result = await deleteSource(source.id);
+
+    clearSourceUpdating(source.id);
+
+    if (result.error) {
+      setFeedback("Failed to delete source.");
+      return;
+    }
+
+    removeSource(source.id);
+    setFeedback("Source deleted.");
   }
 
   async function handleCreateSourceSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -598,6 +652,15 @@ export default function SourcesPage() {
                   <td>{source.lastLeadCreatedAt ?? "No leads yet"}</td>
                   <td>
                     {source.enabled ? "Enabled" : "Disabled"}{" "}
+                    <button
+                      disabled={isUpdating}
+                      onClick={() => {
+                        void handleDeleteSource(source);
+                      }}
+                      type="button"
+                    >
+                      Delete source
+                    </button>{" "}
                     <button
                       disabled={isUpdating}
                       onClick={() => {

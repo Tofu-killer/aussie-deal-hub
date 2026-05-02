@@ -372,4 +372,53 @@ describe("sources page", () => {
       expect(within(updatedRow).getByDisplayValue("15")).toBeTruthy();
     });
   });
+
+  it("deletes a source row and removes it from the rendered table", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "source_1",
+              name: "Amazon AU",
+              sourceType: "community",
+              baseUrl: "https://www.amazon.com.au",
+              fetchMethod: "html",
+              pollIntervalMinutes: 60,
+              trustScore: 91,
+              language: "en-AU",
+              enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => undefined,
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderSourcesPage();
+
+    const row = await waitFor(() => getRowForSource("Amazon AU"));
+    await user.click(within(row).getByRole("button", { name: "Delete source" }));
+
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/v1/admin/sources/source_1", {
+      method: "DELETE",
+    });
+
+    expect(await screen.findByText("Source deleted.")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("Amazon AU")).toBeNull();
+      expect(screen.getByText("No sources available.")).toBeTruthy();
+    });
+  });
 });

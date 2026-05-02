@@ -21,12 +21,35 @@ interface MerchantCreateResult {
   error: string | null;
 }
 
+interface MerchantUpdateResult {
+  merchant: MerchantRow | null;
+  error: string | null;
+}
+
+interface MerchantDeleteResult {
+  error: string | null;
+}
+
 interface CreateMerchantFormState {
   name: string;
 }
 
+interface EditMerchantFormState {
+  name: string;
+  primaryCategory: string;
+  status: string;
+  owner: string;
+}
+
 const emptyCreateMerchantForm: CreateMerchantFormState = {
   name: "",
+};
+
+const emptyEditMerchantForm: EditMerchantFormState = {
+  name: "",
+  primaryCategory: "",
+  status: "",
+  owner: "",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,6 +62,24 @@ function readString(value: unknown) {
 
 function readNumber(value: unknown) {
   return typeof value === "number" ? value : 0;
+}
+
+async function readResponseMessage(response: Response, fallback: string) {
+  try {
+    const body = await response.json();
+
+    if (isRecord(body)) {
+      const message = readString(body.message).trim();
+
+      if (message) {
+        return message;
+      }
+    }
+  } catch {
+    return fallback;
+  }
+
+  return fallback;
 }
 
 function normalizeMerchantRow(value: unknown): MerchantRow | null {
@@ -147,6 +188,69 @@ async function createMerchant(name: string): Promise<MerchantCreateResult> {
   }
 }
 
+async function updateMerchant(
+  merchantId: string,
+  input: EditMerchantFormState,
+): Promise<MerchantUpdateResult> {
+  try {
+    const response = await fetch(`/v1/admin/merchants/${merchantId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+      return {
+        merchant: null,
+        error: await readResponseMessage(response, "Failed to update merchant."),
+      };
+    }
+
+    const merchant = normalizeMerchantRow(await response.json());
+
+    if (!merchant) {
+      return {
+        merchant: null,
+        error: "Failed to update merchant.",
+      };
+    }
+
+    return {
+      merchant,
+      error: null,
+    };
+  } catch {
+    return {
+      merchant: null,
+      error: "Failed to update merchant.",
+    };
+  }
+}
+
+async function deleteMerchant(merchantId: string): Promise<MerchantDeleteResult> {
+  try {
+    const response = await fetch(`/v1/admin/merchants/${merchantId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      return {
+        error: await readResponseMessage(response, "Failed to delete merchant."),
+      };
+    }
+
+    return {
+      error: null,
+    };
+  } catch {
+    return {
+      error: "Failed to delete merchant.",
+    };
+  }
+}
+
 export default function MerchantsPage() {
   const [merchants, setMerchants] = useState<MerchantRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +258,12 @@ export default function MerchantsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [createMerchantForm, setCreateMerchantForm] =
     useState<CreateMerchantFormState>(emptyCreateMerchantForm);
+  const [editMerchantForm, setEditMerchantForm] =
+    useState<EditMerchantFormState>(emptyEditMerchantForm);
+  const [editingMerchantId, setEditingMerchantId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isSavingMerchantId, setIsSavingMerchantId] = useState<string | null>(null);
+  const [isDeletingMerchantId, setIsDeletingMerchantId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,6 +310,74 @@ export default function MerchantsPage() {
     setFeedback("Merchant created.");
   }
 
+  function startEditingMerchant(merchant: MerchantRow) {
+    setFeedback(null);
+    setEditingMerchantId(merchant.id);
+    setEditMerchantForm({
+      name: merchant.name,
+      primaryCategory: merchant.primaryCategory,
+      status: merchant.status,
+      owner: merchant.owner,
+    });
+  }
+
+  function stopEditingMerchant() {
+    setEditingMerchantId(null);
+    setEditMerchantForm(emptyEditMerchantForm);
+  }
+
+  async function handleSaveMerchant(merchantId: string) {
+    setFeedback(null);
+    setIsSavingMerchantId(merchantId);
+
+    const result = await updateMerchant(merchantId, {
+      name: editMerchantForm.name.trim(),
+      primaryCategory: editMerchantForm.primaryCategory.trim(),
+      status: editMerchantForm.status.trim(),
+      owner: editMerchantForm.owner.trim(),
+    });
+
+    setIsSavingMerchantId(null);
+
+    if (result.error || !result.merchant) {
+      setFeedback(result.error ?? "Failed to update merchant.");
+      return;
+    }
+
+    setMerchants((currentMerchants) =>
+      currentMerchants.map((merchant) =>
+        merchant.id === merchantId ? result.merchant! : merchant,
+      ),
+    );
+    setError(null);
+    stopEditingMerchant();
+    setFeedback("Merchant updated.");
+  }
+
+  async function handleDeleteMerchant(merchantId: string) {
+    setFeedback(null);
+    setIsDeletingMerchantId(merchantId);
+
+    const result = await deleteMerchant(merchantId);
+
+    setIsDeletingMerchantId(null);
+
+    if (result.error) {
+      setFeedback(result.error);
+      return;
+    }
+
+    setMerchants((currentMerchants) =>
+      currentMerchants.filter((merchant) => merchant.id !== merchantId),
+    );
+
+    if (editingMerchantId === merchantId) {
+      stopEditingMerchant();
+    }
+
+    setFeedback("Merchant deleted.");
+  }
+
   return (
     <main>
       <h1>Merchants</h1>
@@ -245,18 +422,136 @@ export default function MerchantsPage() {
               <th>Primary category</th>
               <th>Status</th>
               <th>Owner</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {merchants.map((merchant) => (
-              <tr key={merchant.id}>
-                <td>{merchant.name}</td>
-                <td>{merchant.activeDeals}</td>
-                <td>{merchant.primaryCategory}</td>
-                <td>{merchant.status}</td>
-                <td>{merchant.owner}</td>
-              </tr>
-            ))}
+            {merchants.map((merchant) => {
+              const isEditing = merchant.id === editingMerchantId;
+              const isSaving = merchant.id === isSavingMerchantId;
+              const isDeleting = merchant.id === isDeletingMerchantId;
+
+              return (
+                <tr key={merchant.id}>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Merchant name"
+                        onChange={(event) => {
+                          setEditMerchantForm((currentForm) => ({
+                            ...currentForm,
+                            name: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editMerchantForm.name}
+                      />
+                    ) : (
+                      merchant.name
+                    )}
+                  </td>
+                  <td>{merchant.activeDeals}</td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Primary category"
+                        onChange={(event) => {
+                          setEditMerchantForm((currentForm) => ({
+                            ...currentForm,
+                            primaryCategory: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editMerchantForm.primaryCategory}
+                      />
+                    ) : (
+                      merchant.primaryCategory
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Status"
+                        onChange={(event) => {
+                          setEditMerchantForm((currentForm) => ({
+                            ...currentForm,
+                            status: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editMerchantForm.status}
+                      />
+                    ) : (
+                      merchant.status
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <input
+                        aria-label="Owner"
+                        onChange={(event) => {
+                          setEditMerchantForm((currentForm) => ({
+                            ...currentForm,
+                            owner: event.target.value,
+                          }));
+                        }}
+                        required
+                        type="text"
+                        value={editMerchantForm.owner}
+                      />
+                    ) : (
+                      merchant.owner
+                    )}
+                  </td>
+                  <td>
+                    {isEditing ? (
+                      <>
+                        <button
+                          disabled={isSaving}
+                          onClick={() => {
+                            void handleSaveMerchant(merchant.id);
+                          }}
+                          type="button"
+                        >
+                          {isSaving ? "Saving merchant..." : "Save merchant"}
+                        </button>
+                        <button
+                          disabled={isSaving}
+                          onClick={stopEditingMerchant}
+                          type="button"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          disabled={isDeleting}
+                          onClick={() => {
+                            startEditingMerchant(merchant);
+                          }}
+                          type="button"
+                        >
+                          Edit merchant
+                        </button>
+                        <button
+                          disabled={isDeleting}
+                          onClick={() => {
+                            void handleDeleteMerchant(merchant.id);
+                          }}
+                          type="button"
+                        >
+                          {isDeleting ? "Deleting merchant..." : "Delete merchant"}
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

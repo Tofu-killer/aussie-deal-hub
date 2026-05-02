@@ -98,6 +98,74 @@ describe("admin sources API contract", () => {
     });
   });
 
+  it("deletes a source row and removes it from subsequent source requests", async () => {
+    const app = buildApp({
+      sourceStore: {
+        async list() {
+          return [
+            {
+              id: "source_1",
+              name: "Amazon AU",
+              sourceType: "community",
+              baseUrl: "https://www.amazon.com.au",
+              fetchMethod: "html",
+              pollIntervalMinutes: 60,
+              trustScore: 91,
+              language: "en-AU",
+              enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+          ];
+        },
+        async update() {
+          return null;
+        },
+        async delete(sourceId) {
+          expect(sourceId).toBe("source_1");
+          return true;
+        },
+      },
+    });
+
+    const response = await dispatchRequest(app, {
+      method: "DELETE",
+      path: "/v1/admin/sources/source_1",
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.body).toBeUndefined();
+  });
+
+  it("returns 404 when deleting a missing source", async () => {
+    const app = buildApp({
+      sourceStore: {
+        async list() {
+          return [];
+        },
+        async update() {
+          return null;
+        },
+        async delete() {
+          return false;
+        },
+      },
+    });
+
+    const response = await dispatchRequest(app, {
+      method: "DELETE",
+      path: "/v1/admin/sources/missing-source",
+    });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      message: "Source not found.",
+    });
+  });
+
   it("polls a source immediately and returns the poll result", async () => {
     const app = buildApp({
       sourceStore: {
@@ -436,6 +504,46 @@ describeDb("admin sources persistence", () => {
         },
       });
     }
+  });
+
+  it("deletes a source row and persists its removal", async () => {
+    const suffix = randomUUID();
+    const created = await prisma.source.create({
+      data: {
+        name: `Delete Source ${suffix}`,
+        sourceType: "community",
+        baseUrl: `https://delete-source-${suffix}.example.com`,
+        trustScore: 58,
+        language: "en",
+        enabled: true,
+        fetchMethod: "html",
+        pollIntervalMinutes: 120,
+      },
+      select: {
+        id: true,
+        baseUrl: true,
+      },
+    });
+
+    const app = buildApp();
+
+    const response = await dispatchRequest(app, {
+      method: "DELETE",
+      path: `/v1/admin/sources/${created.id}`,
+    });
+
+    expect(response.status).toBe(204);
+
+    const persisted = await prisma.source.findUnique({
+      where: {
+        id: created.id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    expect(persisted).toBeNull();
   });
 
   it("polls a disabled source immediately, creates leads, and updates poll metadata", async () => {

@@ -12,6 +12,14 @@ export interface TopicCatalogRow {
 export interface TopicsStore {
   listTopics(): Promise<TopicCatalogRow[]>;
   createTopic(input: { name: string }): Promise<TopicCatalogRow>;
+  updateTopic(input: {
+    id: string;
+    name?: string;
+    slug?: string;
+    status?: string;
+    owner?: string;
+  }): Promise<TopicCatalogRow | null>;
+  deleteTopic(id: string): Promise<boolean>;
 }
 
 const TOPIC_ROWS: TopicCatalogRow[] = [
@@ -47,6 +55,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readString(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function hasOwnProperty(value: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function readRequiredPatchString(
+  body: Record<string, unknown>,
+  key: string,
+  label: string,
+): { present: boolean; value?: string; error?: string } {
+  if (!hasOwnProperty(body, key)) {
+    return {
+      present: false,
+    };
+  }
+
+  const value = readString(body[key]).trim();
+
+  if (!value) {
+    return {
+      present: true,
+      error: `${label} is required.`,
+    };
+  }
+
+  return {
+    present: true,
+    value,
+  };
 }
 
 function slugify(value: string) {
@@ -85,7 +123,7 @@ function createInMemoryTopicsStore(): TopicsStore {
     async createTopic(input) {
       const id = createUniqueId(
         input.name,
-        topicRows.map((row) => row.id),
+        topicRows.flatMap((row) => [row.id, row.slug]),
       );
       const topic: TopicCatalogRow = {
         id,
@@ -98,6 +136,51 @@ function createInMemoryTopicsStore(): TopicsStore {
 
       topicRows.unshift(topic);
       return topic;
+    },
+    async updateTopic(input) {
+      const topic = topicRows.find((row) => row.id === input.id);
+
+      if (!topic) {
+        return null;
+      }
+
+      if (input.slug !== undefined) {
+        const existing = topicRows.find((row) => row.slug === input.slug && row.id !== input.id);
+
+        if (existing) {
+          const error = new Error("Slug already exists.");
+          error.name = "TopicConflictError";
+          throw error;
+        }
+      }
+
+      if (input.name !== undefined) {
+        topic.name = input.name;
+      }
+
+      if (input.slug !== undefined) {
+        topic.slug = input.slug;
+      }
+
+      if (input.status !== undefined) {
+        topic.status = input.status;
+      }
+
+      if (input.owner !== undefined) {
+        topic.owner = input.owner;
+      }
+
+      return topic;
+    },
+    async deleteTopic(id) {
+      const topicIndex = topicRows.findIndex((row) => row.id === id);
+
+      if (topicIndex < 0) {
+        return false;
+      }
+
+      topicRows.splice(topicIndex, 1);
+      return true;
     },
   };
 }
@@ -120,6 +203,60 @@ export function createAdminTopicsRouter(store: TopicsStore = createInMemoryTopic
     }
 
     response.status(201).json(await store.createTopic({ name }));
+  });
+
+  router.patch("/topics/:topicId", async (request, response) => {
+    const body = isRecord(request.body) ? request.body : {};
+    const name = readRequiredPatchString(body, "name", "Name");
+    const slug = readRequiredPatchString(body, "slug", "Slug");
+    const status = readRequiredPatchString(body, "status", "Status");
+    const owner = readRequiredPatchString(body, "owner", "Owner");
+    const errorMessage = name.error ?? slug.error ?? status.error ?? owner.error ?? null;
+
+    if (errorMessage) {
+      response.status(400).json({ message: errorMessage });
+      return;
+    }
+
+    if (!name.present && !slug.present && !status.present && !owner.present) {
+      response.status(400).json({ message: "At least one field is required." });
+      return;
+    }
+
+    try {
+      const topic = await store.updateTopic({
+        id: request.params.topicId,
+        name: name.value,
+        slug: slug.value,
+        status: status.value,
+        owner: owner.value,
+      });
+
+      if (!topic) {
+        response.status(404).json({ message: "Topic not found." });
+        return;
+      }
+
+      response.json(topic);
+    } catch (error) {
+      if (error instanceof Error && error.name === "TopicConflictError") {
+        response.status(409).json({ message: "Slug already exists." });
+        return;
+      }
+
+      throw error;
+    }
+  });
+
+  router.delete("/topics/:topicId", async (request, response) => {
+    const deleted = await store.deleteTopic(request.params.topicId);
+
+    if (!deleted) {
+      response.status(404).json({ message: "Topic not found." });
+      return;
+    }
+
+    response.status(204).end();
   });
 
   return router;
