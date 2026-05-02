@@ -560,9 +560,10 @@ describe("deployment artifacts", () => {
     expect(readme).toContain("/srv/aussie-deal-hub/shared/.env.production");
     expect(readme).toContain("/srv/aussie-deal-hub/current");
     expect(readme).toContain("requires that shared env file to define either `NEXT_PUBLIC_SITE_URL` or `SITE_URL`");
-    expect(readme).toContain("captures remote compose logs for the failing stack");
+    expect(readme).toContain("captures remote compose status and compose logs for the failing stack");
     expect(readme).toContain("writes local failure diagnostics to `artifacts/release-deploy/<release-name>/`");
     expect(readme).toContain("`metadata.json`");
+    expect(readme).toContain("`compose-ps.txt`");
     expect(readme).toContain("`compose-logs.txt`");
     expect(readme).toContain("`deploy-error.txt`");
     expect(readme).toContain("repoints `/srv/aussie-deal-hub/current` back to the previous release");

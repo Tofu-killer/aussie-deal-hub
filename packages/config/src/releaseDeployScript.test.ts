@@ -275,6 +275,9 @@ describe("release deploy script", () => {
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
     const remoteReleaseRoot =
       "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T120000Z-failing";
+    const psRemoteCommand =
+      "cd '/srv/aussie-deal-hub/current' && " +
+      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' ps --all";
     const logsRemoteCommand =
       "cd '/srv/aussie-deal-hub/current' && " +
       "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' " +
@@ -300,6 +303,7 @@ describe("release deploy script", () => {
           DEPLOY_SSH_KEY_PATH: sshKeyPath,
           DEPLOY_USER: "deploy",
           FAKE_COMMAND_STDOUT_JSON: JSON.stringify({
+            [psRemoteCommand]: "NAME   IMAGE   COMMAND   SERVICE   CREATED   STATUS   PORTS\napi-1  api     node      api       now       unhealthy   0.0.0.0:3001->3001/tcp\n",
             [logsRemoteCommand]: "api-1  | unhealthy\nworker-1  | ready\n",
           }),
           PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
@@ -376,6 +380,18 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' ps --all",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
           "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' logs postgres redis db-init api web admin worker",
         ],
       },
@@ -394,6 +410,12 @@ describe("release deploy script", () => {
       previousReleaseRoot: string | null;
       releaseActivated: boolean;
       remoteReleaseRoot: string;
+      runtimeVerifyTargets: {
+        adminBaseUrl: string;
+        apiBaseUrl: string;
+        locale: string | null;
+        webBaseUrl: string;
+      };
     };
 
     expect(metadata).toEqual(
@@ -402,7 +424,16 @@ describe("release deploy script", () => {
         previousReleaseRoot: null,
         releaseActivated: true,
         remoteReleaseRoot,
+        runtimeVerifyTargets: {
+          adminBaseUrl: "https://admin.example.com",
+          apiBaseUrl: "https://api.example.com",
+          locale: null,
+          webBaseUrl: "https://www.example.com",
+        },
       }),
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "compose-ps.txt"), "utf8")).resolves.toBe(
+      "NAME   IMAGE   COMMAND   SERVICE   CREATED   STATUS   PORTS\napi-1  api     node      api       now       unhealthy   0.0.0.0:3001->3001/tcp\n",
     );
     await expect(readFile(path.join(diagnosticsRoot, "compose-logs.txt"), "utf8")).resolves.toBe(
       "api-1  | unhealthy\nworker-1  | ready\n",
@@ -638,6 +669,18 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' ps --all",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
           "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' logs postgres redis db-init api web admin worker",
         ],
       },
@@ -760,6 +803,18 @@ describe("release deploy script", () => {
         command: "ssh",
         cwd: resolvedWorkspaceRoot,
         argv: ["-i", sshKeyPath, "-p", "22", "deploy@deploy.example.com", deployRemoteCommand],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' ps --all",
+        ],
       },
       {
         command: "ssh",
@@ -905,6 +960,18 @@ describe("release deploy script", () => {
           "22",
           "deploy@deploy.example.com",
           `ln -sfn '${remoteReleaseRoot}' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build`,
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' ps --all",
         ],
       },
       {

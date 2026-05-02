@@ -16,8 +16,8 @@
 - Modify: `packages/config/src/deploymentArtifacts.test.ts`
 - Create: `packages/config/src/releaseDeployScript.test.ts`
 
-- [ ] Add deployment artifact assertions for a new `Deploy release bundle` workflow, a `release:deploy` package script, runtime-overrideable compose values, and README deployment guidance.
-- [ ] Add script-level tests for a new `scripts/release-deploy.mjs` entrypoint covering successful remote deploy flow, missing env-file guardrails, and failure-time remote log collection.
+- [x] Add deployment artifact assertions for a new `Deploy release bundle` workflow, a `release:deploy` package script, runtime-overrideable compose values, and README deployment guidance.
+- [x] Add script-level tests for a new `scripts/release-deploy.mjs` entrypoint covering successful remote deploy flow, missing env-file guardrails, and failure-time remote log collection.
 
 ### Task 2: Implement the deploy script and workflow
 
@@ -29,17 +29,17 @@
 - Create: `scripts/release-deploy.mjs`
 - Create: `.github/workflows/deploy-release-bundle.yml`
 
-- [ ] Extract reusable release-bundle-root resolution so deploy and rehearse can point at either an explicit bundle directory or the newest bundle under `release/`.
-- [ ] Add `release:deploy` to `package.json`.
-- [ ] Update compose service configuration and host-port mappings to use `${VAR:-default}` fallbacks instead of hardcoded runtime placeholders.
-- [ ] Implement remote deploy orchestration: validate required inputs, stage the reviewed bundle under a remote `releases/` directory, require a pre-existing shared env file, boot the stack with `docker compose --env-file`, dump remote compose logs on failure, and run runtime verification against the supplied public URLs.
-- [ ] Add a manual `Deploy release bundle` workflow that downloads a bundle artifact from a reviewed run, writes the SSH private key, invokes `pnpm release:deploy`, and runs post-deploy runtime verification.
+- [x] Extract reusable release-bundle-root resolution so deploy and rehearse can point at either an explicit bundle directory or the newest bundle under `release/`.
+- [x] Add `release:deploy` to `package.json`.
+- [x] Update compose service configuration and host-port mappings to use `${VAR:-default}` fallbacks instead of hardcoded runtime placeholders.
+- [x] Implement remote deploy orchestration: validate required inputs, stage the reviewed bundle under a remote `releases/` directory, require a pre-existing shared env file, boot the stack with `docker compose --env-file`, dump remote compose logs on failure, and run runtime verification against the supplied public URLs.
+- [x] Add a manual `Deploy release bundle` workflow that downloads a bundle artifact from a reviewed run, writes the SSH private key, invokes `pnpm release:deploy`, and runs post-deploy runtime verification.
 
 ### Task 3: Document and verify the deploy path
 
 **Files:**
 - Modify: `README.md`
 
-- [ ] Document the manual `pnpm release:deploy` flow, required env vars, remote host layout, and the new GitHub Actions workflow inputs/secrets.
-- [ ] Run focused Vitest coverage for the new deploy contracts, then run fresh `pnpm verify`.
+- [x] Document the manual `pnpm release:deploy` flow, required env vars, remote host layout, and the new GitHub Actions workflow inputs/secrets.
+- [x] Run focused Vitest coverage for the new deploy contracts, then run fresh `pnpm verify`.
 - [ ] Request independent code review before commit/push, then monitor GitHub Actions after pushing.

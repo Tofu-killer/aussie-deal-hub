@@ -201,11 +201,25 @@ function persistReleaseDeployDiagnostics(context) {
     remoteReleaseRoot: context.remoteReleaseRoot,
     remoteSharedEnvFile: context.remoteSharedEnvFile,
     releaseName: context.releaseName,
+    runtimeVerifyTargets: {
+      adminBaseUrl: context.deployRuntimeAdminBaseUrl,
+      apiBaseUrl: context.deployRuntimeApiBaseUrl,
+      locale: context.deployRuntimeLocale ?? null,
+      webBaseUrl: context.deployRuntimeWebBaseUrl,
+    },
   };
 
   mkdirSync(diagnosticsRoot, { recursive: true });
   writeDiagnosticsFile(diagnosticsRoot, "metadata.json", `${JSON.stringify(metadata, null, 2)}\n`);
   writeDiagnosticsFile(diagnosticsRoot, "deploy-error.txt", serializeError(context.error));
+
+  if (context.composePs) {
+    writeDiagnosticsFile(diagnosticsRoot, "compose-ps.txt", context.composePs);
+  }
+
+  if (context.composePsError) {
+    writeDiagnosticsFile(diagnosticsRoot, "compose-ps-error.txt", serializeError(context.composePsError));
+  }
 
   if (context.composeLogs) {
     writeDiagnosticsFile(diagnosticsRoot, "compose-logs.txt", context.composeLogs);
@@ -288,6 +302,10 @@ export async function runReleaseDeployScript(
     `cd ${quoteShellArgument(remoteCurrentRoot)}`,
     `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} logs postgres redis db-init api web admin worker`,
   ].join(" && ");
+  const psCommand = [
+    `cd ${quoteShellArgument(remoteCurrentRoot)}`,
+    `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} ps --all`,
+  ].join(" && ");
   let previousReleaseRoot;
   let stackAttempted = false;
 
@@ -363,8 +381,25 @@ export async function runReleaseDeployScript(
       }
 
       if (releaseActivated) {
+        let composePs;
+        let composePsError;
         let composeLogs;
         let composeLogsError;
+
+        try {
+          composePs = runCommandCapture(
+            "ssh",
+            buildSshArgs({
+              deploySshPort,
+              remoteCommand: psCommand,
+              remoteTarget,
+              sshKeyPath,
+            }),
+            { cwd: workingDirectory, env },
+          );
+        } catch (diagnosticsError) {
+          composePsError = diagnosticsError;
+        }
 
         try {
           composeLogs = runCommandCapture(
@@ -384,10 +419,16 @@ export async function runReleaseDeployScript(
         try {
           diagnosticsRoot = persistReleaseDeployDiagnostics({
             bundleRoot,
+            composePs,
+            composePsError,
             composeLogs,
             composeLogsError,
             currentReleaseRoot,
             cwd: workingDirectory,
+            deployRuntimeAdminBaseUrl,
+            deployRuntimeApiBaseUrl,
+            deployRuntimeLocale,
+            deployRuntimeWebBaseUrl,
             env,
             error,
             previousReleaseRoot,
