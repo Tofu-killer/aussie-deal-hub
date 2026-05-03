@@ -261,7 +261,7 @@ describeDb("admin topics persistence", () => {
     }
   });
 
-  it("keeps topic lists sorted by name after database-backed creates", async () => {
+  it("keeps topic lists in natural name order after database-backed creates", async () => {
     const { createAdminCatalogRepository } = await import(
       "@aussie-deal-hub/db/repositories/catalog"
     );
@@ -328,6 +328,57 @@ describeDb("admin topics persistence", () => {
           },
         ],
       });
+    } finally {
+      await restoreTopicBaseline();
+    }
+  });
+
+  it("keeps numeric topic names in natural order on the database-backed topics store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const adminCatalogStore = createAdminCatalogRepository();
+    const app = buildApp({
+      adminTopicsStore: {
+        listTopics: adminCatalogStore.listTopics,
+        createTopic: adminCatalogStore.createTopic,
+        updateTopic: adminCatalogStore.updateTopic,
+        deleteTopic: adminCatalogStore.deleteTopic,
+      },
+    } as never);
+
+    try {
+      await restoreTopicBaseline();
+
+      const createSeason10Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/topics",
+        body: {
+          name: "Season 10 Deals",
+        },
+      });
+      const createSeason2Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/topics",
+        body: {
+          name: "Season 2 Deals",
+        },
+      });
+      const listResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/topics",
+      });
+
+      expect(createSeason10Response.status).toBe(201);
+      expect(createSeason2Response.status).toBe(201);
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+        "Gaming Setup",
+        "School Savings",
+        "Season 2 Deals",
+        "Season 10 Deals",
+        "Work From Home",
+      ]);
     } finally {
       await restoreTopicBaseline();
     }

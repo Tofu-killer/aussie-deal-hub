@@ -356,7 +356,7 @@ describeDb("admin catalog persistence", () => {
     }
   });
 
-  it("keeps merchant and tag lists sorted by name on the database-backed catalog store", async () => {
+  it("keeps merchant and tag lists in natural name order on the database-backed catalog store", async () => {
     const { createAdminCatalogRepository } = await import(
       "@aussie-deal-hub/db/repositories/catalog"
     );
@@ -466,6 +466,79 @@ describeDb("admin catalog persistence", () => {
           },
         ],
       });
+    } finally {
+      await restoreCatalogBaseline();
+    }
+  });
+
+  it("keeps numeric merchant and tag names in natural order on the database-backed catalog store", async () => {
+    const { createAdminCatalogRepository } = await import(
+      "@aussie-deal-hub/db/repositories/catalog"
+    );
+    const app = buildApp({
+      adminCatalogStore: createAdminCatalogRepository(),
+    } as never);
+
+    try {
+      await restoreCatalogBaseline();
+
+      const createMerchantSeason10Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/merchants",
+        body: {
+          name: "Season 10 Deals",
+        },
+      });
+      const createMerchantSeason2Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/merchants",
+        body: {
+          name: "Season 2 Deals",
+        },
+      });
+      const createTagSeason10Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/tags",
+        body: {
+          name: "Season 10 Deals",
+        },
+      });
+      const createTagSeason2Response = await dispatchRequest(app, {
+        method: "POST",
+        path: "/v1/admin/tags",
+        body: {
+          name: "Season 2 Deals",
+        },
+      });
+      const merchantsResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/merchants",
+      });
+      const tagsResponse = await dispatchRequest(app, {
+        method: "GET",
+        path: "/v1/admin/tags",
+      });
+
+      expect(createMerchantSeason10Response.status).toBe(201);
+      expect(createMerchantSeason2Response.status).toBe(201);
+      expect(createTagSeason10Response.status).toBe(201);
+      expect(createTagSeason2Response.status).toBe(201);
+      expect(merchantsResponse.status).toBe(200);
+      expect(tagsResponse.status).toBe(200);
+      expect(merchantsResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+        "Amazon AU",
+        "Chemist Warehouse",
+        "Season 2 Deals",
+        "Season 10 Deals",
+        "The Iconic",
+      ]);
+      expect(tagsResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+        "Gaming",
+        "Grocery",
+        "Season 2 Deals",
+        "Season 10 Deals",
+        "Travel",
+      ]);
     } finally {
       await restoreCatalogBaseline();
     }

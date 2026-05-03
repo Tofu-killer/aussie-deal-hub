@@ -142,6 +142,11 @@ function createConflictError(name: string, message: string) {
   return error;
 }
 
+const rowNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
 function slugify(value: string) {
   return value
     .trim()
@@ -188,12 +193,14 @@ export async function seedAdminCatalog() {
 export function createAdminCatalogRepository() {
   return {
     async listMerchants(): Promise<MerchantCatalogRecord[]> {
-      return prisma.merchantCatalog.findMany({
+      const rows = await prisma.merchantCatalog.findMany({
         orderBy: {
           name: "asc",
         },
         select: merchantCatalogSelect,
       });
+
+      return rows.sort((left, right) => rowNameCollator.compare(left.name, right.name));
     },
     async createMerchant(input: {
       name: string;
@@ -260,12 +267,14 @@ export function createAdminCatalogRepository() {
       }
     },
     async listTags(): Promise<TagCatalogRecord[]> {
-      return prisma.tagCatalog.findMany({
+      const rows = await prisma.tagCatalog.findMany({
         orderBy: {
           name: "asc",
         },
         select: tagCatalogSelect,
       });
+
+      return rows.sort((left, right) => rowNameCollator.compare(left.name, right.name));
     },
     async createTag(input: {
       name: string;
@@ -349,12 +358,14 @@ export function createAdminCatalogRepository() {
       }
     },
     async listTopics(): Promise<TopicCatalogRecord[]> {
-      return prisma.topicCatalog.findMany({
+      const rows = await prisma.topicCatalog.findMany({
         orderBy: {
           name: "asc",
         },
         select: topicCatalogSelect,
       });
+
+      return rows.sort((left, right) => rowNameCollator.compare(left.name, right.name));
     },
     async createTopic(input: {
       name: string;
