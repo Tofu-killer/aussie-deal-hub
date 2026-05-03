@@ -136,8 +136,13 @@ function createUniqueId(name: string, existingIds: string[]) {
   return nextId;
 }
 
+const rowNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
 function sortRowsByName<T extends { name: string }>(rows: T[]) {
-  return [...rows].sort((left, right) => left.name.localeCompare(right.name));
+  return [...rows].sort((left, right) => rowNameCollator.compare(left.name, right.name));
 }
 
 export interface AdminCatalogStore {

@@ -220,6 +220,86 @@ describe("admin catalog routes", () => {
     });
   });
 
+  it("keeps numeric merchant names in natural order across subsequent list requests", async () => {
+    const app = buildApp();
+
+    const createSeason10Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/merchants",
+      body: {
+        name: "Season 10 Deals",
+      },
+    });
+    const createSeason2Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/merchants",
+      body: {
+        name: "Season 2 Deals",
+      },
+    });
+    const listResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/merchants",
+    });
+
+    expect(createSeason10Response.status).toBe(201);
+    expect(createSeason2Response.status).toBe(201);
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toEqual({
+      items: expect.arrayContaining([
+        expect.objectContaining({ name: "Season 2 Deals" }),
+        expect.objectContaining({ name: "Season 10 Deals" }),
+      ]),
+    });
+    expect(listResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+      "Amazon AU",
+      "Chemist Warehouse",
+      "Season 2 Deals",
+      "Season 10 Deals",
+      "The Iconic",
+    ]);
+  });
+
+  it("keeps numeric tag names in natural order across subsequent list requests", async () => {
+    const app = buildApp();
+
+    const createSeason10Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/tags",
+      body: {
+        name: "Season 10 Deals",
+      },
+    });
+    const createSeason2Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/tags",
+      body: {
+        name: "Season 2 Deals",
+      },
+    });
+    const listResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/tags",
+    });
+
+    expect(createSeason10Response.status).toBe(201);
+    expect(createSeason2Response.status).toBe(201);
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toEqual({
+      items: expect.arrayContaining([
+        expect.objectContaining({ name: "Season 2 Deals" }),
+        expect.objectContaining({ name: "Season 10 Deals" }),
+      ]),
+    });
+    expect(listResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+      "Gaming",
+      "Grocery",
+      "Season 2 Deals",
+      "Season 10 Deals",
+      "Travel",
+    ]);
+  });
+
   it("updates a merchant row and returns the saved fields in subsequent merchant catalog requests", async () => {
     const app = buildApp();
 

@@ -142,6 +142,46 @@ describe("admin topic routes", () => {
     });
   });
 
+  it("keeps numeric topic names in natural order across subsequent topic requests", async () => {
+    const app = buildApp();
+
+    const createSeason10Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/topics",
+      body: {
+        name: "Season 10 Deals",
+      },
+    });
+    const createSeason2Response = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/topics",
+      body: {
+        name: "Season 2 Deals",
+      },
+    });
+    const listResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/topics",
+    });
+
+    expect(createSeason10Response.status).toBe(201);
+    expect(createSeason2Response.status).toBe(201);
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body).toEqual({
+      items: expect.arrayContaining([
+        expect.objectContaining({ name: "Season 2 Deals" }),
+        expect.objectContaining({ name: "Season 10 Deals" }),
+      ]),
+    });
+    expect(listResponse.body.items.map((item: { name: string }) => item.name)).toEqual([
+      "Gaming Setup",
+      "School Savings",
+      "Season 2 Deals",
+      "Season 10 Deals",
+      "Work From Home",
+    ]);
+  });
+
   it("updates a topic row and returns the saved fields in subsequent topic requests", async () => {
     const app = buildApp();
 
