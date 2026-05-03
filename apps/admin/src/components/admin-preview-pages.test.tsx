@@ -444,9 +444,19 @@ describe("admin preview pages", () => {
     expect(
       screen.getAllByText("Nintendo Switch OLED for A$399 at Amazon AU").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", {
+        name: "Nintendo Switch OLED for A$399 at Amazon AU",
+      }).getAttribute("href"),
+    ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
     expect(screen.getAllByText("亚马逊澳洲").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("亚马逊澳洲 Nintendo Switch OLED 到手 A$399").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", {
+        name: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
+      }).getAttribute("href"),
+    ).toBe("/zh/deals/nintendo-switch-oled-amazon-au");
   });
 });

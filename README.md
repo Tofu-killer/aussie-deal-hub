@@ -126,6 +126,7 @@ The admin catalog pages for merchants, tags, and topics now support create, inli
 The sources page now supports create, save, poll-now, enable/disable, and delete flows, keeps client-side create ordering aligned with the API's natural name-order source contract, and removes deleted source rows through the admin API contract.
 The admin leads queue and detail views now prefer source display names from the API, falling back to source IDs only when a runtime record has no source name.
 The publishing queue now keeps each scheduled row linked back to its underlying lead review so editors can jump directly from a publish slot to the source review record.
+The digest preview now keeps each localized deal row linked to its public deal detail page so editors can jump from the preview email content to the live public surface they are about to send.
 Expect the API readiness `dependencies` map to stay explicit about scope: `dbConnectivity` only proves the primary database connection, while `dbCatalogSchema`, `dbPublishingSchema`, and `dbUserEngagementSchema` cover the higher-level Prisma model groups.
 Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.
 

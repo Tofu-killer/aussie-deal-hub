@@ -25,6 +25,11 @@ interface DigestPreviewResult {
   error: string | null;
 }
 
+function buildPublicDealPath(locale: "en" | "zh", dealId: string) {
+  const localePrefix = locale === "zh" ? "/zh" : "/en";
+  return `${localePrefix}/deals/${dealId}`;
+}
+
 async function loadDigestPreview(): Promise<DigestPreviewResult> {
   try {
     const response = await fetch(buildAdminApiUrl("/v1/admin/digest-preview"), {
@@ -88,7 +93,11 @@ export default async function DigestPage() {
                 {englishDigest.deals.map((deal) => (
                   <tr key={deal.id}>
                     <td>{deal.merchant ?? "Unknown"}</td>
-                    <td>{deal.title ?? "Untitled"}</td>
+                    <td>
+                      <a href={buildPublicDealPath("en", deal.id)}>
+                        {deal.title ?? "Untitled"}
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -117,7 +126,11 @@ export default async function DigestPage() {
                 {chineseDigest.deals.map((deal) => (
                   <tr key={deal.id}>
                     <td>{deal.merchant ?? "Unknown"}</td>
-                    <td>{deal.title ?? "Untitled"}</td>
+                    <td>
+                      <a href={buildPublicDealPath("zh", deal.id)}>
+                        {deal.title ?? "Untitled"}
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>
