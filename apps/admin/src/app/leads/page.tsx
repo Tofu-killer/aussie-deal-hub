@@ -5,6 +5,7 @@ import { buildAdminApiUrl } from "../../lib/runtimeApi";
 interface LeadQueueItem {
   id: string;
   sourceId: string;
+  sourceName: string;
   originalTitle: string;
   originalUrl: string;
   snippet: string;
@@ -80,6 +81,7 @@ function normalizeLeadQueueItem(value: unknown): LeadQueueItem | null {
   return {
     id,
     sourceId: readString(value.sourceId),
+    sourceName: readString(value.sourceName),
     originalTitle: readString(value.originalTitle),
     originalUrl: readString(value.originalUrl),
     snippet: readString(value.snippet),
@@ -153,7 +155,7 @@ export default async function LeadsPage() {
           <thead>
             <tr>
               <th>Lead ID</th>
-              <th>Source ID</th>
+              <th>Source</th>
               <th>Original title</th>
               <th>Original URL</th>
               <th>Status</th>
@@ -166,7 +168,7 @@ export default async function LeadsPage() {
                 <td>
                   <a href={`/leads/${lead.id}`}>{lead.id}</a>
                 </td>
-                <td>{lead.sourceId || "Unknown"}</td>
+                <td>{lead.sourceName || lead.sourceId || "Unknown"}</td>
                 <td>{lead.originalTitle || "Untitled lead"}</td>
                 <td>
                   {lead.originalUrl ? (

@@ -244,6 +244,7 @@ describe("LeadReviewForm", () => {
           {
             id: "lead_42",
             sourceId: "src_amazon",
+            sourceName: "Amazon AU Feed",
             originalTitle: "Amazon AU Nintendo Switch OLED A$399",
             originalUrl: "https://www.amazon.com.au/deal",
             snippet: "Coupon GAME20 expires tonight.",
@@ -269,7 +270,8 @@ describe("LeadReviewForm", () => {
     );
     expect(screen.getByText("Status")).toBeTruthy();
     expect(screen.getByText("Draft saved")).toBeTruthy();
-    expect(screen.getByText("src_amazon")).toBeTruthy();
+    expect(screen.getByText("Amazon AU Feed")).toBeTruthy();
+    expect(screen.queryByText("src_amazon")).toBeNull();
     expect(screen.getByText("Amazon AU Nintendo Switch OLED A$399")).toBeTruthy();
     expect(screen.getByText("https://www.amazon.com.au/deal")).toBeTruthy();
   });
@@ -284,6 +286,7 @@ describe("LeadReviewForm", () => {
             {
               id: "lead_published",
               sourceId: "src_bigw",
+              sourceName: "BIG W Feed",
               originalTitle: "Big W LEGO Bonsai Tree A$59",
               originalUrl: "https://www.bigw.com.au/deal/lego-bonsai",
               snippet: "Weekend toy sale.",
@@ -308,6 +311,7 @@ describe("LeadReviewForm", () => {
       createJsonResponse({
         id: "lead_42",
         sourceId: "src_amazon",
+        sourceName: "Amazon AU Feed",
         originalTitle: "Amazon AU Nintendo Switch OLED A$399",
         originalUrl: "https://www.amazon.com.au/deal",
         snippet: "Coupon GAME20 expires tonight.",
@@ -339,7 +343,8 @@ describe("LeadReviewForm", () => {
     expect(fetchMock).toHaveBeenCalledWith("/v1/admin/leads/lead_42", {
       cache: "no-store",
     });
-    expect(await screen.findByText("src_amazon")).toBeTruthy();
+    expect(await screen.findByText("Amazon AU Feed")).toBeTruthy();
+    expect(screen.queryByText("src_amazon")).toBeNull();
     expect(screen.getByText("Amazon AU Nintendo Switch OLED A$399")).toBeTruthy();
     expect(screen.getByText("https://www.amazon.com.au/deal")).toBeTruthy();
     expect(screen.getByText("84")).toBeTruthy();
@@ -361,6 +366,7 @@ describe("LeadReviewForm", () => {
       createJsonResponse({
         id: leadId,
         sourceId: "src_amazon",
+        sourceName: "Amazon AU Feed",
         originalTitle: "Amazon AU Nintendo Switch OLED A$399",
         originalUrl: "https://www.amazon.com.au/deal",
         snippet: "Coupon GAME20 expires tonight.",
@@ -413,6 +419,7 @@ describe("LeadReviewForm", () => {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
+          sourceName: "Amazon AU Feed",
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
@@ -493,6 +500,7 @@ describe("LeadReviewForm", () => {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
+          sourceName: "Amazon AU Feed",
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
@@ -601,6 +609,7 @@ describe("LeadReviewForm", () => {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
+          sourceName: "Amazon AU Feed",
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
@@ -654,6 +663,7 @@ describe("LeadReviewForm", () => {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
+          sourceName: "Amazon AU Feed",
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",
@@ -711,6 +721,7 @@ describe("LeadReviewForm", () => {
         return createJsonResponse({
           id: "lead_42",
           sourceId: "src_amazon",
+          sourceName: "Amazon AU Feed",
           originalTitle: "Amazon AU Nintendo Switch OLED A$399",
           originalUrl: "https://www.amazon.com.au/deal",
           snippet: "Coupon GAME20 expires tonight.",

@@ -873,9 +873,22 @@ describe("admin lead pipeline", () => {
 describeDb("admin lead persistence", () => {
   it("persists created leads across app rebuilds", async () => {
     const sourceId = `src_admin_${randomUUID()}`;
+    const sourceName = `JB Hi-Fi AU Feed ${randomUUID()}`;
     const app = await buildDbApp();
 
     try {
+      await prisma.source.create({
+        data: {
+          id: sourceId,
+          name: sourceName,
+          sourceType: "admin",
+          baseUrl: `https://sources.example.com/${sourceId}`,
+          trustScore: 50,
+          language: "en",
+          enabled: false,
+        },
+      });
+
       const createResponse = await dispatchRequest(app, {
         method: "POST",
         path: "/v1/admin/leads",
@@ -900,13 +913,14 @@ describeDb("admin lead persistence", () => {
       expect(queueResponse.status).toBe(200);
       expect(queueResponse.body).toEqual({
         items: expect.arrayContaining([
-          {
+          expect.objectContaining({
             ...createResponse.body,
+            sourceName,
             queue: {
               status: "pending_review",
               label: "Pending review",
             },
-          },
+          }),
         ]),
       });
 
@@ -918,6 +932,7 @@ describeDb("admin lead persistence", () => {
       expect(detailResponse.status).toBe(200);
       expect(detailResponse.body).toEqual({
         ...createResponse.body,
+        sourceName,
         review: {
           category: "Deals",
           confidence: 88,
@@ -950,9 +965,22 @@ describeDb("admin lead persistence", () => {
 
   it("persists saved review drafts across app rebuilds for detail and queue reads", async () => {
     const sourceId = `src_admin_${randomUUID()}`;
+    const sourceName = `Amazon AU Feed ${randomUUID()}`;
     const app = await buildDbApp();
 
     try {
+      await prisma.source.create({
+        data: {
+          id: sourceId,
+          name: sourceName,
+          sourceType: "admin",
+          baseUrl: `https://sources.example.com/${sourceId}`,
+          trustScore: 50,
+          language: "en",
+          enabled: false,
+        },
+      });
+
       const leadResponse = await dispatchRequest(app, {
         method: "POST",
         path: "/v1/admin/leads",
@@ -1006,6 +1034,7 @@ describeDb("admin lead persistence", () => {
       expect(detailResponse.body).toEqual(
         expect.objectContaining({
           ...leadResponse.body,
+          sourceName,
           review: expect.objectContaining({
             ...draftPayload,
             updatedAt: expect.any(String),
@@ -1023,6 +1052,7 @@ describeDb("admin lead persistence", () => {
         items: expect.arrayContaining([
           expect.objectContaining({
             ...leadResponse.body,
+            sourceName,
             queue: {
               status: "queued_to_publish",
               label: "Queued to publish",

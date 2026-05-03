@@ -15,6 +15,7 @@ interface LeadLocaleMetadata {
 interface LeadDetailRecord {
   id: string;
   sourceId: string;
+  sourceName: string;
   originalTitle: string;
   originalUrl: string;
   snippet: string;
@@ -112,6 +113,7 @@ function normalizeLeadDetail(body: unknown): LeadDetailRecord | null {
   return {
     id,
     sourceId: readString(lead.sourceId),
+    sourceName: readString(lead.sourceName),
     originalTitle,
     originalUrl: readString(lead.originalUrl),
     snippet,
@@ -400,8 +402,8 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
           <section>
             <h2>Lead metadata</h2>
             <dl>
-              <dt>Source ID</dt>
-              <dd>{lead.sourceId || "Unknown"}</dd>
+              <dt>Source</dt>
+              <dd>{lead.sourceName || lead.sourceId || "Unknown"}</dd>
               <dt>Original title</dt>
               <dd>{lead.originalTitle || "Untitled lead"}</dd>
               <dt>Original URL</dt>
