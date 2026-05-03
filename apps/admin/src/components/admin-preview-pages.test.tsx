@@ -20,6 +20,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   delete process.env.ADMIN_API_BASE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.SITE_URL;
 });
 
 async function renderAdminHomeMarkup() {
@@ -397,6 +399,7 @@ describe("admin preview pages", () => {
 
   it("renders the digest preview returned by the admin preview API", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.aussie-deal-hub.example";
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({
         en: {
@@ -448,7 +451,7 @@ describe("admin preview pages", () => {
       screen.getByRole("link", {
         name: "Nintendo Switch OLED for A$399 at Amazon AU",
       }).getAttribute("href"),
-    ).toBe("/en/deals/nintendo-switch-oled-amazon-au");
+    ).toBe("https://www.aussie-deal-hub.example/en/deals/nintendo-switch-oled-amazon-au");
     expect(screen.getAllByText("亚马逊澳洲").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("亚马逊澳洲 Nintendo Switch OLED 到手 A$399").length,
@@ -457,6 +460,6 @@ describe("admin preview pages", () => {
       screen.getByRole("link", {
         name: "亚马逊澳洲 Nintendo Switch OLED 到手 A$399",
       }).getAttribute("href"),
-    ).toBe("/zh/deals/nintendo-switch-oled-amazon-au");
+    ).toBe("https://www.aussie-deal-hub.example/zh/deals/nintendo-switch-oled-amazon-au");
   });
 });

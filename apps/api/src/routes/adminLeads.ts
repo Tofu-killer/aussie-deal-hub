@@ -79,6 +79,11 @@ export interface LeadQueueSummary {
   label: string;
 }
 
+export interface PublishedLeadLocaleSummary {
+  locale: "en" | "zh";
+  slug: string;
+}
+
 export interface LeadListReviewSummary {
   leadId: string;
   category: string;
@@ -94,6 +99,7 @@ export interface LeadListReviewSummary {
 export interface LeadListItem extends LeadRecord {
   queue: LeadQueueSummary;
   review?: LeadListReviewSummary;
+  publishedLocales?: PublishedLeadLocaleSummary[];
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -232,12 +238,14 @@ export function saveLeadReviewDraft(
 }
 
 async function getLeadQueueStatus(
-  leadId: string,
+  publishedLocales: PublishedLeadLocaleSummary[],
   review?: StoredLeadReviewDraft | null,
-  publishedDealStore?: Partial<PublishedDealSlugLookup>,
 ): Promise<LeadQueueStatus> {
-  const publishedSlug = await publishedDealStore?.getPublishedDealSlugForLead?.(leadId, "en");
-  if (publishedSlug) {
+  const hasAllPublishedLocales =
+    publishedLocales.some((locale) => locale.locale === "en") &&
+    publishedLocales.some((locale) => locale.locale === "zh");
+
+  if (hasAllPublishedLocales) {
     return "published";
   }
 
@@ -246,6 +254,35 @@ async function getLeadQueueStatus(
   }
 
   return review.publish ? "queued_to_publish" : "draft_saved";
+}
+
+async function listPublishedLeadLocales(
+  leadId: string,
+  publishedDealStore?: Partial<PublishedDealSlugLookup>,
+): Promise<PublishedLeadLocaleSummary[]> {
+  if (!publishedDealStore?.getPublishedDealSlugForLead) {
+    return [];
+  }
+
+  const [englishSlug, chineseSlug] = await Promise.all([
+    publishedDealStore.getPublishedDealSlugForLead(leadId, "en"),
+    publishedDealStore.getPublishedDealSlugForLead(leadId, "zh"),
+  ]);
+
+  return [
+    englishSlug
+      ? {
+          locale: "en" as const,
+          slug: englishSlug,
+        }
+      : null,
+    chineseSlug
+      ? {
+          locale: "zh" as const,
+          slug: chineseSlug,
+        }
+      : null,
+  ].filter((locale): locale is PublishedLeadLocaleSummary => locale !== null);
 }
 
 function getLeadQueueLabel(status: LeadQueueStatus) {
@@ -280,7 +317,8 @@ async function buildLeadListItem(
   publishedDealStore?: Partial<PublishedDealSlugLookup>,
 ): Promise<LeadListItem> {
   const { lead, review } = record;
-  const status = await getLeadQueueStatus(lead.id, review, publishedDealStore);
+  const publishedLocales = await listPublishedLeadLocales(lead.id, publishedDealStore);
+  const status = await getLeadQueueStatus(publishedLocales, review);
 
   return review
     ? {
@@ -289,6 +327,7 @@ async function buildLeadListItem(
           status,
           label: getLeadQueueLabel(status),
         },
+        ...(publishedLocales.length > 0 ? { publishedLocales } : {}),
         review: summarizeLeadReview(review),
       }
     : {
@@ -297,6 +336,7 @@ async function buildLeadListItem(
           status,
           label: getLeadQueueLabel(status),
         },
+        ...(publishedLocales.length > 0 ? { publishedLocales } : {}),
       };
 }
 
@@ -341,8 +381,11 @@ export function createAdminLeadsRouter(
       return;
     }
 
+    const publishedLocales = await listPublishedLeadLocales(leadId, publishedDealStore);
+
     response.json({
       ...record.lead,
+      ...(publishedLocales.length > 0 ? { publishedLocales } : {}),
       review: record.review ?? reviewStoredLead(record.lead),
     });
   });

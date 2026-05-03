@@ -724,8 +724,143 @@ describe("admin lead pipeline", () => {
             status: "published",
             label: "Published",
           },
+          publishedLocales: [
+            {
+              locale: "en",
+              slug: "lego-bonsai-tree-for-a-59-at-big-w",
+            },
+            {
+              locale: "zh",
+              slug: "big-w-乐高盆景树套装-a-59",
+            },
+          ],
         },
       ],
+    });
+
+    const detailResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: `/v1/admin/leads/${leadId}`,
+    });
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).toMatchObject({
+      id: leadId,
+      publishedLocales: [
+        {
+          locale: "en",
+          slug: "lego-bonsai-tree-for-a-59-at-big-w",
+        },
+        {
+          locale: "zh",
+          slug: "big-w-乐高盆景树套装-a-59",
+        },
+      ],
+    });
+  });
+
+  it("keeps a partially published review queued until both public locales exist", async () => {
+    const app = buildApp({
+      publishedDealStore: {
+        async getPublishedDeal(_locale, _slug) {
+          return null;
+        },
+        async hasPublishedDealSlug(_slug) {
+          return false;
+        },
+        async getPublishedDealSlugForLead(leadId, locale) {
+          if (leadId === "lead_1" && locale === "en") {
+            return "lego-bonsai-tree-for-a-59-at-big-w";
+          }
+
+          return null;
+        },
+      },
+    } as never);
+
+    const leadResponse = await dispatchRequest(app, {
+      method: "POST",
+      path: "/v1/admin/leads",
+      body: {
+        sourceId: "src_bigw",
+        originalTitle: "Big W AU LEGO Bonsai Tree A$59",
+        originalUrl: "https://www.bigw.com.au/deal/lego-bonsai",
+        snippet: "Weekend toy sale.",
+      },
+    });
+
+    expect(leadResponse.status).toBe(201);
+
+    const leadId = String((leadResponse.body as { id: string }).id);
+    const draftResponse = await dispatchRequest(app, {
+      method: "PUT",
+      path: `/v1/admin/leads/${leadId}/review`,
+      body: {
+        leadId,
+        category: "Toys",
+        confidence: 88,
+        riskLabels: [],
+        tags: ["lego"],
+        featuredSlot: "weekend",
+        publishAt: "2026-04-24T11:00:00.000Z",
+        locales: {
+          en: {
+            title: "LEGO Bonsai Tree for A$59 at Big W",
+            summary: "Weekend sale drops the LEGO display set to A$59.",
+          },
+          zh: {
+            title: "Big W 乐高盆景树套装 A$59",
+            summary: "周末玩具促销，展示款乐高套装降至 A$59。",
+          },
+        },
+        publish: true,
+      },
+    });
+    expect(draftResponse.status).toBe(200);
+
+    const englishSlug = "lego-bonsai-tree-for-a-59-at-big-w";
+
+    const queueResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: "/v1/admin/leads",
+    });
+
+    expect(queueResponse.status).toBe(200);
+    expect(queueResponse.body).toMatchObject({
+      items: [
+        {
+          id: leadId,
+          queue: {
+            status: "queued_to_publish",
+            label: "Queued to publish",
+          },
+          publishedLocales: [
+            {
+              locale: "en",
+              slug: englishSlug,
+            },
+          ],
+        },
+      ],
+    });
+
+    const detailResponse = await dispatchRequest(app, {
+      method: "GET",
+      path: `/v1/admin/leads/${leadId}`,
+    });
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).toMatchObject({
+      id: leadId,
+      publishedLocales: [
+        {
+          locale: "en",
+          slug: englishSlug,
+        },
+      ],
+      review: expect.objectContaining({
+        publish: true,
+      }),
     });
   });
 

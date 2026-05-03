@@ -1,6 +1,7 @@
 import React from "react";
 
 import { buildAdminApiUrl } from "../../lib/runtimeApi";
+import { buildAdminPublicDealUrl } from "../../lib/publicSite";
 
 interface LeadQueueItem {
   id: string;
@@ -14,6 +15,10 @@ interface LeadQueueItem {
     status: string;
     label: string;
   };
+  publishedLocales?: Array<{
+    locale: "en" | "zh";
+    slug: string;
+  }>;
 }
 
 interface LeadQueueResponse {
@@ -87,7 +92,34 @@ function normalizeLeadQueueItem(value: unknown): LeadQueueItem | null {
     snippet: readString(value.snippet),
     createdAt: readString(value.createdAt),
     queue: normalizeLeadQueueSummary(value.queue, value.review),
+    publishedLocales: Array.isArray(value.publishedLocales)
+      ? value.publishedLocales
+          .map((item) => {
+            if (!isRecord(item)) {
+              return null;
+            }
+
+            const locale = readString(item.locale);
+            const slug = readString(item.slug);
+
+            if ((locale !== "en" && locale !== "zh") || !slug) {
+              return null;
+            }
+
+            return {
+              locale,
+              slug,
+            } as { locale: "en" | "zh"; slug: string };
+          })
+          .filter(
+            (item): item is { locale: "en" | "zh"; slug: string } => item !== null,
+          )
+      : undefined,
   };
+}
+
+function getPublishedLocaleLabel(locale: "en" | "zh") {
+  return locale === "zh" ? "Chinese public deal" : "English public deal";
 }
 
 function extractLeadQueueItems(body: unknown) {
@@ -159,6 +191,7 @@ export default async function LeadsPage() {
               <th>Original title</th>
               <th>Original URL</th>
               <th>Status</th>
+              <th>Public deals</th>
               <th>Created at</th>
             </tr>
           </thead>
@@ -178,6 +211,19 @@ export default async function LeadsPage() {
                   )}
                 </td>
                 <td>{lead.queue.label}</td>
+                <td>
+                  {lead.publishedLocales && lead.publishedLocales.length > 0 ? (
+                    lead.publishedLocales.map((locale) => (
+                      <React.Fragment key={`${lead.id}:${locale.locale}`}>
+                        <a href={buildAdminPublicDealUrl(locale.locale, locale.slug)}>
+                          {getPublishedLocaleLabel(locale.locale)}
+                        </a>{" "}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    "Not published yet"
+                  )}
+                </td>
                 <td>{lead.createdAt || "Unknown"}</td>
               </tr>
             ))}

@@ -764,6 +764,8 @@ describe("deployment artifacts", () => {
     expect(webEnvironment).toContain("SITE_URL: ${SITE_URL}");
     expect(adminBlock).toContain("args:");
     expect(adminEnvironment).toContain("ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://api:3001}");
+    expect(adminEnvironment).toContain("NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}");
+    expect(adminEnvironment).toContain("SITE_URL: ${SITE_URL}");
     expect(workerBlock).toContain("args:");
     expect(workerEnvironment).toContain(
       "DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/aussie_deals_hub}",

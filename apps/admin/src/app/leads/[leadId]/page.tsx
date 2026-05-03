@@ -6,10 +6,16 @@ import LeadReviewForm, {
   type LeadReviewDraft,
   type LeadReviewSubmission,
 } from "../../../components/LeadReviewForm";
+import { buildAdminPublicDealUrl } from "../../../lib/publicSite";
 
 interface LeadLocaleMetadata {
   title: string;
   summary: string;
+}
+
+interface PublishedLeadLocale {
+  locale: "en" | "zh";
+  slug: string;
 }
 
 interface LeadDetailRecord {
@@ -23,6 +29,7 @@ interface LeadDetailRecord {
   sourceSnapshot: string | null;
   createdAt: string;
   review: LeadReviewDraft;
+  publishedLocales?: PublishedLeadLocale[];
 }
 
 interface LeadDetailLoadResult {
@@ -50,6 +57,38 @@ function readNumber(value: unknown) {
 
 function readStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function normalizePublishedLeadLocales(value: unknown) {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const locales = value
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null;
+      }
+
+      const locale = readString(item.locale);
+      const slug = readString(item.slug);
+
+      if ((locale !== "en" && locale !== "zh") || !slug) {
+        return null;
+      }
+
+      return {
+        locale,
+        slug,
+      } as PublishedLeadLocale;
+    })
+    .filter((item): item is PublishedLeadLocale => item !== null);
+
+  return locales.length > 0 ? locales : undefined;
+}
+
+function getPublishedLocaleLabel(locale: "en" | "zh") {
+  return locale === "zh" ? "Chinese public deal" : "English public deal";
 }
 
 function normalizeLocaleMetadata(
@@ -124,6 +163,7 @@ function normalizeLeadDetail(body: unknown): LeadDetailRecord | null {
     sourceSnapshot: readString(lead.sourceSnapshot) || null,
     createdAt,
     review: buildLeadReviewDraft(review, originalTitle, snippet, createdAt),
+    publishedLocales: normalizePublishedLeadLocales(lead.publishedLocales),
   };
 }
 
@@ -199,15 +239,20 @@ async function publishLeadReview(submission: LeadReviewSubmission) {
 
     if (!response.ok) {
       return {
+        publishedLocales: undefined,
         error: "Failed to publish deal.",
       };
     }
 
+    const body = await response.json().catch(() => null);
+
     return {
+      publishedLocales: normalizePublishedLeadLocales(isRecord(body) ? body.locales : undefined),
       error: null,
     };
   } catch {
     return {
+      publishedLocales: undefined,
       error: "Failed to publish deal.",
     };
   }
@@ -305,6 +350,29 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
     };
   }, [params]);
 
+  function updateLeadReview(
+    submission: LeadReviewSubmission,
+    publishedLocales?: PublishedLeadLocale[],
+  ) {
+    setLead((currentLead) =>
+      currentLead
+        ? {
+            ...currentLead,
+            review: {
+              category: submission.category,
+              confidence: submission.confidence,
+              riskLabels: submission.riskLabels,
+              tags: submission.tags,
+              featuredSlot: submission.featuredSlot,
+              publishAt: submission.publishAt,
+              locales: submission.locales,
+            },
+            publishedLocales: publishedLocales ?? currentLead.publishedLocales,
+          }
+        : currentLead,
+    );
+  }
+
   async function handleSubmit(submission: LeadReviewSubmission) {
     setFeedback(null);
 
@@ -316,6 +384,7 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
         return;
       }
 
+      updateLeadReview(submission);
       setFeedback("Draft saved.");
       return;
     }
@@ -331,14 +400,16 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
       return;
     }
 
+    updateLeadReview(draftSubmission);
     const publishResult = await publishLeadReview(submission);
 
     if (publishResult.error) {
-      setFeedback("Draft saved, but failed to queue deal for publishing.");
+      setFeedback("Draft saved, but failed to publish deal.");
       return;
     }
 
-    setFeedback("Deal queued for publishing.");
+    updateLeadReview(submission, publishResult.publishedLocales);
+    setFeedback("Deal published.");
   }
 
   async function handleRerunReview() {
@@ -416,6 +487,25 @@ export default function LeadDetailPage({ params }: LeadDetailPageProps) {
               </dd>
               <dt>Snippet</dt>
               <dd>{lead.snippet || "No snippet"}</dd>
+              <dt>Published public deals</dt>
+              <dd>
+                {lead.publishedLocales && lead.publishedLocales.length > 0 ? (
+                  lead.publishedLocales.map((publishedLocale) => (
+                    <React.Fragment key={`${lead.id}:${publishedLocale.locale}`}>
+                      <a
+                        href={buildAdminPublicDealUrl(
+                          publishedLocale.locale,
+                          publishedLocale.slug,
+                        )}
+                      >
+                        {getPublishedLocaleLabel(publishedLocale.locale)}
+                      </a>{" "}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  "Not published yet"
+                )}
+              </dd>
               <dt>Source score</dt>
               <dd>{lead.sourceScore ?? "Unknown"}</dd>
               <dt>Source snapshot</dt>

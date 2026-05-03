@@ -124,9 +124,9 @@ The worker runtime readiness target is stricter than the startup grace window: t
 The admin dashboard follows the same contract: a worker in `status: "starting"` is shown as still booting its first pass, not as healthy.
 The admin catalog pages for merchants, tags, and topics now support create, inline edit/save, and delete flows, keep list ordering aligned with the API's natural name-order contract after client-side mutations, and keep tag/topic slug updates uniqueness-enforced in both the API and the database-backed store.
 The sources page now supports create, save, poll-now, enable/disable, and delete flows, keeps client-side create ordering aligned with the API's natural name-order source contract, and removes deleted source rows through the admin API contract.
-The admin leads queue and detail views now prefer source display names from the API, falling back to source IDs only when a runtime record has no source name.
+The admin leads queue and detail views now prefer source display names from the API, fall back to source IDs only when a runtime record has no source name, and expose English and Chinese public-deal links for published leads using the configured public site origin (`NEXT_PUBLIC_SITE_URL` / `SITE_URL`).
 The publishing queue now keeps each scheduled row linked back to its underlying lead review so editors can jump directly from a publish slot to the source review record.
-The digest preview now keeps each localized deal row linked to its public deal detail page so editors can jump from the preview email content to the live public surface they are about to send.
+The digest preview now keeps each localized deal row linked to its public deal detail page through the configured public site origin so editors can jump from the preview email content to the live public surface they are about to send.
 Expect the API readiness `dependencies` map to stay explicit about scope: `dbConnectivity` only proves the primary database connection, while `dbCatalogSchema`, `dbPublishingSchema`, and `dbUserEngagementSchema` cover the higher-level Prisma model groups.
 Dependency values stay coarse and safe: expect summaries such as `connection_failed`, `timeout`, `schema_mismatch`, `authentication_failed`, or `unavailable` instead of raw exception text.
 

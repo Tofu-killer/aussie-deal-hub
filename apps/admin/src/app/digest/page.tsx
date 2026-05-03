@@ -1,6 +1,7 @@
 import React from "react";
 
 import { buildAdminApiUrl } from "../../lib/runtimeApi";
+import { buildAdminPublicDealUrl } from "../../lib/publicSite";
 
 interface DigestLocalePreview {
   locale?: string;
@@ -23,11 +24,6 @@ interface DigestPreview {
 interface DigestPreviewResult {
   digest: DigestPreview | null;
   error: string | null;
-}
-
-function buildPublicDealPath(locale: "en" | "zh", dealId: string) {
-  const localePrefix = locale === "zh" ? "/zh" : "/en";
-  return `${localePrefix}/deals/${dealId}`;
 }
 
 async function loadDigestPreview(): Promise<DigestPreviewResult> {
@@ -94,7 +90,7 @@ export default async function DigestPage() {
                   <tr key={deal.id}>
                     <td>{deal.merchant ?? "Unknown"}</td>
                     <td>
-                      <a href={buildPublicDealPath("en", deal.id)}>
+                      <a href={buildAdminPublicDealUrl("en", deal.id)}>
                         {deal.title ?? "Untitled"}
                       </a>
                     </td>
@@ -127,7 +123,7 @@ export default async function DigestPage() {
                   <tr key={deal.id}>
                     <td>{deal.merchant ?? "Unknown"}</td>
                     <td>
-                      <a href={buildPublicDealPath("zh", deal.id)}>
+                      <a href={buildAdminPublicDealUrl("zh", deal.id)}>
                         {deal.title ?? "Untitled"}
                       </a>
                     </td>

@@ -43,6 +43,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   delete process.env.ADMIN_API_BASE_URL;
+  delete process.env.NEXT_PUBLIC_SITE_URL;
+  delete process.env.SITE_URL;
 });
 
 describe("LeadReviewForm", () => {
@@ -238,6 +240,7 @@ describe("LeadReviewForm", () => {
 
   it("loads and renders the lead queue from the admin leads API", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.aussie-deal-hub.example";
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({
         items: [
@@ -253,6 +256,16 @@ describe("LeadReviewForm", () => {
               status: "draft_saved",
               label: "Draft saved",
             },
+            publishedLocales: [
+              {
+                locale: "en",
+                slug: "nintendo-switch-oled-amazon-au",
+              },
+              {
+                locale: "zh",
+                slug: "nintendo-switch-oled-amazon-au",
+              },
+            ],
           },
         ],
       }),
@@ -274,6 +287,12 @@ describe("LeadReviewForm", () => {
     expect(screen.queryByText("src_amazon")).toBeNull();
     expect(screen.getByText("Amazon AU Nintendo Switch OLED A$399")).toBeTruthy();
     expect(screen.getByText("https://www.amazon.com.au/deal")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "English public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/en/deals/nintendo-switch-oled-amazon-au");
+    expect(
+      screen.getByRole("link", { name: "Chinese public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/zh/deals/nintendo-switch-oled-amazon-au");
   });
 
   it("renders published queue status fallback labels", async () => {
@@ -307,6 +326,7 @@ describe("LeadReviewForm", () => {
 
   it("loads lead detail metadata from the admin leads API and renders the review form", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.aussie-deal-hub.example";
     const fetchMock = vi.fn().mockResolvedValue(
       createJsonResponse({
         id: "lead_42",
@@ -318,6 +338,16 @@ describe("LeadReviewForm", () => {
         sourceScore: 84,
         sourceSnapshot: "{\"candidate\":{\"title\":\"Nintendo Switch OLED\"}}",
         createdAt: "2026-04-23T08:00:00.000Z",
+        publishedLocales: [
+          {
+            locale: "en",
+            slug: "nintendo-switch-oled-amazon-au",
+          },
+          {
+            locale: "zh",
+            slug: "nintendo-switch-oled-amazon-au",
+          },
+        ],
         review: {
           category: "Deals",
           confidence: 88,
@@ -350,6 +380,12 @@ describe("LeadReviewForm", () => {
     expect(screen.getByText("84")).toBeTruthy();
     expect(screen.getByText("{\"candidate\":{\"title\":\"Nintendo Switch OLED\"}}")).toBeTruthy();
     expect(screen.getAllByText("Coupon GAME20 expires tonight.").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("link", { name: "English public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/en/deals/nintendo-switch-oled-amazon-au");
+    expect(
+      screen.getByRole("link", { name: "Chinese public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/zh/deals/nintendo-switch-oled-amazon-au");
     expect((await screen.findByLabelText("English title") as HTMLInputElement).value).toBe(
       "Nintendo Switch OLED for A$399 at Amazon AU",
     );
@@ -493,6 +529,7 @@ describe("LeadReviewForm", () => {
 
   it("saves the review draft before calling the publish route and shows publish success feedback", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.aussie-deal-hub.example";
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : String(input);
 
@@ -531,7 +568,19 @@ describe("LeadReviewForm", () => {
       }
 
       if (url === "/v1/admin/publishing/lead_42/publish" && init?.method === "POST") {
-        return createJsonResponse({ ok: true });
+        return createJsonResponse({
+          status: "published",
+          locales: [
+            {
+              locale: "en",
+              slug: "nintendo-switch-oled-amazon-au",
+            },
+            {
+              locale: "zh",
+              slug: "nintendo-switch-oled-amazon-au",
+            },
+          ],
+        });
       }
 
       return createJsonResponse({ message: `Unexpected fetch for ${url}` }, false);
@@ -597,7 +646,13 @@ describe("LeadReviewForm", () => {
         publish: true,
       }),
     });
-    expect(await screen.findByText("Deal queued for publishing.")).toBeTruthy();
+    expect(await screen.findByText("Deal published.")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "English public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/en/deals/nintendo-switch-oled-amazon-au");
+    expect(
+      screen.getByRole("link", { name: "Chinese public deal" }).getAttribute("href"),
+    ).toBe("https://www.aussie-deal-hub.example/zh/deals/nintendo-switch-oled-amazon-au");
   });
 
   it("shows failure feedback when saving the review draft before publishing fails", async () => {
@@ -709,7 +764,7 @@ describe("LeadReviewForm", () => {
     await user.click(screen.getByRole("button", { name: "Publish Deal" }));
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(await screen.findByText("Draft saved, but failed to queue deal for publishing.")).toBeTruthy();
+    expect(await screen.findByText("Draft saved, but failed to publish deal.")).toBeTruthy();
   });
 
   it("reruns AI review and refreshes the form with regenerated copy", async () => {
