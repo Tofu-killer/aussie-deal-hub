@@ -60,6 +60,7 @@ describe("publishing page", () => {
         items: [
           {
             id: "queue_1",
+            leadId: "lead_1",
             deal: "Nintendo Switch OLED drop",
             featuredSlot: "hero",
             publishAt: "2026-04-24T09:00:00.000Z",
@@ -68,6 +69,7 @@ describe("publishing page", () => {
           },
           {
             id: "queue_2",
+            leadId: "lead_2",
             deal: "Amazon AU gaming accessory roundup",
             featuredSlot: "digest-primary",
             publishAt: "2026-04-24T09:05:00.000Z",
@@ -76,6 +78,7 @@ describe("publishing page", () => {
           },
           {
             id: "queue_3",
+            leadId: "lead_3",
             deal: "Weekend appliance bundle feature",
             featuredSlot: "sidebar",
             publishAt: "2026-04-24T09:15:00.000Z",
@@ -99,13 +102,24 @@ describe("publishing page", () => {
     expect(within(table).getByText("2026-04-24T09:00:00.000Z")).toBeTruthy();
     expect(within(table).getAllByText("en-AU")).toHaveLength(2);
     expect(within(table).getByText("scheduled")).toBeTruthy();
+    expect(
+      within(table).getByRole("link", { name: "Nintendo Switch OLED drop" }).getAttribute("href"),
+    ).toBe("/leads/lead_1");
     expect(within(table).getByText("digest-primary")).toBeTruthy();
     expect(within(table).getByText("2026-04-24T09:05:00.000Z")).toBeTruthy();
     expect(within(table).getByText("zh-CN")).toBeTruthy();
     expect(within(table).getByText("ready")).toBeTruthy();
+    expect(
+      within(table)
+        .getByRole("link", { name: "Amazon AU gaming accessory roundup" })
+        .getAttribute("href"),
+    ).toBe("/leads/lead_2");
     expect(within(table).getByText("sidebar")).toBeTruthy();
     expect(within(table).getByText("2026-04-24T09:15:00.000Z")).toBeTruthy();
     expect(within(table).getByText("blocked")).toBeTruthy();
+    expect(
+      within(table).getByRole("link", { name: "Weekend appliance bundle feature" }).getAttribute("href"),
+    ).toBe("/leads/lead_3");
   });
 
   it("renders a publishing queue error when the live API request fails", async () => {

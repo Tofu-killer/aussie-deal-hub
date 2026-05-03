@@ -4,6 +4,7 @@ import { buildAdminApiUrl } from "../../lib/runtimeApi";
 
 interface PublishingQueueRow {
   id: string;
+  leadId: string;
   deal: string;
   featuredSlot: string;
   publishAt: string;
@@ -30,13 +31,15 @@ function normalizePublishingQueueRow(value: unknown): PublishingQueueRow | null 
   }
 
   const id = readString(value.id);
+  const leadId = readString(value.leadId);
 
-  if (!id) {
+  if (!id || !leadId) {
     return null;
   }
 
   return {
     id,
+    leadId,
     deal: readString(value.deal),
     featuredSlot: readString(value.featuredSlot),
     publishAt: readString(value.publishAt),
@@ -117,7 +120,9 @@ export default async function PublishingPage() {
           <tbody>
             {items.map((row) => (
               <tr key={row.id}>
-                <td>{row.deal}</td>
+                <td>
+                  <a href={`/leads/${row.leadId}`}>{row.deal}</a>
+                </td>
                 <td>{row.featuredSlot}</td>
                 <td>{row.publishAt}</td>
                 <td>{row.locale}</td>
