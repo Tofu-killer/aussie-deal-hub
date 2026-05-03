@@ -341,6 +341,70 @@ describe("sources page", () => {
     expect((screen.getByLabelText("Poll interval (minutes)") as HTMLInputElement).value).toBe("");
   });
 
+  it("keeps created source rows in natural name order", async () => {
+    process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: "source_1",
+              name: "Season 10 Sources",
+              sourceType: "community",
+              baseUrl: "https://season-10.example.com",
+              fetchMethod: "html",
+              pollIntervalMinutes: 60,
+              trustScore: 91,
+              language: "en-AU",
+              enabled: true,
+              pollCount: 0,
+              lastPolledAt: null,
+              lastPollStatus: null,
+              lastPollMessage: null,
+              lastLeadCreatedAt: null,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: "source_2",
+          name: "Season 2 Sources",
+          sourceType: "community",
+          baseUrl: "https://season-2.example.com",
+          fetchMethod: "json",
+          pollIntervalMinutes: 240,
+          trustScore: 77,
+          language: "en-AU",
+          enabled: true,
+          pollCount: 0,
+          lastPolledAt: null,
+          lastPollStatus: null,
+          lastPollMessage: null,
+          lastLeadCreatedAt: null,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderSourcesPage();
+
+    await user.type(screen.getByLabelText("Name"), "Season 2 Sources");
+    await user.type(screen.getByLabelText("Base URL"), "https://season-2.example.com");
+    await user.type(screen.getByLabelText("Language"), "en-AU");
+    await user.selectOptions(screen.getByLabelText("Fetch method"), "json");
+    await user.type(screen.getByLabelText("Trust score"), "77");
+    await user.type(screen.getByLabelText("Poll interval (minutes)"), "240");
+    await user.click(screen.getByRole("button", { name: "Create source" }));
+
+    expect(await screen.findByText("Source created.")).toBeTruthy();
+    expect(getRenderedSourceNames(screen.getByRole("table"))).toEqual([
+      "Season 2 Sources",
+      "Season 10 Sources",
+    ]);
+  });
+
   it("saves source fetch settings and shows updated metadata", async () => {
     process.env.ADMIN_API_BASE_URL = "http://preview-api.test";
     const user = userEvent.setup();

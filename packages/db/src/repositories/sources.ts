@@ -22,6 +22,11 @@ type SourceRow = Prisma.SourceGetPayload<{
   select: typeof sourceRecordSelect;
 }>;
 
+const sourceNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
 function toSourceRecord(row: SourceRow): SourceRecord {
   return {
     ...row,
@@ -55,7 +60,9 @@ export async function listSources(): Promise<SourceRecord[]> {
     select: sourceRecordSelect,
   });
 
-  return rows.map(toSourceRecord);
+  return rows
+    .sort((left, right) => sourceNameCollator.compare(left.name, right.name))
+    .map(toSourceRecord);
 }
 
 export async function getSourceById(sourceId: string): Promise<SourceRecord | null> {
@@ -163,10 +170,12 @@ export async function listEnabledSourcesForIngestion(): Promise<IngestibleSource
     },
   });
 
-  return rows.map((row) => ({
-    ...row,
-    lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
-  }));
+  return rows
+    .sort((left, right) => sourceNameCollator.compare(left.name, right.name))
+    .map((row) => ({
+      ...row,
+      lastPolledAt: row.lastPolledAt?.toISOString() ?? null,
+    }));
 }
 
 export async function recordSourcePoll(input: SourcePollUpdateInput): Promise<void> {

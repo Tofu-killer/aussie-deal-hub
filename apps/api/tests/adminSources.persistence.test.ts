@@ -309,6 +309,56 @@ describeDb("admin sources persistence", () => {
     ]);
   });
 
+  it("keeps admin and ingestion source lists in natural name order after database-backed creates", async () => {
+    const suffix = randomUUID();
+    const seeded = [
+      {
+        name: `Season 10 Sources ${suffix}`,
+        sourceType: "community",
+        baseUrl: `https://season-10-sources-${suffix}.example.com`,
+        trustScore: 64,
+        language: "en",
+        enabled: true,
+        fetchMethod: "html",
+        pollIntervalMinutes: 120,
+      },
+      {
+        name: `Season 2 Sources ${suffix}`,
+        sourceType: "community",
+        baseUrl: `https://season-2-sources-${suffix}.example.com`,
+        trustScore: 66,
+        language: "en",
+        enabled: true,
+        fetchMethod: "json",
+        pollIntervalMinutes: 180,
+      },
+    ];
+
+    await prisma.source.createMany({ data: seeded });
+
+    try {
+      expect(
+        (await listSources())
+          .filter((source) => source.baseUrl === seeded[0].baseUrl || source.baseUrl === seeded[1].baseUrl)
+          .map((source) => source.name),
+      ).toEqual([seeded[1].name, seeded[0].name]);
+
+      expect(
+        (await listEnabledSourcesForIngestion())
+          .filter((source) => source.baseUrl === seeded[0].baseUrl || source.baseUrl === seeded[1].baseUrl)
+          .map((source) => source.name),
+      ).toEqual([seeded[1].name, seeded[0].name]);
+    } finally {
+      await prisma.source.deleteMany({
+        where: {
+          baseUrl: {
+            in: seeded.map((source) => source.baseUrl),
+          },
+        },
+      });
+    }
+  });
+
   it("creates a source with deterministic defaults", async () => {
     const suffix = randomUUID();
     const payload = {
