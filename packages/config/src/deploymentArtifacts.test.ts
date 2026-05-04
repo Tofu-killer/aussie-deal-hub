@@ -552,7 +552,9 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain('pg_isready -U postgres -d aussie_deals_hub');
     expect(workflow).toContain("pnpm verify");
     expect(verifyWorkspaceStep).toContain("env:");
-    expect(verifyWorkspaceStep).toContain("DATABASE_URL:");
+    expect(verifyWorkspaceStep).toContain(
+      "DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub",
+    );
     expect(verifyWorkspaceStep).toContain("VERIFY_DB: \"1\"");
     expect(verifyWorkspaceStep).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
     expect(verifyWorkspaceStep).toContain("SITE_URL: http://127.0.0.1:3000");
@@ -735,7 +737,9 @@ describe("deployment artifacts", () => {
       previousIndex = currentIndex;
     }
 
-    expect(verifyWorkspaceStep).toContain("DATABASE_URL:");
+    expect(verifyWorkspaceStep).toContain(
+      "DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub",
+    );
     expect(verifyWorkspaceStep).toContain("VERIFY_DB: \"1\"");
     expect(verifyWorkspaceStep).toContain("run: pnpm verify");
   });
