@@ -65,6 +65,33 @@ function findLineIndex(lines: string[], fragment: string) {
   return index;
 }
 
+function readWorkflowStepBlock(workflow: string, stepName: string) {
+  const lines = workflow.split("\n");
+  const stepStart = lines.findIndex((line) => line === `      - name: ${stepName}`);
+
+  if (stepStart === -1) {
+    throw new Error(`Could not find workflow step named: ${stepName}`);
+  }
+
+  const stepLines: string[] = [];
+
+  for (let index = stepStart; index < lines.length; index += 1) {
+    const line = lines[index];
+
+    if (index > stepStart && line.startsWith("      - name: ")) {
+      break;
+    }
+
+    if (index > stepStart && line.startsWith("  ") && !line.startsWith("      ")) {
+      break;
+    }
+
+    stepLines.push(line);
+  }
+
+  return stepLines.join("\n");
+}
+
 describe("deployment artifacts", () => {
   it("defines a db-init service that applies checked-in migrations before api startup", () => {
     const compose = readRepoFile("docker-compose.yml");
@@ -488,6 +515,7 @@ describe("deployment artifacts", () => {
     const readme = readRepoFile("README.md");
     const gitignore = readRepoFile(".gitignore");
     const workflow = readRepoFile(".github/workflows/release-bundle.yml");
+    const verifyWorkspaceStep = readWorkflowStepBlock(workflow, "Verify workspace");
     const releaseBundleBlock = [
       "pnpm release:bundle",
       "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 \\",
@@ -520,8 +548,15 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("services:");
     expect(workflow).toContain("postgres:");
     expect(workflow).toContain("image: postgres:16@sha256:");
+    expect(workflow).toContain("5433:5432");
+    expect(workflow).toContain('pg_isready -U postgres -d aussie_deals_hub');
     expect(workflow).toContain("pnpm verify");
-    expect(workflow).toContain("DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub");
+    expect(verifyWorkspaceStep).toContain("env:");
+    expect(verifyWorkspaceStep).toContain("DATABASE_URL:");
+    expect(verifyWorkspaceStep).toContain("VERIFY_DB: \"1\"");
+    expect(verifyWorkspaceStep).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
+    expect(verifyWorkspaceStep).toContain("SITE_URL: http://127.0.0.1:3000");
+    expect(verifyWorkspaceStep).toContain("run: pnpm verify");
     expect(workflow).toContain("pnpm release:bundle");
     expect(workflow).toContain(
       "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
@@ -533,8 +568,6 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).toContain("path: release/");
     expect(workflow).toContain("permissions:\n  contents: read\n  actions: read");
-    expect(workflow).toContain("NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000");
-    expect(workflow).toContain("SITE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_API_BASE_URL: http://127.0.0.1:3001");
     expect(workflow).toContain("RUNTIME_WEB_BASE_URL: http://127.0.0.1:3000");
     expect(workflow).toContain("RUNTIME_ADMIN_BASE_URL: http://127.0.0.1:3002");
@@ -681,8 +714,11 @@ describe("deployment artifacts", () => {
   });
 
   it("runs DB-backed release bundle gates before building the release artifact", () => {
-    const workflowLines = readRepoFile(".github/workflows/release-bundle.yml").split("\n");
+    const workflow = readRepoFile(".github/workflows/release-bundle.yml");
+    const workflowLines = workflow.split("\n");
+    const verifyWorkspaceStep = readWorkflowStepBlock(workflow, "Verify workspace");
     const orderedFragments = [
+      "postgres:",
       "name: Install dependencies",
       "name: Verify workspace",
       "name: Build release bundle",
@@ -698,6 +734,10 @@ describe("deployment artifacts", () => {
       expect(currentIndex).toBeGreaterThan(previousIndex);
       previousIndex = currentIndex;
     }
+
+    expect(verifyWorkspaceStep).toContain("DATABASE_URL:");
+    expect(verifyWorkspaceStep).toContain("VERIFY_DB: \"1\"");
+    expect(verifyWorkspaceStep).toContain("run: pnpm verify");
   });
 
   it("documents a unified runtime verification entrypoint for deployed stacks", () => {

@@ -46,6 +46,7 @@ jobs:
       - name: Verify workspace
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub
+          VERIFY_DB: "1"
           NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
           SITE_URL: http://127.0.0.1:3000
         run: pnpm verify
