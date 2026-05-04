@@ -517,7 +517,11 @@ describe("deployment artifacts", () => {
     expect(gitignore).toContain("release");
     expect(workflow).toContain("name: Release bundle");
     expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("services:");
+    expect(workflow).toContain("postgres:");
+    expect(workflow).toContain("image: postgres:16@sha256:");
     expect(workflow).toContain("pnpm verify");
+    expect(workflow).toContain("DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/aussie_deals_hub");
     expect(workflow).toContain("pnpm release:bundle");
     expect(workflow).toContain(
       "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
@@ -665,6 +669,26 @@ describe("deployment artifacts", () => {
     expect(workflow).not.toContain("name: Run bundle readiness smoke");
     expect(workflow).not.toContain("name: Run bundle route smoke");
     expect(workflow).not.toContain("name: Stop bundle container stack");
+
+    let previousIndex = -1;
+
+    for (const fragment of orderedFragments) {
+      const currentIndex = findLineIndex(workflowLines, fragment);
+
+      expect(currentIndex).toBeGreaterThan(previousIndex);
+      previousIndex = currentIndex;
+    }
+  });
+
+  it("runs DB-backed release bundle gates before building the release artifact", () => {
+    const workflowLines = readRepoFile(".github/workflows/release-bundle.yml").split("\n");
+    const orderedFragments = [
+      "name: Install dependencies",
+      "name: Verify workspace",
+      "name: Build release bundle",
+      "name: Upload release bundle artifact",
+      "rehearse:",
+    ];
 
     let previousIndex = -1;
 
