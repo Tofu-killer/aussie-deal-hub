@@ -13,13 +13,21 @@ if (!databaseUrl) {
   fail("DATABASE_URL is required to create a runtime backup.");
 }
 
+const configuredBackupFile = process.env.BACKUP_FILE?.trim();
 const backupDir = path.resolve(process.cwd(), process.env.BACKUP_DIR ?? "backups");
 const backupPrefix = process.env.BACKUP_PREFIX?.trim() || "aussie-deal-hub";
 const backupTimestamp = process.env.BACKUP_TIMESTAMP?.trim() || formatTimestamp(new Date());
-const backupPath = path.join(backupDir, `${backupPrefix}-${backupTimestamp}.dump`);
+const backupPath = configuredBackupFile
+  ? path.resolve(process.cwd(), configuredBackupFile)
+  : path.join(backupDir, `${backupPrefix}-${backupTimestamp}.dump`);
+
+if (path.extname(backupPath).toLowerCase() !== ".dump") {
+  fail("BACKUP_FILE must point to a custom-format .dump artifact path for pnpm runtime:backup.");
+}
+
 const postgresRuntime = createPostgresRuntimeEnvironment(databaseUrl);
 
-mkdirSync(backupDir, { recursive: true });
+mkdirSync(path.dirname(backupPath), { recursive: true });
 
 let result;
 

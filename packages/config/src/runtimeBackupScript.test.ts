@@ -188,6 +188,26 @@ describe("runtime backup script", () => {
     await expect(access(expectedBackupPath)).resolves.toBeUndefined();
   });
 
+  it("rejects BACKUP_FILE values that do not end in .dump", async () => {
+    const tempRepoRoot = await createTempRepo();
+
+    const result = spawnSync(process.execPath, [scriptPath], {
+      cwd: tempRepoRoot,
+      env: {
+        ...process.env,
+        BACKUP_FILE: path.join("artifacts", "runtime.sql"),
+        DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/aussie_deals_hub",
+        PATH: "",
+      },
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      "BACKUP_FILE must point to a custom-format .dump artifact path for pnpm runtime:backup.",
+    );
+  });
+
   it("prints a custom error when pg_dump is unavailable", async () => {
     const tempRepoRoot = await createTempRepo();
 

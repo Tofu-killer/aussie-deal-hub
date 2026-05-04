@@ -21,6 +21,22 @@ const REQUIRED_DEPLOY_ENV = [
 ];
 
 const REMOTE_SITE_URL_ENV_KEYS = ["NEXT_PUBLIC_SITE_URL", "SITE_URL"];
+const REMOTE_REQUIRED_ENV_KEYS = [
+  "DATABASE_URL",
+  "REDIS_URL",
+  "SESSION_SECRET",
+  "EMAIL_FROM",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "API_BASE_URL",
+  "ADMIN_API_BASE_URL",
+];
+const REMOTE_ENV_PLACEHOLDERS = [
+  ["SESSION_SECRET", "change-me-to-at-least-16-characters"],
+  ["EMAIL_FROM", "deals@example.com"],
+  ["SMTP_HOST", "smtp-placeholder"],
+  ["SMTP_PORT", "1025"],
+];
 
 function normalizeEnvValue(rawValue) {
   const trimmedValue = rawValue?.trim();
@@ -48,6 +64,14 @@ function buildRemoteEnvPresenceCheck(envFilePath, envKeys) {
   return envKeys
     .map((envKey) => `grep -Eq '^${envKey}=.+$' ${quoteShellArgument(envFilePath)}`)
     .join(" || ");
+}
+
+function buildRemoteEnvPlaceholderRejection(envFilePath, envKey, value) {
+  return `! grep -Eq '^${envKey}=${String(value).replace(/[|\\{}()[\]^$+*?.]/gu, "\\$&")}$' ${quoteShellArgument(envFilePath)}`;
+}
+
+function buildRemoteRuntimeBackupPath(remoteSharedRoot, releaseName) {
+  return path.posix.join(remoteSharedRoot, "backups", `${releaseName}.dump`);
 }
 
 function resolveReleaseDeployRoot(cwd = process.cwd(), env = process.env) {
@@ -258,6 +282,10 @@ function buildRuntimeVerifyReport({
   return `${lines.join("\n")}\n`;
 }
 
+function buildRuntimeBackupReport({ phase, remoteBackupFile }) {
+  return `phase: ${phase}\nbackupFile: ${remoteBackupFile}\noutcome:\npassed\n`;
+}
+
 async function runRuntimeVerifyWithReport(runtimeVerifyRunner, runtimeVerifyEnv, phase) {
   const capture = await captureProcessOutput(async () => {
     process.stdout.write(`Running runtime verify (${phase}).\n`);
@@ -288,6 +316,7 @@ function persistReleaseDeployDiagnostics(context) {
     currentReleaseRoot: context.currentReleaseRoot ?? null,
     previousReleaseRoot: context.previousReleaseRoot ?? null,
     releaseActivated: context.releaseActivated,
+    remoteBackupFile: context.remoteBackupFile ?? null,
     remoteCurrentRoot: context.remoteCurrentRoot,
     remoteReleaseRoot: context.remoteReleaseRoot,
     remoteSharedEnvFile: context.remoteSharedEnvFile,
@@ -327,6 +356,10 @@ function persistReleaseDeployDiagnostics(context) {
 
   if (context.runtimeVerifyReport) {
     writeDiagnosticsFile(diagnosticsRoot, "runtime-verify.txt", context.runtimeVerifyReport);
+  }
+
+  if (context.runtimeBackupReport) {
+    writeDiagnosticsFile(diagnosticsRoot, "runtime-backup.txt", context.runtimeBackupReport);
   }
 
   return diagnosticsRoot;
@@ -375,6 +408,7 @@ export async function runReleaseDeployScript(
   const remoteReleasesRoot = path.posix.join(deployPath, "releases");
   const remoteSharedRoot = path.posix.join(deployPath, "shared");
   const remoteSharedEnvFile = path.posix.join(remoteSharedRoot, deployEnvFile);
+  const remoteBackupFile = buildRemoteRuntimeBackupPath(remoteSharedRoot, manifest.releaseName);
   const remoteCurrentRoot = path.posix.join(deployPath, "current");
   const remoteReleaseRoot = path.posix.join(remoteReleasesRoot, manifest.releaseName);
   const runtimeVerifyEnv = {
@@ -388,11 +422,33 @@ export async function runReleaseDeployScript(
     `mkdir -p ${quoteShellArgument(remoteReleasesRoot)} ${quoteShellArgument(remoteSharedRoot)}`,
     `test -f ${quoteShellArgument(remoteSharedEnvFile)}`,
     `(${buildRemoteEnvPresenceCheck(remoteSharedEnvFile, REMOTE_SITE_URL_ENV_KEYS)})`,
+    ...REMOTE_REQUIRED_ENV_KEYS.map((envKey) =>
+      buildRemoteEnvPresenceCheck(remoteSharedEnvFile, [envKey]),
+    ),
+    ...REMOTE_ENV_PLACEHOLDERS.map(([envKey, value]) =>
+      buildRemoteEnvPlaceholderRejection(remoteSharedEnvFile, envKey, value),
+    ),
+  ].join(" && ");
+  const backupCommand = [
+    `mkdir -p ${quoteShellArgument(path.posix.dirname(remoteBackupFile))}`,
+    `cd ${quoteShellArgument(remoteReleaseRoot)}`,
+    `set -a && . ${quoteShellArgument(remoteSharedEnvFile)} && set +a`,
+    `BACKUP_FILE=${quoteShellArgument(remoteBackupFile)} node scripts/runtime-backup.mjs`,
+    `test -f ${quoteShellArgument(remoteBackupFile)}`,
   ].join(" && ");
   const deployCommand = [
     `ln -sfn ${quoteShellArgument(remoteReleaseRoot)} ${quoteShellArgument(remoteCurrentRoot)}`,
     `cd ${quoteShellArgument(remoteCurrentRoot)}`,
     `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} up -d --build`,
+  ].join(" && ");
+  const restoreCommand = [
+    `cd ${quoteShellArgument(remoteCurrentRoot)}`,
+    `set -a && . ${quoteShellArgument(remoteSharedEnvFile)} && set +a`,
+    `BACKUP_FILE=${quoteShellArgument(remoteBackupFile)} RESTORE_CONFIRM=restore node scripts/runtime-restore.mjs`,
+  ].join(" && ");
+  const stopAppServicesCommand = [
+    `cd ${quoteShellArgument(remoteCurrentRoot)}`,
+    `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} stop api web admin worker`,
   ].join(" && ");
   const logsCommand = [
     `cd ${quoteShellArgument(remoteCurrentRoot)}`,
@@ -403,6 +459,7 @@ export async function runReleaseDeployScript(
     `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} ps --all`,
   ].join(" && ");
   let previousReleaseRoot;
+  let backupReport;
   let runtimeVerifyFailureStage;
   let runtimeVerifyReport;
   let stackAttempted = false;
@@ -443,6 +500,20 @@ export async function runReleaseDeployScript(
       }),
       { cwd: workingDirectory, env },
     );
+    runCommand(
+      "ssh",
+      buildSshArgs({
+        deploySshPort,
+        remoteCommand: backupCommand,
+        remoteTarget,
+        sshKeyPath,
+      }),
+      { cwd: workingDirectory, env },
+    );
+    backupReport = buildRuntimeBackupReport({
+      phase: "pre-deploy",
+      remoteBackupFile,
+    });
     stackAttempted = true;
     runCommand(
       "ssh",
@@ -544,9 +615,11 @@ export async function runReleaseDeployScript(
             previousReleaseRoot,
             releaseActivated,
             releaseName: manifest.releaseName,
+            remoteBackupFile,
             remoteCurrentRoot,
             remoteReleaseRoot,
             remoteSharedEnvFile,
+            runtimeBackupReport: backupReport,
             runtimeVerifyReport,
           });
           console.error(
@@ -559,8 +632,10 @@ export async function runReleaseDeployScript(
         }
 
         if (previousReleaseRoot) {
-          const rollbackCommand = [
+          const rollbackSwitchCommand = [
             `ln -sfn ${quoteShellArgument(previousReleaseRoot)} ${quoteShellArgument(remoteCurrentRoot)}`,
+          ].join(" && ");
+          const rollbackStartCommand = [
             `cd ${quoteShellArgument(remoteCurrentRoot)}`,
             `docker compose --env-file ${quoteShellArgument(remoteSharedEnvFile)} up -d --build`,
           ].join(" && ");
@@ -570,7 +645,37 @@ export async function runReleaseDeployScript(
               "ssh",
               buildSshArgs({
                 deploySshPort,
-                remoteCommand: rollbackCommand,
+                remoteCommand: rollbackSwitchCommand,
+                remoteTarget,
+                sshKeyPath,
+              }),
+              { cwd: workingDirectory, env },
+            );
+            runCommand(
+              "ssh",
+              buildSshArgs({
+                deploySshPort,
+                remoteCommand: stopAppServicesCommand,
+                remoteTarget,
+                sshKeyPath,
+              }),
+              { cwd: workingDirectory, env },
+            );
+            runCommand(
+              "ssh",
+              buildSshArgs({
+                deploySshPort,
+                remoteCommand: restoreCommand,
+                remoteTarget,
+                sshKeyPath,
+              }),
+              { cwd: workingDirectory, env },
+            );
+            runCommand(
+              "ssh",
+              buildSshArgs({
+                deploySshPort,
+                remoteCommand: rollbackStartCommand,
                 remoteTarget,
                 sshKeyPath,
               }),
@@ -588,6 +693,11 @@ export async function runReleaseDeployScript(
             }
 
             rollbackPerformed = true;
+            writeRollbackDiagnostics(
+              diagnosticsRoot,
+              "rollback-restore.txt",
+              `Restored runtime backup from ${remoteBackupFile}.\n`,
+            );
             writeRollbackDiagnostics(
               diagnosticsRoot,
               "rollback-result.txt",

@@ -40,6 +40,28 @@ type ReleaseDeployScriptModule = {
 const deployEnvPresenceCheck =
   "(grep -Eq '^NEXT_PUBLIC_SITE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production' || " +
   "grep -Eq '^SITE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production')";
+const deployRequiredEnvChecks = [
+  "grep -Eq '^DATABASE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^REDIS_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^SESSION_SECRET=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^EMAIL_FROM=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^SMTP_HOST=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^SMTP_PORT=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^API_BASE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "grep -Eq '^ADMIN_API_BASE_URL=.+$' '/srv/aussie-deal-hub/shared/.env.production'",
+].join(" && ");
+const deployPlaceholderChecks = [
+  "! grep -Eq '^SESSION_SECRET=change-me-to-at-least-16-characters$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "! grep -Eq '^EMAIL_FROM=deals@example\\.com$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "! grep -Eq '^SMTP_HOST=smtp-placeholder$' '/srv/aussie-deal-hub/shared/.env.production'",
+  "! grep -Eq '^SMTP_PORT=1025$' '/srv/aussie-deal-hub/shared/.env.production'",
+].join(" && ");
+const deployPreflightCheck =
+  `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck} && ${deployRequiredEnvChecks} && ${deployPlaceholderChecks}`;
+
+function buildBackupCommand(releaseName: string) {
+  return `mkdir -p '/srv/aussie-deal-hub/shared/backups' && cd '/srv/aussie-deal-hub/releases/${releaseName}' && set -a && . '/srv/aussie-deal-hub/shared/.env.production' && set +a && BACKUP_FILE='/srv/aussie-deal-hub/shared/backups/${releaseName}.dump' node scripts/runtime-backup.mjs && test -f '/srv/aussie-deal-hub/shared/backups/${releaseName}.dump'`;
+}
 
 afterEach(async () => {
   await Promise.all(tempDirs.map((tempDir) => rm(tempDir, { recursive: true, force: true })));
@@ -162,6 +184,7 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand("aussie-deal-hub-release-20260430T110000Z-newer");
     const runtimeVerifyRunner = vi.fn(async (env: Record<string, string | undefined>) => {
       expect(env.RUNTIME_API_BASE_URL).toBe("https://api.example.com");
       expect(env.RUNTIME_WEB_BASE_URL).toBe("https://www.example.com");
@@ -229,7 +252,7 @@ describe("release deploy script", () => {
           "-p",
           "2222",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -243,6 +266,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedNewerBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "2222",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
@@ -273,6 +308,9 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand(
+      "aussie-deal-hub-release-20260430T120000Z-failing",
+    );
     const remoteReleaseRoot =
       "/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T120000Z-failing";
     const psRemoteCommand =
@@ -343,7 +381,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -357,6 +395,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
@@ -425,6 +475,8 @@ describe("release deploy script", () => {
         failureStage: "post-deploy-runtime-verify",
         previousReleaseRoot: null,
         releaseActivated: true,
+        remoteBackupFile:
+          "/srv/aussie-deal-hub/shared/backups/aussie-deal-hub-release-20260430T120000Z-failing.dump",
         remoteReleaseRoot,
         runtimeVerifyTargets: {
           adminBaseUrl: "https://admin.example.com",
@@ -433,6 +485,9 @@ describe("release deploy script", () => {
           webBaseUrl: "https://www.example.com",
         },
       }),
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "runtime-backup.txt"), "utf8")).resolves.toContain(
+      "backupFile: /srv/aussie-deal-hub/shared/backups/aussie-deal-hub-release-20260430T120000Z-failing.dump",
     );
     await expect(readFile(path.join(diagnosticsRoot, "compose-ps.txt"), "utf8")).resolves.toBe(
       "NAME   IMAGE   COMMAND   SERVICE   CREATED   STATUS   PORTS\napi-1  api     node      api       now       unhealthy   0.0.0.0:3001->3001/tcp\n",
@@ -480,6 +535,7 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand(releaseName);
 
     const resolveCurrentReleaseRootRunner = vi
       .fn<ResolveCurrentReleaseRootRunner>()
@@ -544,7 +600,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -558,6 +614,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
@@ -592,6 +660,7 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand("aussie-deal-hub-release-20260430T140000Z-candidate");
 
     const runtimeVerifyRunner = vi
       .fn<RuntimeVerifyRunner>()
@@ -653,7 +722,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -667,6 +736,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
@@ -714,7 +795,43 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current'",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' stop api web admin worker",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && set -a && . '/srv/aussie-deal-hub/shared/.env.production' && set +a && BACKUP_FILE='/srv/aussie-deal-hub/shared/backups/aussie-deal-hub-release-20260430T140000Z-candidate.dump' RESTORE_CONFIRM=restore node scripts/runtime-restore.mjs",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
         ],
       },
     ]);
@@ -727,6 +844,9 @@ describe("release deploy script", () => {
     );
     await expect(readFile(path.join(diagnosticsRoot, "rollback-result.txt"), "utf8")).resolves.toBe(
       `Rolled back to ${previousReleaseRoot} and runtime verification passed.\n`,
+    );
+    await expect(readFile(path.join(diagnosticsRoot, "rollback-restore.txt"), "utf8")).resolves.toBe(
+      "Restored runtime backup from /srv/aussie-deal-hub/shared/backups/aussie-deal-hub-release-20260430T140000Z-candidate.dump.\n",
     );
     await expect(readFile(path.join(diagnosticsRoot, "rollback-runtime-verify.txt"), "utf8")).resolves.toContain(
       "phase: rollback",
@@ -757,6 +877,7 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand(releaseName);
 
     const resolveCurrentReleaseRootRunner = vi
       .fn<ResolveCurrentReleaseRootRunner>()
@@ -823,7 +944,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -837,6 +958,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
@@ -877,7 +1010,43 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current' && cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
+          "ln -sfn '/srv/aussie-deal-hub/releases/aussie-deal-hub-release-20260430T090000Z-stable' '/srv/aussie-deal-hub/current'",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' stop api web admin worker",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && set -a && . '/srv/aussie-deal-hub/shared/.env.production' && set +a && BACKUP_FILE='/srv/aussie-deal-hub/shared/backups/aussie-deal-hub-release-20260430T150000Z-activation-failure.dump' RESTORE_CONFIRM=restore node scripts/runtime-restore.mjs",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          "cd '/srv/aussie-deal-hub/current' && docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build",
         ],
       },
     ]);
@@ -913,6 +1082,7 @@ describe("release deploy script", () => {
     );
     const binDir = await installFakeCommand(workspaceRoot, "ssh", captureFilePath);
     await installFakeCommand(workspaceRoot, "scp", captureFilePath);
+    const backupCommand = buildBackupCommand(releaseName);
 
     const runtimeVerifyFailure = new Error("runtime verify failed");
     const runtimeVerifyRunner = vi
@@ -926,9 +1096,7 @@ describe("release deploy script", () => {
       `${pathToFileURL(scriptPath).href}?rollback-failure-test`
     )) as ReleaseDeployScriptModule;
     const rollbackRemoteCommand =
-      `ln -sfn '${previousReleaseRoot}' '/srv/aussie-deal-hub/current' && ` +
-      "cd '/srv/aussie-deal-hub/current' && " +
-      "docker compose --env-file '/srv/aussie-deal-hub/shared/.env.production' up -d --build";
+      `ln -sfn '${previousReleaseRoot}' '/srv/aussie-deal-hub/current'`;
     const rollbackCommand = `ssh -i ${sshKeyPath} -p 22 deploy@deploy.example.com ${rollbackRemoteCommand}`;
 
     const thrownError = await scriptModule
@@ -986,7 +1154,7 @@ describe("release deploy script", () => {
           "-p",
           "22",
           "deploy@deploy.example.com",
-          `mkdir -p '/srv/aussie-deal-hub/releases' '/srv/aussie-deal-hub/shared' && test -f '/srv/aussie-deal-hub/shared/.env.production' && ${deployEnvPresenceCheck}`,
+          deployPreflightCheck,
         ],
       },
       {
@@ -1000,6 +1168,18 @@ describe("release deploy script", () => {
           "-r",
           resolvedBundleRoot,
           "deploy@deploy.example.com:/srv/aussie-deal-hub/releases/",
+        ],
+      },
+      {
+        command: "ssh",
+        cwd: resolvedWorkspaceRoot,
+        argv: [
+          "-i",
+          sshKeyPath,
+          "-p",
+          "22",
+          "deploy@deploy.example.com",
+          backupCommand,
         ],
       },
       {
