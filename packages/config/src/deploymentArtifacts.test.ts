@@ -563,7 +563,7 @@ describe("deployment artifacts", () => {
     expect(verifyWorkspaceStep).toContain("run: pnpm verify");
     expect(workflow).toContain("pnpm release:bundle");
     expect(workflow).toContain(
-      "uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2",
+      "uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1",
     );
     expect(workflow).toContain("include-hidden-files: true");
     expect(workflow).toContain(
@@ -666,7 +666,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("name: Write deploy SSH key");
     expect(workflow).toContain("name: Upload deploy diagnostics");
     expect(workflow).toContain("if: failure()");
-    expect(workflow).toContain("uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2");
+    expect(workflow).toContain("uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1");
     expect(workflow).toContain("name: deploy-diagnostics-${{ inputs.bundle_run_id }}");
     expect(workflow).toContain("path: ${{ env.RELEASE_BUNDLE_ROOT }}/artifacts/release-deploy");
     expect(workflow).toContain("if-no-files-found: ignore");
