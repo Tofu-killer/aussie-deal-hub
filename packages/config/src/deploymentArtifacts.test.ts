@@ -642,7 +642,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain("runtime_locale:");
     expect(workflow).toContain("deploy_ssh_port:");
     expect(workflow).toContain("deploy_env_file:");
-    expect(workflow).toContain("permissions:\n  contents: read");
+    expect(workflow).toContain("permissions:\n  contents: read\n  actions: read");
     expect(workflow).toContain("name: Validate reviewed release bundle run");
     expect(workflow).toContain("GITHUB_TOKEN: ${{ github.token }}");
     expect(workflow).toContain("BUNDLE_RUN_ID: ${{ inputs.bundle_run_id }}");
@@ -650,6 +650,7 @@ describe("deployment artifacts", () => {
     expect(workflow).toContain(
       "uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1",
     );
+    expect(workflow).toContain("github-token: ${{ github.token }}");
     expect(workflow).toContain("run-id: ${{ inputs.bundle_run_id }}");
     expect(workflow).toContain("name: ${{ env.REVIEWED_BUNDLE_ARTIFACT_NAME }}");
     expect(workflow).toContain("path: release-artifact");
